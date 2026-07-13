@@ -6,8 +6,26 @@ import org.springframework.http.HttpStatus;
 @Getter
 public enum ErrorCode {
    
-    //에러코드 목록
-    USER_NOT_FOUND(HttpStatus.NOT_FOUND, "사용자를 찾을 수 없습니다.");
+    // 에러코드 목록
+    // 로그인 및 회원가입
+    USER_NOT_FOUND(HttpStatus.NOT_FOUND, "사용자를 찾을 수 없습니다."),
+    ID_ALREADY_EXISTS(HttpStatus.CONFLICT, "아이디가 이미 존재합니다."),
+    WRONG_PASSWORD(HttpStatus.UNAUTHORIZED, "비밀번호가 올바르지 않습니다."),
+    LOGIN_REQUIRED(HttpStatus.UNAUTHORIZED, "로그인 후 이용가능합니다."),
+
+    // 레포지토리
+    REPO_ALREADY_EXISTS(HttpStatus.CONFLICT, "이미 연동된 레포지토리입니다."),
+
+    // 권한
+    NO_PERMISSION(HttpStatus.FORBIDDEN, "권한이 없습니다."),
+
+    // 토큰
+    EXPIRED_TOKEN(HttpStatus.UNAUTHORIZED, "토큰이 만료되었습니다."),
+    INVALID_TOKEN(HttpStatus.UNAUTHORIZED, "유효하지 않은 토큰입니다."),
+
+    // 서버
+    INTERNAL_SERVER_ERROR(HttpStatus.INTERNAL_SERVER_ERROR, "서버 내부 오류가 발생했습니다.");
+
 
 
     private final HttpStatus status;
