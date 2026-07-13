@@ -1,21 +1,24 @@
-pakage com.aivle.bigproject.entity;
+package com.aivle.bigproject.entity;
 
 import jakarta.persistence.*;
 import lombok.*;
 import java.time.LocalDate;
 
-@entity
-@builder
+@Entity
+@Builder
 @Getter
 @Table(name = "USER")
 @NoArgsConstructor(access = AccessLevel.PROTECTED)
 @AllArgsConstructor
-public class USER{
+public class User{
 
-    @ID
+    @Id
     @GeneratedValue(strategy = GenerationType.PROTECTED)
     @Column(name = "user_id")
     private Integer id;
+
+    @Column(nullable = false)
+    private String name;
 
     @Column(name = "company_id")
     private String companyId;
@@ -23,21 +26,21 @@ public class USER{
     @Column(name = "login_id", ullable = false, unique = true)
     private String loginId;
 
-    @Column (name = "password")
+    @Column(ullable = false)
     private String password;
 
-    @Column (name = "role")
+    @Column(ullable = false)
     private String role;
 
-    @Column (name = "git_id")
+    @Column(name = "git_id")
     private String gitId;
 
-    @Column (name = "git_name")
+    @Column(name = "git_name")
     private String gitName;
 
-    @Column (name = "created_at", nullable = false)
+    @Column(name = "created_at", nullable = false)
     private LocalDate createdAt;
 
-    @Column (name = "update_at", nullable = false)
+    @Column(name = "update_at", nullable = false)
     private LocalDate updatedAt;
 }
