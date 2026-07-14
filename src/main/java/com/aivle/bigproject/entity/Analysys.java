@@ -13,7 +13,7 @@ import jakarta.persistence.*;
 public class Analysis {
 
     @Id
-    @Column(name = "analysis_id", nullalbe = false)
+    @Column(name = "analysis_id", nullable = false)
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Integer id;
 
@@ -24,11 +24,11 @@ public class Analysis {
     private Integer companyId;
 
     @Lob
-    @Column(name = "origin_code", nullalbe = false, columnDefinition = "TEXT")
+    @Column(name = "origin_code", nullable = false, columnDefinition = "TEXT")
     private String originCode;
 
-    @Column(nullalbe = false)
-    private String languege;
+    @Column(nullable = false)
+    private String language;
 
     @Column(nullable = false)
     private String prompt;

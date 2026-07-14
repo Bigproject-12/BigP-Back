@@ -5,7 +5,7 @@ import jakarta.persistence.*;
 import java.time.LocalDate;
 
 @Entity
-@Table(neme = "GITHUB_REPO")
+@Table(name = "GITHUB_REPO")
 @Setter
 @Getter
 @Builder

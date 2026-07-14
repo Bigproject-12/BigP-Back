@@ -5,7 +5,7 @@ import jakarta.persistence.*;
 import java.time.LocalDate;
 
 @Entity
-@Table(neme = "REPO_FAV")
+@Table(name = "REPO_FAV")
 @Setter
 @Getter
 @Builder

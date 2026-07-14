@@ -7,7 +7,7 @@ import java.time.LocalDate;
 @Entity
 @Getter
 @Setter
-@Table(name = COMPANY)
+@Table(name = "COMPANY")
 @Builder
 @AllArgsConstructor
 @NoArgsConstructor(access = AccessLevel.PROTECTED)
