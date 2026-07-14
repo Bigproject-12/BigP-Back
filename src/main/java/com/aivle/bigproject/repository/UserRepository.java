@@ -9,5 +9,5 @@ public interface UserRepository extends JpaRepository<User, Integer> {
     Optional<User> findByGitId(String gitId);
 
     boolean existByLoginId(Strgin loginId);
-    void deleteByLoginId(String loginId);
+    void deleteByuserId(String userId);
 }
