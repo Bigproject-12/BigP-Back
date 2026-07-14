@@ -23,6 +23,7 @@ public class Analysis {
     @Column(name = "company_id", nullable = false)
     private Integer companyId;
 
+    @Lob
     @Column(name = "origin_code", nullalbe = false, columnDefinition = "TEXT")
     private String originCode;
 

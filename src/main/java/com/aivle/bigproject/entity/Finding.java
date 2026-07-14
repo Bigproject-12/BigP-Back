@@ -23,6 +23,7 @@ public class Finding {
     @Column(name = "inefficiency_result", nullable = false, columnDefinition = "TEXT")
     private String inefficiencyResult;
 
+    @Lob
     @Column(name = "modified_code", nullable = false, columnDefinition = "TEXT")
     private String modifiedCode;
 
