@@ -1,7 +1,7 @@
 package com.aivle.bigproject.entity;
 
 import lombok.*;
-import jarkarta.persistence.*;
+import jakarta.persistence.*;
 import java.time.LocalDate;
 
 @Entity
@@ -17,8 +17,8 @@ public class Finding {
     @GeneratedValue(strategy = GenerationType.IDENTITY )
     private Integer id;
 
-    @Column(name = "anaysis_id", nullable = false)
-    private Integer anaysisId;
+    @Column(name = "analysis_id", nullable = false)
+    private Integer analysisId;
 
     @Column(name = "inefficiency_result", nullable = false, columnDefinition = "TEXT")
     private String inefficiencyResult;

@@ -13,7 +13,7 @@ import java.time.LocalDate;
 public class User{
 
     @Id
-    @GeneratedValue(strategy = GenerationType.PROTECTED)
+    @GeneratedValue(strategy = GenerationType.IDENTITY)
     @Column(name = "user_id", nullable = false)
     private Integer id;
 
@@ -23,16 +23,16 @@ public class User{
 
     @Column(name = "company_id")
     @Setter
-    private String companyId;
+    private Integer companyId;
 
-    @Column(name = "login_id", ullable = false, unique = true)
+    @Column(name = "login_id", nullable = false, unique = true)
     private String loginId;
 
-    @Column(ullable = false)
+    @Column(nullable = false)
     @Setter
     private String password;
 
-    @Column(ullable = false)
+    @Column(nullable = false)
     @Setter
     private String role;
 
@@ -47,6 +47,6 @@ public class User{
     @Column(name = "created_at", nullable = false)
     private LocalDate createdAt;
 
-    @Column(name = "update_at", nullable = false)
+    @Column(name = "updated_at", nullable = false)
     private LocalDate updatedAt;
 }

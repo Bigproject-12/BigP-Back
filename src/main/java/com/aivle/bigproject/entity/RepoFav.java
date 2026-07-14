@@ -5,7 +5,7 @@ import jakarta.persistence.*;
 import java.time.LocalDate;
 
 @Entity
-@Table(neme = "REPO_FAV")
+@Table(name = "REPO_FAV")
 @Setter
 @Getter
 @Builder
@@ -24,6 +24,6 @@ public class RepoFav {
     @Column(name = "repo_id", nullable = false)
     private Integer repoId;
 
-    @Coliumn(name = "created_at", nullable = false)
+    @Column(name = "created_at", nullable = false)
     private LocalDate createdAt;
 }

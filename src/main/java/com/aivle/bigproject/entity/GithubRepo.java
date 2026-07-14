@@ -5,7 +5,7 @@ import jakarta.persistence.*;
 import java.time.LocalDate;
 
 @Entity
-@Table(neme = "GITHUB_REPO")
+@Table(name = "GITHUB_REPO")
 @Setter
 @Getter
 @Builder
@@ -24,6 +24,6 @@ public class GithubRepo {
     @Column(name = "repo_url", nullable = false)
     private String repoUrl;
 
-    @Coliumn(name = "created_at", nullable = false)
+    @Column(name = "created_at", nullable = false)
     private LocalDate createdAt;
 }
