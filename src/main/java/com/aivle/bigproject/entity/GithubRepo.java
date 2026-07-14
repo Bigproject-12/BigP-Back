@@ -24,6 +24,6 @@ public class GithubRepo {
     @Column(name = "repo_url", nullable = false)
     private String repoUrl;
 
-    @Coliumn(name = "created_at", nullable = false)
+    @Column(name = "created_at", nullable = false)
     private LocalDate createdAt;
 }

@@ -9,5 +9,4 @@ public interface UserRepository extends JpaRepository<User, Integer> {
     Optional<User> findByGitId(String gitId); // gitid로 DB 검색하는 로그인용 함수
 
     boolean existsByLoginId(String loginId); // id가 DB에 존재하는지 검사하는 함수
-    void deleteByUserId(String userId); // 유저 번호로 데이터 삭제용 함수
 }

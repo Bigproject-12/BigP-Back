@@ -5,22 +5,22 @@ import jakarta.persistence.*;
 import java.time.LocalDate;
 
 @Entity
-@Table(name = "REPO_FAV")
-@Setter
-@Getter
 @Builder
+@Getter
+@Setter
+@Table(name = "USER_REPO")
 @AllArgsConstructor
 @NoArgsConstructor(access = AccessLevel.PROTECTED)
-public class RepoFav {
+public class UserRepo {
 
     @Id
-    @Column(name = "fav_repo_id", nullable = false)
+    @Column(name = "user_repo_id", nullable = false)
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Integer id;
 
     @Column(name = "user_id", nullable = false)
     private Integer userId;
-
+    
     @Column(name = "repo_id", nullable = false)
     private Integer repoId;
 

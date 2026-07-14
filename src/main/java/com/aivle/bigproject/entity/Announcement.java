@@ -36,6 +36,6 @@ public class Announcement {
     @Column(name = "updated_at", nullable = false)
     private LocalDate updatedAt;
 
-    @Column(name = "is_pined", nullable = false)
-    private Boolean isPined;
+    @Column(name = "is_pinned", nullable = false)
+    private Boolean isPinned;
 }

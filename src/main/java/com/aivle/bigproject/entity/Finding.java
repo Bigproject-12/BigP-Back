@@ -17,7 +17,7 @@ public class Finding {
     @GeneratedValue(strategy = GenerationType.IDENTITY )
     private Integer id;
 
-    @Column(name = "anaysis_id", nullable = false)
+    @Column(name = "analysis_id", nullable = false)
     private Integer analysisId;
 
     @Column(name = "inefficiency_result", nullable = false, columnDefinition = "TEXT")
