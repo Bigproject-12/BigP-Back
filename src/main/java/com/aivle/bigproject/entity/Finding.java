@@ -4,7 +4,7 @@ import lombok.*;
 import jakarta.persistence.*;
 import java.time.LocalDate;
 import org.springframework.data.annotation.CreatedDate;
-import org.springframework.data.annotation.LastModifiedDate;
+import org.springframework.data.jpa.domain.support.AuditingEntityListener;
 
 @Entity
 @Table(name = "FINDING")
@@ -12,6 +12,7 @@ import org.springframework.data.annotation.LastModifiedDate;
 @Setter
 @NoArgsConstructor(access = AccessLevel.PROTECTED)
 @AllArgsConstructor
+@EntityListeners(AuditingEntityListener.class)
 public class Finding {
 
     @Id
@@ -19,8 +20,9 @@ public class Finding {
     @GeneratedValue(strategy = GenerationType.IDENTITY )
     private Integer id;
 
-    @Column(name = "analysis_id", nullable = false)
-    private Integer analysisId;
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "analysis_id", nullable = false)
+    private Analysis analysis;
 
     @Column(name = "inefficiency_result", nullable = false, columnDefinition = "TEXT")
     private String inefficiencyResult;
