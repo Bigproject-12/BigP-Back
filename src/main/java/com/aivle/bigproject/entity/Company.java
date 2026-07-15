@@ -3,9 +3,6 @@ package com.aivle.bigproject.entity;
 import jakarta.persistence.*;
 import lombok.*;
 import java.time.LocalDate;
-import org.springframework.data.annotation.CreatedDate;
-import org.springframework.data.annotation.LastModifiedDate;
-import org.springframework.data.jpa.domain.support.AuditingEntityListener;
 
 @Entity
 @Getter
@@ -13,7 +10,6 @@ import org.springframework.data.jpa.domain.support.AuditingEntityListener;
 @Builder
 @AllArgsConstructor
 @NoArgsConstructor(access = AccessLevel.PROTECTED)
-@EntityListeners(AuditingEntityListener.class)
 public class Company {
 
     @Id
@@ -21,16 +17,26 @@ public class Company {
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Integer id;
 
-    @Column(nullable = false)
+    @Column(nullable = false, unique = true)
     private String name;
 
-    @CreatedDate
     @Column(name = "created_at", nullable = false, updatable = false)
     private LocalDate createdAt;
 
-    @LastModifiedDate
     @Column(name = "updated_at", nullable = false)
     private LocalDate updatedAt;
+
+    @PrePersist
+    protected void onCreate() {
+        LocalDate now = LocalDate.now();
+        this.createdAt = now;
+        this.updatedAt = now;
+    }
+
+    @PreUpdate
+    protected void onUpdate() {
+        this.updatedAt = LocalDate.now();
+    }
 
     public void updateName(String name) {
         this.name = name;

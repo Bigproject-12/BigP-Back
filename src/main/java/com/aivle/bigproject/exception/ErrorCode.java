@@ -17,6 +17,7 @@ public enum ErrorCode {
 
     // 회사
     COMPANY_NOT_FOUND(HttpStatus.NOT_FOUND, "회사를 찾을 수 없습니다."),
+    COMPANY_ALREADY_EXISTS(HttpStatus.CONFLICT, "이미 등록된 기업입니다."),
 
     // GitHub & 레포지토리
     GITHUB_ALREADY_CONNECTED(HttpStatus.CONFLICT, "이미 연동된 GitHub 계정입니다."),
