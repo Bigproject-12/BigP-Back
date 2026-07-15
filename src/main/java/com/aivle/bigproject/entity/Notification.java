@@ -1,0 +1,48 @@
+package com.aivle.bigproject.entity;
+
+import jakarta.persistence.*;
+import lombok.*;
+import org.springframework.data.annotation.CreatedDate;
+import org.springframework.data.jpa.domain.support.AuditingEntityListener;
+
+import java.time.LocalDateTime;
+
+@Entity
+@Table(name = "NOTIFICATION")
+@Getter
+@Setter
+@Builder
+@NoArgsConstructor(access = AccessLevel.PROTECTED)
+@AllArgsConstructor
+@EntityListeners(AuditingEntityListener.class)
+public class Notification {
+
+    @Id
+    @Column(name = "notification_id")
+    @GeneratedValue(strategy = GenerationType.IDENTITY)
+    private Integer id;
+
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "user_id", nullable = false)
+    private User user;
+
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "analysis_id", nullable = false)
+    private Analysis analysis;
+
+    @Column(nullable = false)
+    private String type; 
+
+    @Column(nullable = false)
+    private String title;
+
+    @Column(nullable = false)
+    private String message; 
+
+    @Column(name = "is_read", nullable = false)
+    private Boolean isRead;
+
+    @CreatedDate
+    @Column(name = "created_at", nullable = false, updatable = false)
+    private LocalDateTime createdAt;
+}
