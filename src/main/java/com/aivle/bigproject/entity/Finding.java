@@ -33,7 +33,8 @@ public class Finding {
     @Column(name = "duplicate_result", nullable = false, columnDefinition = "TEXT")
     private String duplicateResult;
 
-    @Column(name = "created_at", nullable = false)
+    @CreatedDate
+    @Column(name = "created_at", nullable = false, updatable = false)
     private LocalDate createdAt;
 
     @Column(name = "is_ai_generated", nullable = false)
