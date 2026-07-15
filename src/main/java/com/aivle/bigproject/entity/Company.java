@@ -5,10 +5,10 @@ import lombok.*;
 import java.time.LocalDate;
 import org.springframework.data.annotation.CreatedDate;
 import org.springframework.data.annotation.LastModifiedDate;
+import org.springframework.data.jpa.domain.support.AuditingEntityListener;
 
 @Entity
 @Getter
-@Setter
 @Table(name = "COMPANY")
 @Builder
 @AllArgsConstructor
@@ -31,4 +31,8 @@ public class Company {
     @LastModifiedDate
     @Column(name = "updated_at", nullable = false)
     private LocalDate updatedAt;
+
+    public void updateName(String name) {
+        this.name = name;
+    }
 }

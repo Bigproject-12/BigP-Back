@@ -4,7 +4,10 @@ import com.aivle.bigproject.dto.request.AnalysisRequest;
 import com.aivle.bigproject.dto.response.AnalysisResponse;
 import com.aivle.bigproject.service.AnalysisService;
 import jakarta.validation.Valid;
-import org.springframework.web.bind.annotation.*;
+import org.springframework.web.bind.annotation.PostMapping;
+import org.springframework.web.bind.annotation.RequestBody;
+import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RestController;
 
 @RestController
 @RequestMapping("/api/analyses")

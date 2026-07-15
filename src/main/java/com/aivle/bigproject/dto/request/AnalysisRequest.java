@@ -4,10 +4,10 @@ import jakarta.validation.constraints.NotBlank;
 
 public record AnalysisRequest(
 
-        @NotBlank(message = "분석할 코드는 필수입니다.")
+        @NotBlank(message = "분석할 코드를 필요로 합니다.")
         String code,
 
-        @NotBlank(message = "프로그래밍 언어는 필수입니다.")
+        @NotBlank(message = "해당 코드의 언어를 알려주세요.")
         String language
 ) {
 }
