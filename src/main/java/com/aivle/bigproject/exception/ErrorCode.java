@@ -15,6 +15,9 @@ public enum ErrorCode {
     SOCIAL_ACCOUNT_NOT_FOUND(HttpStatus.NOT_FOUND, "연동된 소셜 계정을 찾을 수 없습니다."),
     LOGIN_REQUIRED(HttpStatus.UNAUTHORIZED, "로그인 후 이용가능합니다."),
 
+    // 회사
+    COMPANY_NOT_FOUND(HttpStatus.NOT_FOUND, "회사를 찾을 수 없습니다."),
+
     // GitHub & 레포지토리
     GITHUB_ALREADY_CONNECTED(HttpStatus.CONFLICT, "이미 연동된 GitHub 계정입니다."),
     REPO_ALREADY_EXISTS(HttpStatus.CONFLICT, "이미 연동된 레포지토리입니다."),

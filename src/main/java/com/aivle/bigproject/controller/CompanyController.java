@@ -1,8 +1,8 @@
 package com.aivle.bigproject.controller;
 
-import com.aivle.bigproject.dto.request.CompanyCreateRequest;
-import com.aivle.bigproject.dto.request.CompanyUpdateRequest;
-import com.aivle.bigproject.dto.response.CompanyResponse;
+import com.aivle.bigproject.dto.company.CompanyCreateRequest;
+import com.aivle.bigproject.dto.company.CompanyResponse;
+import com.aivle.bigproject.dto.company.CompanyUpdateRequest;
 import com.aivle.bigproject.service.CompanyService;
 import jakarta.validation.Valid;
 import java.net.URI;

@@ -1,3 +1,4 @@
+/* 
 package com.aivle.bigproject.repository;
 
 import com.aivle.bigproject.entity.Notification;
@@ -9,3 +10,4 @@ public interface NotificationRepository extends JpaRepository<Notification, Inte
     List<Notification> findByUserIdOrderByIdDesc(Integer userId);
     List<Notification> findByUserIdAndIsReadFalse(Integer userId);
 }
+    */

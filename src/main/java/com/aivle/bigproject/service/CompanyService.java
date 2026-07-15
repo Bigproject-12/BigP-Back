@@ -1,15 +1,15 @@
 package com.aivle.bigproject.service;
 
-import com.aivle.bigproject.dto.request.CompanyCreateRequest;
-import com.aivle.bigproject.dto.request.CompanyUpdateRequest;
-import com.aivle.bigproject.dto.response.CompanyResponse;
+import com.aivle.bigproject.dto.company.CompanyCreateRequest;
+import com.aivle.bigproject.dto.company.CompanyResponse;
+import com.aivle.bigproject.dto.company.CompanyUpdateRequest;
 import com.aivle.bigproject.entity.Company;
+import com.aivle.bigproject.exception.CustomException;
+import com.aivle.bigproject.exception.ErrorCode;
 import com.aivle.bigproject.repository.CompanyRepository;
 import java.util.List;
-import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
-import org.springframework.web.server.ResponseStatusException;
 
 @Service
 @Transactional(readOnly = true)
@@ -54,9 +54,6 @@ public class CompanyService {
 
     private Company getCompany(Integer id) {
         return companyRepository.findById(id)
-                .orElseThrow(() -> new ResponseStatusException(
-                        HttpStatus.NOT_FOUND,
-                        "회사를 찾을 수 없습니다. id=" + id
-                ));
+                .orElseThrow(() -> new CustomException(ErrorCode.COMPANY_NOT_FOUND));
     }
 }

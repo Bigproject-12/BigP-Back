@@ -5,6 +5,7 @@ import lombok.*;
 import java.time.LocalDate;
 import org.springframework.data.annotation.CreatedDate;
 import org.springframework.data.annotation.LastModifiedDate;
+import org.springframework.data.jpa.domain.support.AuditingEntityListener;
 
 @Entity
 @Builder
@@ -12,6 +13,7 @@ import org.springframework.data.annotation.LastModifiedDate;
 @Table(name = "USER")
 @NoArgsConstructor(access = AccessLevel.PROTECTED)
 @AllArgsConstructor
+@EntityListeners(AuditingEntityListener.class)
 public class User{
 
     @Id
@@ -23,9 +25,10 @@ public class User{
     @Setter
     private String name;
 
-    @Column(name = "company_id")
     @Setter
-    private Integer companyId;
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "company_id")
+    private Company company;
 
     @Column(name = "login_id", nullable = false, unique = true)
     private String loginId;

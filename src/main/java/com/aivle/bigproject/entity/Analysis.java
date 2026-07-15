@@ -2,6 +2,7 @@ package com.aivle.bigproject.entity;
 
 import lombok.*;
 import jakarta.persistence.*;
+import org.springframework.data.jpa.domain.support.AuditingEntityListener;
 
 @Entity
 @Getter
@@ -10,6 +11,7 @@ import jakarta.persistence.*;
 @Table(name = "ANALYSIS")
 @NoArgsConstructor(access = AccessLevel.PROTECTED)
 @AllArgsConstructor
+@EntityListeners(AuditingEntityListener.class)
 public class Analysis {
 
     @Id
@@ -17,11 +19,13 @@ public class Analysis {
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Integer id;
 
-    @Column(name = "repo_id", nullable = false)
-    private Integer repoId;
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "repo_id", nullable = false)
+    private GithubRepo githubRepo;
 
-    @Column(name = "company_id", nullable = false)
-    private Integer companyId;
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "company_id", nullable = false)
+    private Company company;
 
     @Lob
     @Column(name = "origin_code", nullable = false, columnDefinition = "TEXT")
