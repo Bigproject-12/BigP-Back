@@ -7,7 +7,8 @@ import com.aivle.bigproject.entity.Company;
 import com.aivle.bigproject.exception.CustomException;
 import com.aivle.bigproject.exception.ErrorCode;
 import com.aivle.bigproject.repository.CompanyRepository;
-import java.util.List;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -23,17 +24,19 @@ public class CompanyService {
 
     @Transactional
     public CompanyResponse create(CompanyCreateRequest request) {
+        String name = normalizeName(request.name());
+        validateDuplicateName(name);
+
         Company company = Company.builder()
-                .name(request.name())
+                .name(name)
                 .build();
 
         return CompanyResponse.from(companyRepository.save(company));
     }
 
-    public List<CompanyResponse> findAll() {
-        return companyRepository.findAll().stream()
-                .map(CompanyResponse::from)
-                .toList();
+    public Page<CompanyResponse> findAll(Pageable pageable) {
+        return companyRepository.findAll(pageable)
+                .map(CompanyResponse::from);
     }
 
     public CompanyResponse findById(Integer id) {
@@ -43,7 +46,13 @@ public class CompanyService {
     @Transactional
     public CompanyResponse update(Integer id, CompanyUpdateRequest request) {
         Company company = getCompany(id);
-        company.updateName(request.name());
+        String name = normalizeName(request.name());
+
+        if (companyRepository.existsByNameIgnoreCaseAndIdNot(name, id)) {
+            throw new CustomException(ErrorCode.COMPANY_ALREADY_EXISTS);
+        }
+
+        company.updateName(name);
         return CompanyResponse.from(company);
     }
 
@@ -55,5 +64,15 @@ public class CompanyService {
     private Company getCompany(Integer id) {
         return companyRepository.findById(id)
                 .orElseThrow(() -> new CustomException(ErrorCode.COMPANY_NOT_FOUND));
+    }
+
+    private void validateDuplicateName(String name) {
+        if (companyRepository.existsByNameIgnoreCase(name)) {
+            throw new CustomException(ErrorCode.COMPANY_ALREADY_EXISTS);
+        }
+    }
+
+    private String normalizeName(String name) {
+        return name.trim();
     }
 }
