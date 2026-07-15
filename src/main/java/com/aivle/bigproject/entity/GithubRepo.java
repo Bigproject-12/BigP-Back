@@ -3,6 +3,8 @@ package com.aivle.bigproject.entity;
 import lombok.*;
 import jakarta.persistence.*;
 import java.time.LocalDate;
+import org.springframework.data.annotation.CreatedDate;
+import org.springframework.data.annotation.LastModifiedDate;
 
 @Entity
 @Table(name = "GITHUB_REPO")
@@ -24,6 +26,7 @@ public class GithubRepo {
     @Column(name = "repo_url", nullable = false)
     private String repoUrl;
 
-    @Column(name = "created_at", nullable = false)
+    @CreatedDate
+    @Column(name = "created_at", nullable = false, updatable = false)
     private LocalDate createdAt;
 }

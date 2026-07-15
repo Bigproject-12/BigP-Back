@@ -3,6 +3,8 @@ package com.aivle.bigproject.entity;
 import jakarta.persistence.*;
 import lombok.*;
 import java.time.LocalDate;
+import org.springframework.data.annotation.CreatedDate;
+import org.springframework.data.annotation.LastModifiedDate;
 
 @Entity
 @Builder
@@ -44,9 +46,11 @@ public class User{
     @Setter
     private String gitName;
 
-    @Column(name = "created_at", nullable = false)
+    @CreatedDate
+    @Column(name = "created_at", nullable = false, updatable = false)
     private LocalDate createdAt;
 
+    @LastModifiedDate
     @Column(name = "updated_at", nullable = false)
     private LocalDate updatedAt;
 }
