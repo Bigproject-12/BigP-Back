@@ -3,6 +3,8 @@ package com.aivle.bigproject.entity;
 import jakarta.persistence.*;
 import lombok.*;
 import java.time.LocalDate;
+import org.springframework.data.annotation.CreatedDate;
+import org.springframework.data.annotation.LastModifiedDate;
 
 @Entity
 @Table(name = "ANNOUNCEMENT")
