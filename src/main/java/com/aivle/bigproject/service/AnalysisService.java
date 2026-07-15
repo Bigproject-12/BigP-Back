@@ -1,7 +1,7 @@
 package com.aivle.bigproject.service;
 
-import com.aivle.bigproject.dto.request.AnalysisRequest;
-import com.aivle.bigproject.dto.response.AnalysisResponse;
+import com.aivle.bigproject.dto.analysis.AnalysisRequest;
+import com.aivle.bigproject.dto.analysis.AnalysisResponse;
 import org.springframework.stereotype.Service;
 
 @Service

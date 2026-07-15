@@ -30,6 +30,6 @@ public record PasswordChangeRequest (
         if (newPassword == null || newPasswordConfirm == null) {
             return true;
         }
-        
+
     }
 }

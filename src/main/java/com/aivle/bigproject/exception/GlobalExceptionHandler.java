@@ -1,6 +1,6 @@
 package com.aivle.bigproject.exception;
 
-import com.aivle.bigproject.dto.response.ErrorResponse;
+import com.aivle.bigproject.dto.common.ErrorResponse;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.MethodArgumentNotValidException;
 import org.springframework.web.bind.annotation.ExceptionHandler;

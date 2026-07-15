@@ -1,4 +1,4 @@
-package com.aivle.bigproject.dto.request;
+package com.aivle.bigproject.dto.analysis;
 
 import jakarta.validation.constraints.NotBlank;
 
