@@ -5,6 +5,7 @@ import lombok.*;
 import java.time.LocalDate;
 import org.springframework.data.annotation.CreatedDate;
 import org.springframework.data.annotation.LastModifiedDate;
+import org.springframework.data.jpa.domain.support.AuditingEntityListener;
 
 @Entity
 @Table(name = "ANNOUNCEMENT")
@@ -12,6 +13,7 @@ import org.springframework.data.annotation.LastModifiedDate;
 @Builder
 @NoArgsConstructor(access = AccessLevel.PROTECTED)
 @AllArgsConstructor
+@EntityListeners(AuditingEntityListener.class)
 public class Announcement {
 
     @Id
@@ -19,8 +21,10 @@ public class Announcement {
     @Column(name = "board_id")
     private Integer boardId;
 
-    @Column(name = "user_id", nullable = false)
-    private Integer userId;
+    // 💡 연관관계 매핑
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "user_id", nullable = false)
+    private User user;
 
     @Column(nullable = false)
     private String title;
