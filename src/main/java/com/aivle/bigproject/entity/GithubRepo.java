@@ -24,6 +24,7 @@ public class GithubRepo {
     @Column(name = "repo_url", nullable = false)
     private String repoUrl;
 
-    @Column(name = "created_at", nullable = false)
+    @CreatedDate
+    @Column(name = "created_at", nullable = false, updatable = false)
     private LocalDate createdAt;
 }

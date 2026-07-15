@@ -24,6 +24,7 @@ public class UserRepo {
     @Column(name = "repo_id", nullable = false)
     private Integer repoId;
 
-    @Column(name = "created_at", nullable = false)
+    @CreatedDate
+    @Column(name = "created_at", nullable = false, updatable = false)
     private LocalDate createdAt;
 }
