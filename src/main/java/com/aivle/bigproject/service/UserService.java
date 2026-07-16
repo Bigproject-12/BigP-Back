@@ -46,9 +46,8 @@ public class UserService {
         String companyName = request.companyName().trim();
         // 로그인 ID와 GitHub 계정 중복 여부 체크
         validateDuplicateAccount(loginId, gitId);
-        // 회사명이 존재하는지 조회
-        Company company = companyRepository.findByNameIgnoreCase(companyName)
-                .orElseThrow(() -> new CustomException(ErrorCode.COMPANY_NOT_FOUND));
+        // 기존 회사가 있으면 사용하고, 없으면 신규 회사를 등록한다.
+        Company company = findOrCreateCompany(companyName);
         // 사용자 엔티티 겍체생성
         User user = User.builder()
                 .name(request.name().trim())
@@ -72,6 +71,19 @@ public class UserService {
             throw new CustomException(ErrorCode.GITHUB_ALREADY_CONNECTED);
         }
     }
+
+    /**
+     * 회사명을 대소문자 구분 없이 조회한다.
+     */
+    private Company findOrCreateCompany(String companyName) {
+        return companyRepository.findByNameIgnoreCase(companyName)
+                .orElseGet(() -> companyRepository.save(
+                        Company.builder()
+                                .name(companyName)
+                                .build()
+                ));
+    }
+
     // 로그인 ID 정규화 및 앞뒤 공백을 자동으로 제거 , 대소문자를 구분하지 않는 방식으로 로그인 정책을 구현 
     private String normalizeLoginId(String loginId) {
         return loginId.trim().toLowerCase(Locale.ROOT);
