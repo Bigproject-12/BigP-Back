@@ -4,6 +4,10 @@ import jakarta.validation.constraints.Email;
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.Size;
 
+/**
+ * 로그인 요청 본문을 받는 DTO.
+ * Controller의 @Valid가 아래 검증 어노테이션을 실행한다.
+ */
 public record LoginRequest(
 
         @NotBlank(message = "ID는 필수입니다.")
