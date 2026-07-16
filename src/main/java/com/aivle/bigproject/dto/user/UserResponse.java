@@ -4,8 +4,8 @@ import com.aivle.bigproject.entity.User;
 import java.time.LocalDate;
 
 /**
- * 조회/가입 결과 등에서 재사용
- * password는 포함 x -> 유저 정보를 밖으로 내보낼 때, 안전한 필드만 고름
+ * 회원가입과 사용자 조회 결과에 사용하는 응답 DTO.
+ * 엔티티를 직접 반환하지 않아 password 같은 민감 정보가 노출되는 것을 막는다.
  */
 
 public record UserResponse (
@@ -18,11 +18,13 @@ public record UserResponse (
         String gitName,
         LocalDate createdAt
 
-){
-    public static UserResponse from(User user){
+) {
+    /** User 엔티티에서 클라이언트에 공개할 필드만 골라 응답 DTO로 변환한다. */
+    public static UserResponse from(User user) {
         return new UserResponse(
                 user.getId(),
                 user.getName(),
+                // 회사가 지정되지 않은 사용자도 변환할 수 있도록 null을 처리한다.
                 user.getCompany() == null ? null : user.getCompany().getId(),
                 user.getLoginId(),
                 user.getRole(),
@@ -31,5 +33,4 @@ public record UserResponse (
                 user.getCreatedAt()
         );
     }
-
 }

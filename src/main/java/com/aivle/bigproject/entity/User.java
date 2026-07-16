@@ -3,9 +3,6 @@ package com.aivle.bigproject.entity;
 import jakarta.persistence.*;
 import lombok.*;
 import java.time.LocalDate;
-import org.springframework.data.annotation.CreatedDate;
-import org.springframework.data.annotation.LastModifiedDate;
-import org.springframework.data.jpa.domain.support.AuditingEntityListener;
 
 @Entity
 @Builder
@@ -13,8 +10,7 @@ import org.springframework.data.jpa.domain.support.AuditingEntityListener;
 @Table(name = "USER")
 @NoArgsConstructor(access = AccessLevel.PROTECTED)
 @AllArgsConstructor
-@EntityListeners(AuditingEntityListener.class)
-public class User{
+public class User {
 
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
@@ -25,18 +21,23 @@ public class User{
     @Setter
     private String name;
 
+    // USER.company_id 외래 키를 Company 엔티티와 연결한다.
+    // 지연 로딩을 사용해 실제로 회사 정보가 필요할 때 조회한다.
     @Setter
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "company_id")
     private Company company;
 
+    // 로그인에 사용하는 ID이며 중복 가입을 막기 위해 UNIQUE 제약조건을 둔다.
     @Column(name = "login_id", nullable = false, unique = true)
     private String loginId;
 
+    // 평문이 아닌 PasswordEncoder로 암호화한 비밀번호를 저장 한다.
     @Column(nullable = false)
     @Setter
     private String password;
 
+    // USER, ADMIN 등의 인가 권한을 저장한다.
     @Column(nullable = false)
     @Setter
     private String role;
@@ -49,11 +50,23 @@ public class User{
     @Setter
     private String gitName;
 
-    @CreatedDate
     @Column(name = "created_at", nullable = false, updatable = false)
     private LocalDate createdAt;
 
-    @LastModifiedDate
     @Column(name = "updated_at", nullable = false)
     private LocalDate updatedAt;
+
+    /** 신규 사용자를 저장할 때 생성일과 수정일을 설정한다. */
+    @PrePersist
+    protected void onCreate() {
+        LocalDate now = LocalDate.now();
+        this.createdAt = now;
+        this.updatedAt = now;
+    }
+
+    /** 사용자 정보가 변경될 때 수정일을 갱신한다. */
+    @PreUpdate
+    protected void onUpdate() {
+        this.updatedAt = LocalDate.now();
+    }
 }

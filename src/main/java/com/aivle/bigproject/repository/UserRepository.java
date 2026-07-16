@@ -4,10 +4,26 @@ import com.aivle.bigproject.entity.User;
 import org.springframework.data.jpa.repository.JpaRepository;
 import java.util.Optional;
 
+/**
+ * USER 테이블에 접근하는 Spring Data JPA Repository.
+ * save, findById, findAll, delete 같은 기본 CRUD 메서드는 JpaRepository가 제공한다.
+ */
 public interface UserRepository extends JpaRepository<User, Integer> {
-    Optional<User> findByLoginId(String loginId);// id로 DB 검색하는 로그인용 함수
-    Optional<User> findByGitId(String gitId); // gitid로 DB 검색하는 로그인용 함수
 
-    boolean existsByLoginId(String loginId); // id가 DB에 존재하는지 검사하는 함수
-    boolean existsByCompany_Id(Integer companyId); // 기업 id가 DB에 존재하는지 검사하는 함수
+    /** 로그인 시 이메일 형식으로 로그인 ID와 사용자를 조회 */
+    Optional<User> findByLoginId(String loginId);
+
+    /** GitHub 계정 연동 여부를 확인하거나 GitHub ID로 사용자를 조회 */
+    Optional<User> findByGitId(String gitId);
+
+    /** 회원가입 전에 로그인 ID 중복 검사 진행  */
+    boolean existsByLoginIdIgnoreCase(String loginId);
+
+    /** 동일한 GitHub ID가 중복연결 검사 진행  */
+    boolean existsByGitIdIgnoreCase(String gitId);
+
+    /**
+     * 특정 회사에 소속된 사용자가 존재하는지 확인한다.
+     */
+    boolean existsByCompany_Id(Integer companyId);
 }
