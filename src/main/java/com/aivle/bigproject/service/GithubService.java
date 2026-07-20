@@ -29,9 +29,25 @@ public class GithubService {
 
     @Transactional
     public Object connectAndFetchRepos(Integer userId, String orgName, String githubToken) {
+        User user = userRepository.findById(userId)
+                    .orElseThrow(() -> new CustomException(ErrorCode.USER_NOT_FOUND));
+        String tokenToUse;
+        
+        if (githubToken != null && !githubToken.isBlank()) {
+        // 새 토큰이 넘어왔으면 그걸 사용 (재연동/갱신 케이스)
+            tokenToUse = githubToken;
+        } 
+        else if (user.getGithubAccessToken() != null) {
+            // 없으면 기존 저장된 토큰을 복호화해서 재사용
+            tokenToUse = githubTokenCrypto.decrypt(user.getGithubAccessToken());
+        } 
+        else {
+            throw new IllegalArgumentException("연동된 GitHub 토큰이 없습니다. 토큰을 입력해주세요.");
+        }
+
         RestTemplate restTemplate = new RestTemplate();
         HttpHeaders headers = new HttpHeaders();
-        headers.setBearerAuth(githubToken); 
+        headers.setBearerAuth(tokenToUse); 
         headers.set("Accept", "application/vnd.github+json");
 
         HttpEntity<String> entity = new HttpEntity<>(headers);
@@ -40,9 +56,9 @@ public class GithubService {
         try {
             ResponseEntity<List> response = restTemplate.exchange(url, HttpMethod.GET, entity, List.class);
 
-            User user = userRepository.findById(userId)
-                    .orElseThrow(() -> new CustomException(ErrorCode.USER_NOT_FOUND));
-            user.updateGithubToken(githubTokenCrypto.encrypt(githubToken));
+            if (githubToken != null && !githubToken.isBlank()) {
+                user.updateGithubToken(githubTokenCrypto.encrypt(tokenToUse));
+            }
 
             return response.getBody();
         } catch (Exception e) {
