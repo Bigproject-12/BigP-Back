@@ -1,5 +1,7 @@
 package com.aivle.bigproject.config;
 
+import com.aivle.bigproject.security.JwtAccessDeniedHandler;
+import com.aivle.bigproject.security.JwtAuthenticationEntryPoint;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.core.convert.converter.Converter;
@@ -18,10 +20,21 @@ import org.springframework.security.web.SecurityFilterChain;
 @Configuration
 @EnableMethodSecurity
 public class SecurityConfig {
-        
-        // SecurityFilterChain 빈을 생성하여 Spring Security의 인증 및 인가 정책을 설정
-        @Bean
-        public SecurityFilterChain securityFilterChain(HttpSecurity http) throws Exception {
+
+    private final JwtAuthenticationEntryPoint jwtAuthenticationEntryPoint;
+    private final JwtAccessDeniedHandler jwtAccessDeniedHandler;
+
+    public SecurityConfig(
+            JwtAuthenticationEntryPoint jwtAuthenticationEntryPoint,
+            JwtAccessDeniedHandler jwtAccessDeniedHandler
+    ) {
+        this.jwtAuthenticationEntryPoint = jwtAuthenticationEntryPoint;
+        this.jwtAccessDeniedHandler = jwtAccessDeniedHandler;
+    }
+
+    // SecurityFilterChain 빈을 생성하여 Spring Security의 인증 및 인가 정책을 설정
+    @Bean
+    public SecurityFilterChain securityFilterChain(HttpSecurity http) throws Exception {
         http
                 .csrf(AbstractHttpConfigurer::disable)
                 //별도로 등록된 CORS 설정을 Spring Security에 적용
@@ -45,13 +58,19 @@ public class SecurityConfig {
                         .jwt(jwt -> jwt
                                 .jwtAuthenticationConverter(jwtAuthenticationConverter())
                         )
+                        // 토큰 없음/유효하지 않음/만료 시 우리 ErrorResponse 형식으로 응답
+                        .authenticationEntryPoint(jwtAuthenticationEntryPoint)
+                )
+                // 인증은 됐지만 권한이 부족할 때(403) 처리
+                .exceptionHandling(exception -> exception
+                        .accessDeniedHandler(jwtAccessDeniedHandler)
                 );
 
         return http.build();
-}
+    }
 
-//JWT에 저장된 role을 Spring security권한으로 변환 
-private Converter<Jwt, ? extends AbstractAuthenticationToken> jwtAuthenticationConverter() {
+    //JWT에 저장된 role을 Spring security권한으로 변환
+    private Converter<Jwt, ? extends AbstractAuthenticationToken> jwtAuthenticationConverter() {
         JwtGrantedAuthoritiesConverter authoritiesConverter =
                 new JwtGrantedAuthoritiesConverter();
         authoritiesConverter.setAuthoritiesClaimName("role");
@@ -61,5 +80,5 @@ private Converter<Jwt, ? extends AbstractAuthenticationToken> jwtAuthenticationC
                 new JwtAuthenticationConverter();
         authenticationConverter.setJwtGrantedAuthoritiesConverter(authoritiesConverter);
         return authenticationConverter;
-}
+    }
 }
