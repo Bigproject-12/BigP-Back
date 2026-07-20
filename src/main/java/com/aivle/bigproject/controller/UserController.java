@@ -11,6 +11,7 @@ import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.security.oauth2.jwt.Jwt;
+import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PatchMapping;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
@@ -67,5 +68,13 @@ public class UserController {
     ) {
         userService.changePassword(Integer.valueOf(jwt.getSubject()), request);
         return ResponseEntity.noContent().build();
+    }
+
+    /** Access Token에 해당하는 현재 로그인 사용자의 정보를 조회한다. */
+    @GetMapping("/me")
+    public ResponseEntity<UserResponse> getMe(@AuthenticationPrincipal Jwt jwt) {
+        return ResponseEntity.ok(
+                userService.getMe(Integer.valueOf(jwt.getSubject()))
+        );
     }
 }

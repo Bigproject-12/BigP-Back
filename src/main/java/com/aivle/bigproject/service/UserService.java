@@ -112,6 +112,13 @@ public class UserService {
         user.setPassword(passwordEncoder.encode(request.newPassword()));
     }
 
+    /** 현재 로그인한 사용자의 공개 가능한 회원정보를 반환한다. */
+    public UserResponse getMe(Integer userId) {
+        User user = userRepository.findById(userId)
+                .orElseThrow(() -> new CustomException(ErrorCode.USER_NOT_FOUND));
+        return UserResponse.from(user);
+    }
+
     // 로그인 ID와 GitHub 계정 중복 여부 체크 및 중복된 계정이 존재하면 예외 발생
     private void validateDuplicateAccount(String loginId, String gitId) {
         // 로그인ID 중복 검사 
