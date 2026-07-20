@@ -11,6 +11,7 @@ import com.aivle.bigproject.exception.CustomException;
 import com.aivle.bigproject.exception.ErrorCode;
 import com.aivle.bigproject.repository.CompanyRepository;
 import com.aivle.bigproject.repository.UserRepository;
+import com.aivle.bigproject.security.GithubTokenCrypto;
 import com.aivle.bigproject.security.JwtTokenProvider;
 import java.util.Locale;
 import org.springframework.security.crypto.password.PasswordEncoder;
@@ -31,17 +32,20 @@ public class UserService {
     // 비밀번호 평문 저장을 방지하기위해 암호화 적용  
     private final PasswordEncoder passwordEncoder;
     private final JwtTokenProvider jwtTokenProvider;
+    private final GithubTokenCrypto githubTokenCrypto;
 
     public UserService(
             UserRepository userRepository,
             CompanyRepository companyRepository,
             PasswordEncoder passwordEncoder,
-            JwtTokenProvider jwtTokenProvider
+            JwtTokenProvider jwtTokenProvider,
+            GithubTokenCrypto githubTokenCrypto
     ) {
         this.userRepository = userRepository;
         this.companyRepository = companyRepository;
         this.passwordEncoder = passwordEncoder;
         this.jwtTokenProvider = jwtTokenProvider;
+        this.githubTokenCrypto = githubTokenCrypto;
     }
 
     @Transactional
@@ -153,6 +157,6 @@ public class UserService {
         User user = userRepository.findById(userId)
                 .orElseThrow(() -> new CustomException(ErrorCode.USER_NOT_FOUND));
 
-        user.updateGithubToken(githubToken);
+        user.updateGithubToken(githubTokenCrypto.encrypt(githubToken));
     }
 }

@@ -3,8 +3,8 @@ package com.aivle.bigproject.controller;
 import com.aivle.bigproject.dto.user.GithubConnect;
 import jakarta.validation.Valid;
 import org.springframework.http.ResponseEntity;
-import org.springframework.security.core.Authentication;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
+import org.springframework.security.oauth2.jwt.Jwt;
 import org.springframework.web.bind.annotation.*;
 import com.aivle.bigproject.service.UserService;
 
@@ -19,23 +19,11 @@ public class GithubController {
     }
 
     @PostMapping
-    public ResponseEntity<?> connectRepository(@Valid @RequestBody GithubConnect request, Authentication authentication) {
-        try {
-            String token = request.githubToken(); 
-            
-            System.out.println("프론트에서 넘어온 깃허브 토큰: " + token);
-
-            Integer userId = Integer.parseInt(authentication.getName());
-            userService.saveGithubToken(userId, request.githubToken());
-            
-            return ResponseEntity.ok().body("레포지토리 연동이 성공적으로 완료되었습니다.");
-
-        } catch (IllegalArgumentException e) {
-            return ResponseEntity.badRequest().body(e.getMessage());
-
-        } catch (Exception e) {
-            e.printStackTrace();
-            return ResponseEntity.internalServerError().body("서버 오류가 발생했습니다.");
-        }
-    } 
+    public ResponseEntity<String> connectRepository(
+            @Valid @RequestBody GithubConnect request,
+            @AuthenticationPrincipal Jwt jwt
+    ) {
+        userService.saveGithubToken(Integer.valueOf(jwt.getSubject()), request.githubToken());
+        return ResponseEntity.ok("레포지토리 연동이 성공적으로 완료되었습니다.");
+    }
 }
