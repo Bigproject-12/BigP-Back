@@ -46,4 +46,12 @@ public class UserController {
     ) {
         return ResponseEntity.ok(userService.login(request));
     }
+
+    /**
+     * 성공 응답을 받은 클라이언트가 보관 중인 Access Token을 삭제한다.
+     */
+    @PostMapping("/logout")
+    public ResponseEntity<Void> logout() {
+        return ResponseEntity.noContent().build();
+    }
 }
