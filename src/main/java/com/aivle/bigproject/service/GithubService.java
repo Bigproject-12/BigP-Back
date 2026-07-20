@@ -1,10 +1,17 @@
 package com.aivle.bigproject.service;
 
 import com.aivle.bigproject.entity.User;
+import com.aivle.bigproject.entity.GithubRepo;
+import com.aivle.bigproject.repository.GithubRepoRepository;
 import com.aivle.bigproject.exception.CustomException;
 import com.aivle.bigproject.exception.ErrorCode;
 import com.aivle.bigproject.repository.UserRepository;
 import com.aivle.bigproject.security.GithubTokenCrypto;
+import com.aivle.bigproject.entity.UserRepo;
+import com.aivle.bigproject.repository.UserRepoRepository;
+import com.aivle.bigproject.dto.repo.RepoResponse;
+
+
 import org.springframework.http.HttpEntity;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpMethod;
@@ -13,6 +20,9 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.client.RestTemplate;
 
+
+import java.time.LocalDate;
+import java.util.Map;
 import java.util.List;
 
 @Service
@@ -21,10 +31,14 @@ public class GithubService {
 
     private final UserRepository userRepository;
     private final GithubTokenCrypto githubTokenCrypto;
+    private final GithubRepoRepository githubRepoRepository;
+    private final UserRepoRepository userRepoRepository;
 
-    public GithubService(UserRepository userRepository, GithubTokenCrypto githubTokenCrypto) {
+    public GithubService(UserRepository userRepository, GithubTokenCrypto githubTokenCrypto, GithubRepoRepository githubRepoRepository, UserRepoRepository userRepoRepository) {
         this.userRepository = userRepository;
         this.githubTokenCrypto = githubTokenCrypto;
+        this.githubRepoRepository = githubRepoRepository;
+        this.userRepoRepository = userRepoRepository;
     }
 
     @Transactional
@@ -55,6 +69,41 @@ public class GithubService {
 
         try {
             ResponseEntity<List> response = restTemplate.exchange(url, HttpMethod.GET, entity, List.class);
+            List<Map<String, Object>> repoList = (List<Map<String, Object>>) response.getBody();
+
+            if (repoList != null) {
+                for (Map<String, Object> repoData : repoList) {
+                    String repoName = (String) repoData.get("name");
+                    String repoUrl = (String) repoData.get("html_url");
+                    String language = (String) repoData.get("language"); 
+                    String lastUpdated = (String) repoData.get("updated_at");
+
+                    // DB에 없는 새로운 레포지토리일 경우에만 Insert
+                    GithubRepo currentRepo = githubRepoRepository.findByName(repoName)
+                            .orElseGet(() -> {
+                                GithubRepo newRepo = GithubRepo.builder()
+                                        .name(repoName)
+                                        .repoUrl(repoUrl)
+                                        .language(language)
+                                        .lastUpdated(lastUpdated)
+                                        .createdAt(LocalDate.now())
+                                        .build();
+                                return githubRepoRepository.save(newRepo);
+                            });
+                    if (!userRepoRepository.existsByUserAndGithubRepo(user, currentRepo)) {
+                        UserRepo userRepo = UserRepo.builder()
+                                .user(user)             
+                                .githubRepo(currentRepo) 
+                                .createdAt(LocalDate.now())
+                                .build();
+                        
+                        userRepoRepository.save(userRepo);
+                    }
+                    else{
+                        System.out.println("이미 연동한 적 있는 repo라 DB에 안 넣겠다.");
+                    }
+                }
+            }
 
             if (githubToken != null && !githubToken.isBlank()) {
                 user.updateGithubToken(githubTokenCrypto.encrypt(tokenToUse));
@@ -91,5 +140,13 @@ public class GithubService {
         } catch (Exception e) {
             throw new IllegalArgumentException("트리 정보를 가져오는데 실패했습니다.");
         }
+    }
+
+    public List<RepoResponse> getUserRepos(Integer userId) {
+        List<UserRepo> userRepos = userRepoRepository.findAllByUserId(userId);
+
+        return userRepos.stream()
+                .map(userRepo -> RepoResponse.from(userRepo.getGithubRepo()))
+                .toList();
     }
 }

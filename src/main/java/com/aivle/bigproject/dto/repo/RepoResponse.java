@@ -15,6 +15,8 @@ import java.time.LocalDate;
     Integer id,
     String name,
     String repoUrl,
+    String language,    
+    String lastUpdated,
     LocalDate createdAt
 ){
     // 엔티티 -> DTO 변환 (UserResponse.from()과 동일 패턴)
@@ -23,6 +25,8 @@ import java.time.LocalDate;
                 repo.getId(),
                 repo.getName(),
                 repo.getRepoUrl(),
+                repo.getLanguage(), 
+                repo.getLastUpdated(),
                 repo.getCreatedAt()
         );
     }

@@ -26,6 +26,12 @@ public class GithubRepo {
     @Column(name = "repo_url", nullable = false)
     private String repoUrl;
 
+    @Column(name = "language")
+    private String language; 
+
+    @Column(name = "last_updated")
+    private String lastUpdated;
+
     @CreatedDate
     @Column(name = "created_at", nullable = false, updatable = false)
     private LocalDate createdAt;
