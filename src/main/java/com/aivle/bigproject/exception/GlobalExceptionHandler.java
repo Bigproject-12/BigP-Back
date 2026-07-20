@@ -1,6 +1,6 @@
 package com.aivle.bigproject.exception;
 
-import com.aivle.bigproject.dto.common.ErrorResponse;
+import com.aivle.bigproject.dto.common.ApiResponse; // 변경: ErrorResponse → ApiResponse
 import lombok.extern.slf4j.Slf4j;
 
 import org.springframework.dao.DataIntegrityViolationException;
@@ -15,40 +15,40 @@ public class GlobalExceptionHandler {
 
     // 예외 처리
     @ExceptionHandler(CustomException.class)
-    public ResponseEntity<ErrorResponse> handleCustomException(CustomException e) {
+    public ResponseEntity<ApiResponse<Void>> handleCustomException(CustomException e) { // 변경: 반환 타입 ApiResponse<Void>
         ErrorCode errorCode = e.getErrorCode();
         return ResponseEntity
                 .status(errorCode.getStatus())
-                .body(new ErrorResponse(errorCode.name(),errorCode.getMessage()));
+                .body(ApiResponse.fail(errorCode.name(), errorCode.getMessage())); // 변경: new ErrorResponse → ApiResponse.fail
     }
-    
+
     // @valid 검증 실패 처리
     @ExceptionHandler(MethodArgumentNotValidException.class)
-    public ResponseEntity<ErrorResponse> handleValidationException(MethodArgumentNotValidException e) {
+    public ResponseEntity<ApiResponse<Void>> handleValidationException(MethodArgumentNotValidException e) { // 변경: 반환 타입 ApiResponse<Void>
         String message = e.getBindingResult().getFieldError().getDefaultMessage();
         return ResponseEntity
                 .badRequest()
-                .body(new ErrorResponse("INVALID_INPUT", message));
+                .body(ApiResponse.fail("INVALID_INPUT", message)); // 변경: new ErrorResponse → ApiResponse.fail
     }
 
     // 예상치 못한 나머지 예외 처리
     @ExceptionHandler(Exception.class)
-    public ResponseEntity<ErrorResponse> handleException(Exception e) {
+    public ResponseEntity<ApiResponse<Void>> handleException(Exception e) { // 변경: 반환 타입 ApiResponse<Void>
         log.error("서버 오류가 발생했습니다.", e);
         return ResponseEntity
                 .internalServerError()
-                .body(new ErrorResponse(
+                .body(ApiResponse.fail( // 변경: new ErrorResponse → ApiResponse.fail
                         ErrorCode.INTERNAL_SERVER_ERROR.name(),
-                        ErrorCode.INTERNAL_SERVER_ERROR.getMessage()    
+                        ErrorCode.INTERNAL_SERVER_ERROR.getMessage()
                 ));
     }
 
     // DB 제약조건 예외 처리
     @ExceptionHandler(DataIntegrityViolationException.class)
-    public ResponseEntity<ErrorResponse> handleDataIntegrityViolation(DataIntegrityViolationException e) {
+    public ResponseEntity<ApiResponse<Void>> handleDataIntegrityViolation(DataIntegrityViolationException e) { // 변경: 반환 타입 ApiResponse<Void>
         return ResponseEntity
                 .status(ErrorCode.COMPANY_IN_USE.getStatus())
-                .body(new ErrorResponse(ErrorCode.COMPANY_IN_USE.name(),
-                    ErrorCode.COMPANY_IN_USE.getMessage()));
+                .body(ApiResponse.fail(ErrorCode.COMPANY_IN_USE.name(), // 변경: new ErrorResponse → ApiResponse.fail
+                        ErrorCode.COMPANY_IN_USE.getMessage()));
     }
 }
