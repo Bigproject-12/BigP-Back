@@ -19,11 +19,27 @@ public class GithubController {
     }
 
     @PostMapping
-    public ResponseEntity<String> connectRepository(
+    public ResponseEntity<?> connectRepository(
             @Valid @RequestBody GithubConnect request,
             @AuthenticationPrincipal Jwt jwt
     ) {
-        userService.saveGithubToken(Integer.valueOf(jwt.getSubject()), request.githubToken());
-        return ResponseEntity.ok("레포지토리 연동이 성공적으로 완료되었습니다.");
+        try{
+            System.out.println("입력된 올거나이즈 이름: " + request.orgName());
+            Integer userId = Integer.valueOf(jwt.getSubject());
+            
+            Object repos = userService.connectAndFetchRepos(
+                    userId, 
+                    request.orgName(), 
+                    request.githubToken()
+            );
+
+            return ResponseEntity.ok(repos);
+        }
+        catch(IllegalArgumentException e){
+            return ResponseEntity.badRequest().body(e.getMessage());
+        }
+        catch (Exception e) {
+            return ResponseEntity.internalServerError().body("서버 내부 오류가 발생했습니다.");
+        }
     }
 }
