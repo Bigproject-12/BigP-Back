@@ -142,8 +142,8 @@ public class UserService {
     }
 
     @Transactional
-    public void saveGithubToken(String loginId, String githubToken) {
-        User user = userRepository.findByLoginIdIgnoreCase(loginId)
+    public void saveGithubToken(Integer userId, String githubToken) {
+        User user = userRepository.findById(userId)
                 .orElseThrow(() -> new CustomException(ErrorCode.USER_NOT_FOUND));
 
         user.updateGithubToken(githubToken);
