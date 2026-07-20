@@ -8,6 +8,7 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.MethodArgumentNotValidException;
 import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
+import org.springframework.security.access.AccessDeniedException;
 
 @RestControllerAdvice
 @Slf4j
@@ -51,4 +52,13 @@ public class GlobalExceptionHandler {
                 .body(ApiResponse.fail(ErrorCode.COMPANY_IN_USE.name(), // 변경: new ErrorResponse → ApiResponse.fail
                         ErrorCode.COMPANY_IN_USE.getMessage()));
     }
+
+    @ExceptionHandler(AccessDeniedException.class)
+    public ResponseEntity<ApiResponse<Void>> handleAccessDenied(AccessDeniedException e) {
+        return ResponseEntity
+                .status(ErrorCode.NO_PERMISSION.getStatus())
+                .body(ApiResponse.fail(ErrorCode.NO_PERMISSION.name(), 
+                        ErrorCode.NO_PERMISSION.getMessage()));
+    }
+
 }
