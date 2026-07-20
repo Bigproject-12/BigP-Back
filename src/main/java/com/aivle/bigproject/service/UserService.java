@@ -172,33 +172,4 @@ public class UserService {
         return userRepository.findAll(pageable)
                 .map(UserResponse::from);
     }
-
-    @Transactional
-    public Object connectAndFetchRepos(Integer userId, String orgName, String githubToken) {
-        RestTemplate restTemplate = new RestTemplate();
-        HttpHeaders headers = new HttpHeaders();
-        headers.setBearerAuth(githubToken); 
-        headers.set("Accept", "application/vnd.github+json");
-
-        HttpEntity<String> entity = new HttpEntity<>(headers);
-        
-        String url = "https://api.github.com/orgs/" + orgName + "/repos?per_page=100&sort=updated";
-
-        try {
-            // 3. API 호출
-            ResponseEntity<List> response = restTemplate.exchange(
-                    url, 
-                    HttpMethod.GET, 
-                    entity, 
-                    List.class
-            );
-
-            saveGithubToken(userId, githubToken);
-
-            return response.getBody();
-
-        } catch (Exception e) {
-            throw new IllegalArgumentException("GitHub 연동에 실패했습니다. 올바른 조직명과 권한이 있는 토큰인지 확인해주세요.");
-        }
-    }
 }

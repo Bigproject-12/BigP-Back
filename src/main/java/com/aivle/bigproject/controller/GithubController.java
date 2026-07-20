@@ -6,16 +6,16 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.security.oauth2.jwt.Jwt;
 import org.springframework.web.bind.annotation.*;
-import com.aivle.bigproject.service.UserService;
+import com.aivle.bigproject.service.GithubService;
 
 @RestController
 @RequestMapping("/api/repos")
 public class GithubController {
 
-    private final UserService userService;
+    private final GithubService githubService;
 
-    public GithubController(UserService userService) {
-        this.userService = userService;
+    public GithubController(GithubService githubService) {
+        this.githubService = githubService;
     }
 
     @PostMapping
@@ -27,7 +27,7 @@ public class GithubController {
             System.out.println("입력된 올거나이즈 이름: " + request.orgName());
             Integer userId = Integer.valueOf(jwt.getSubject());
             
-            Object repos = userService.connectAndFetchRepos(
+            Object repos = githubService.connectAndFetchRepos(
                     userId, 
                     request.orgName(), 
                     request.githubToken()
