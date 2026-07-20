@@ -2,6 +2,7 @@ package com.aivle.bigproject.security;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNotEquals;
+import static org.junit.jupiter.api.Assertions.assertThrows;
 
 import java.util.Base64;
 import org.junit.jupiter.api.Test;
@@ -19,5 +20,12 @@ class GithubTokenCryptoTest {
         assertNotEquals("github-token", first);
         assertNotEquals(first, second);
         assertEquals("github-token", crypto.decrypt(first));
+    }
+
+    @Test
+    void missingKeyFailsOnlyWhenEncryptionIsUsed() {
+        GithubTokenCrypto crypto = new GithubTokenCrypto("");
+
+        assertThrows(IllegalStateException.class, () -> crypto.encrypt("github-token"));
     }
 }

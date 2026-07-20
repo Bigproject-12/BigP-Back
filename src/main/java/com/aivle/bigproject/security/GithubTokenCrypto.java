@@ -16,10 +16,14 @@ public class GithubTokenCrypto {
 
     private static final int IV_LENGTH = 12;
     private static final int TAG_LENGTH_BITS = 128;
-    private final SecretKeySpec key;
+    private final String encodedKey;
     private final SecureRandom secureRandom = new SecureRandom();
 
     public GithubTokenCrypto(@Value("${github.token-encryption-key}") String encodedKey) {
+        this.encodedKey = encodedKey;
+    }
+
+    private SecretKeySpec key() {
         byte[] keyBytes;
         try {
             keyBytes = Base64.getDecoder().decode(encodedKey);
@@ -29,7 +33,7 @@ public class GithubTokenCrypto {
         if (keyBytes.length != 32) {
             throw new IllegalStateException("GITHUB_TOKEN_ENCRYPTION_KEY는 32바이트 키여야 합니다.");
         }
-        this.key = new SecretKeySpec(keyBytes, "AES");
+        return new SecretKeySpec(keyBytes, "AES");
     }
 
     public String encrypt(String plainText) {
@@ -57,7 +61,7 @@ public class GithubTokenCrypto {
     private byte[] crypt(int mode, byte[] input, byte[] iv) {
         try {
             Cipher cipher = Cipher.getInstance("AES/GCM/NoPadding");
-            cipher.init(mode, key, new GCMParameterSpec(TAG_LENGTH_BITS, iv));
+            cipher.init(mode, key(), new GCMParameterSpec(TAG_LENGTH_BITS, iv));
             return cipher.doFinal(input);
         } catch (GeneralSecurityException e) {
             throw new IllegalStateException("GitHub 토큰 암호화 처리에 실패했습니다.", e);

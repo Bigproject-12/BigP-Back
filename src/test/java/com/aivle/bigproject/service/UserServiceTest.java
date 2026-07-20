@@ -5,6 +5,7 @@ import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
 import com.aivle.bigproject.dto.user.PasswordChangeRequest;
+import com.aivle.bigproject.entity.Company;
 import com.aivle.bigproject.entity.User;
 import com.aivle.bigproject.repository.CompanyRepository;
 import com.aivle.bigproject.repository.UserRepository;
@@ -45,9 +46,11 @@ class UserServiceTest {
 
     @Test
     void getMeReturnsUserWithoutPassword() {
+        Company company = Company.builder().id(10).name("JWT 테스트 회사").build();
         User user = User.builder()
                 .id(1)
                 .name("로그인테스트")
+                .company(company)
                 .loginId("test1@example.com")
                 .password("encoded-password")
                 .role("USER")
@@ -57,6 +60,7 @@ class UserServiceTest {
         var response = userService.getMe(1);
 
         assertEquals(1, response.id());
+        assertEquals("JWT 테스트 회사", response.companyName());
         assertEquals("test1@example.com", response.loginId());
     }
 }
