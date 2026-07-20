@@ -2,6 +2,7 @@ package com.aivle.bigproject.service;
 
 import com.aivle.bigproject.dto.user.LoginResponse;
 import com.aivle.bigproject.dto.user.LoginRequest;
+import com.aivle.bigproject.dto.user.PasswordChangeRequest;
 import com.aivle.bigproject.dto.user.SignupRequest;
 import com.aivle.bigproject.dto.user.UserResponse;
 import com.aivle.bigproject.entity.Company;
@@ -96,6 +97,19 @@ public class UserService {
                 user.getName(),
                 user.getRole()
         );
+    }
+
+    /** 현재 비밀번호를 검증한 뒤 새 비밀번호를 암호화하여 저장한다. */
+    @Transactional
+    public void changePassword(Integer userId, PasswordChangeRequest request) {
+        User user = userRepository.findById(userId)
+                .orElseThrow(() -> new CustomException(ErrorCode.USER_NOT_FOUND));
+
+        if (!passwordEncoder.matches(request.currentPassword(), user.getPassword())) {
+            throw new CustomException(ErrorCode.WRONG_PASSWORD);
+        }
+
+        user.setPassword(passwordEncoder.encode(request.newPassword()));
     }
 
     // 로그인 ID와 GitHub 계정 중복 여부 체크 및 중복된 계정이 존재하면 예외 발생

@@ -2,12 +2,16 @@ package com.aivle.bigproject.controller;
 
 import com.aivle.bigproject.dto.user.LoginRequest;
 import com.aivle.bigproject.dto.user.LoginResponse;
+import com.aivle.bigproject.dto.user.PasswordChangeRequest;
 import com.aivle.bigproject.dto.user.SignupRequest;
 import com.aivle.bigproject.dto.user.UserResponse;
 import com.aivle.bigproject.service.UserService;
 import jakarta.validation.Valid;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.core.annotation.AuthenticationPrincipal;
+import org.springframework.security.oauth2.jwt.Jwt;
+import org.springframework.web.bind.annotation.PatchMapping;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
@@ -52,6 +56,16 @@ public class UserController {
      */
     @PostMapping("/logout")
     public ResponseEntity<Void> logout() {
+        return ResponseEntity.noContent().build();
+    }
+
+    /** 로그인한 사용자의 현재 비밀번호를 확인하고 새 비밀번호로 변경한다. */
+    @PatchMapping("/password")
+    public ResponseEntity<Void> changePassword(
+            @AuthenticationPrincipal Jwt jwt,
+            @Valid @RequestBody PasswordChangeRequest request
+    ) {
+        userService.changePassword(Integer.valueOf(jwt.getSubject()), request);
         return ResponseEntity.noContent().build();
     }
 }
