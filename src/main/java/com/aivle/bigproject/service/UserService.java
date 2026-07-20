@@ -140,4 +140,12 @@ public class UserService {
     private String normalizeLoginId(String loginId) {
         return loginId.trim().toLowerCase(Locale.ROOT);
     }
+
+    @Transactional
+    public void saveGithubToken(String loginId, String githubToken) {
+        User user = userRepository.findByLoginIdIgnoreCase(loginId)
+                .orElseThrow(() -> new CustomException(ErrorCode.USER_NOT_FOUND));
+
+        user.updateGithubToken(githubToken);
+    }
 }
