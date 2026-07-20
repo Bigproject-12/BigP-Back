@@ -12,6 +12,7 @@ public record UserResponse (
         Integer id,
         String name,
         Integer companyId,
+        String companyName,
         String loginId,
         String role,
         String gitId,
@@ -26,6 +27,7 @@ public record UserResponse (
                 user.getName(),
                 // 회사가 지정되지 않은 사용자도 변환할 수 있도록 null을 처리한다.
                 user.getCompany() == null ? null : user.getCompany().getId(),
+                user.getCompany() == null ? null : user.getCompany().getName(),
                 user.getLoginId(),
                 user.getRole(),
                 user.getGitId(),
