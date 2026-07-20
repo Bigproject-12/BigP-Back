@@ -56,6 +56,10 @@ public class User {
     @Column(name = "updated_at", nullable = false)
     private LocalDate updatedAt;
 
+    @Setter
+    @Column(name = "github_access_token")
+    private String githubAccessToken;
+
     /** 신규 사용자를 저장할 때 생성일과 수정일을 설정한다. */
     @PrePersist
     protected void onCreate() {
@@ -68,5 +72,9 @@ public class User {
     @PreUpdate
     protected void onUpdate() {
         this.updatedAt = LocalDate.now();
+    }
+
+    public void updateGithubToken(String githubAccessToken) {
+        this.githubAccessToken = githubAccessToken;
     }
 }
