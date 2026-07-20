@@ -8,6 +8,7 @@ import com.aivle.bigproject.dto.user.PasswordChangeRequest;
 import com.aivle.bigproject.entity.User;
 import com.aivle.bigproject.repository.CompanyRepository;
 import com.aivle.bigproject.repository.UserRepository;
+import com.aivle.bigproject.security.GithubTokenCrypto;
 import com.aivle.bigproject.security.JwtTokenProvider;
 import java.util.Optional;
 import org.junit.jupiter.api.Test;
@@ -24,6 +25,7 @@ class UserServiceTest {
     @Mock CompanyRepository companyRepository;
     @Mock PasswordEncoder passwordEncoder;
     @Mock JwtTokenProvider jwtTokenProvider;
+    @Mock GithubTokenCrypto githubTokenCrypto;
     @InjectMocks UserService userService;
 
     @Test
