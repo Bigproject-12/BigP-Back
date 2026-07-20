@@ -1,5 +1,7 @@
 package com.aivle.bigproject.service;
 
+import com.aivle.bigproject.dto.user.LoginResponse;
+import com.aivle.bigproject.dto.user.LoginRequest;
 import com.aivle.bigproject.dto.user.SignupRequest;
 import com.aivle.bigproject.dto.user.UserResponse;
 import com.aivle.bigproject.entity.Company;
@@ -8,6 +10,7 @@ import com.aivle.bigproject.exception.CustomException;
 import com.aivle.bigproject.exception.ErrorCode;
 import com.aivle.bigproject.repository.CompanyRepository;
 import com.aivle.bigproject.repository.UserRepository;
+import com.aivle.bigproject.security.JwtTokenProvider;
 import java.util.Locale;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
@@ -26,15 +29,18 @@ public class UserService {
     private final CompanyRepository companyRepository;
     // 비밀번호 평문 저장을 방지하기위해 암호화 적용  
     private final PasswordEncoder passwordEncoder;
+    private final JwtTokenProvider jwtTokenProvider;
 
     public UserService(
             UserRepository userRepository,
             CompanyRepository companyRepository,
-            PasswordEncoder passwordEncoder
+            PasswordEncoder passwordEncoder,
+            JwtTokenProvider jwtTokenProvider
     ) {
         this.userRepository = userRepository;
         this.companyRepository = companyRepository;
         this.passwordEncoder = passwordEncoder;
+        this.jwtTokenProvider = jwtTokenProvider;
     }
 
     @Transactional
@@ -60,6 +66,38 @@ public class UserService {
         // DB 저장 후 응답 DTO로 변환하여 반환
         return UserResponse.from(userRepository.save(user));
     }
+
+    /**
+     * 로그인 ID와 비밀번호를 검증하고 인증된 사용자를 반환한다.
+     * 사용자 존재 여부가 외부에 노출되지 않도록 두 실패 경우 모두 같은 예외를 사용한다.
+     * 다음 JWT 구현 단계에서 이 반환값으로 Access Token을 생성한다.
+     */
+    public User authenticate(LoginRequest request) {
+        String loginId = normalizeLoginId(request.loginId());
+
+        User user = userRepository.findByLoginIdIgnoreCase(loginId)
+                .orElseThrow(() -> new CustomException(ErrorCode.INVALID_CREDENTIALS));
+
+        if (!passwordEncoder.matches(request.password(), user.getPassword())) {
+            throw new CustomException(ErrorCode.INVALID_CREDENTIALS);
+        }
+
+        return user;
+    }
+
+    /** 자격 증명을 검증하고 API 요청에 사용할 JWT Access Token을 발급한다. */
+    public LoginResponse login(LoginRequest request) {
+        User user = authenticate(request);
+        String accessToken = jwtTokenProvider.createAccessToken(user);
+
+        return LoginResponse.of(
+                accessToken,
+                user.getId(),
+                user.getName(),
+                user.getRole()
+        );
+    }
+
     // 로그인 ID와 GitHub 계정 중복 여부 체크 및 중복된 계정이 존재하면 예외 발생
     private void validateDuplicateAccount(String loginId, String gitId) {
         // 로그인ID 중복 검사 

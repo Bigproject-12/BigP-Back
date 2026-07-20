@@ -11,7 +11,7 @@ import java.util.Optional;
 public interface UserRepository extends JpaRepository<User, Integer> {
 
     /** 로그인 시 이메일 형식으로 로그인 ID와 사용자를 조회 */
-    Optional<User> findByLoginId(String loginId);
+    Optional<User> findByLoginIdIgnoreCase(String loginId);
 
     /** GitHub 계정 연동 여부를 확인하거나 GitHub ID로 사용자를 조회 */
     Optional<User> findByGitId(String gitId);

@@ -1,5 +1,7 @@
 package com.aivle.bigproject.controller;
 
+import com.aivle.bigproject.dto.user.LoginRequest;
+import com.aivle.bigproject.dto.user.LoginResponse;
 import com.aivle.bigproject.dto.user.SignupRequest;
 import com.aivle.bigproject.dto.user.UserResponse;
 import com.aivle.bigproject.service.UserService;
@@ -35,5 +37,13 @@ public class UserController {
         return ResponseEntity
                 .status(HttpStatus.CREATED)
                 .body(response);
+    }
+
+    /** 로그인 성공 시 이후 API 요청에 사용할 Bearer Access Token을 반환한다. */
+    @PostMapping("/login")
+    public ResponseEntity<LoginResponse> login(
+            @Valid @RequestBody LoginRequest request
+    ) {
+        return ResponseEntity.ok(userService.login(request));
     }
 }

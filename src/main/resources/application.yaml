@@ -20,3 +20,8 @@ spring:
     properties:
       hibernate:
         format_sql: true  
+
+jwt:
+  issuer: ${JWT_ISSUER:bigproject}
+  secret: ${JWT_SECRET:}
+  access-token-expiration-seconds: ${JWT_ACCESS_TOKEN_EXPIRATION_SECONDS:3600}
