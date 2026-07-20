@@ -1,6 +1,6 @@
 package com.aivle.bigproject.security;
 
-import com.aivle.bigproject.dto.common.ErrorResponse;
+import com.aivle.bigproject.dto.common.ApiResponse; // 변경: ErrorResponse → ApiResponse
 import com.aivle.bigproject.exception.ErrorCode;
 import tools.jackson.databind.ObjectMapper;
 import jakarta.servlet.http.HttpServletRequest;
@@ -28,7 +28,7 @@ public class JwtAccessDeniedHandler implements AccessDeniedHandler {
         response.setContentType(MediaType.APPLICATION_JSON_VALUE);
         response.setCharacterEncoding("UTF-8");
         response.getWriter().write(objectMapper.writeValueAsString(
-                new ErrorResponse(errorCode.name(), errorCode.getMessage())
+                ApiResponse.fail(errorCode.name(), errorCode.getMessage()) // 변경: new ErrorResponse → ApiResponse.fail
         ));
     }
 }

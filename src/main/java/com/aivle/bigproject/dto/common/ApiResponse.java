@@ -19,8 +19,6 @@ import lombok.Getter;
  * 주의: new ApiResponse(...) 로는 못 만든다. (생성자를 private으로 막음)
  *      대신 ok(...) 또는 fail(...) 정적 메서드를 쓸 것.
  *      → 성공인데 에러코드가 붙은 이상한 응답을 못 만들게 하려고.
- *
- * 참고: 실패 응답은 ErrorResponse와 역할이 겹침 → 실패 응답 통일 방향은 팀 논의 필요.
  */
 @Getter
 @AllArgsConstructor(access = AccessLevel.PRIVATE) // 생성자를 private으로 해서 밖에서 new 못 함
