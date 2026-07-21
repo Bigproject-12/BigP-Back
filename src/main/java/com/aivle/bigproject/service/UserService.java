@@ -189,4 +189,11 @@ public class UserService {
         return userRepository.findAll(pageable)
                 .map(UserResponse::from);
     }
+
+    /** 관리자가 회원 목록에서 특정 회원의 상세 정보를 조회한다. */
+    public UserResponse getUser(Integer userId) {
+        User user = userRepository.findById(userId)
+                .orElseThrow(() -> new CustomException(ErrorCode.USER_NOT_FOUND));
+        return UserResponse.from(user);
+    }
 }
