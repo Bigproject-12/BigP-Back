@@ -5,6 +5,7 @@ import com.aivle.bigproject.dto.user.LoginResponse;
 import com.aivle.bigproject.dto.user.PasswordChangeRequest;
 import com.aivle.bigproject.dto.user.SignupRequest;
 import com.aivle.bigproject.dto.user.UserResponse;
+import com.aivle.bigproject.dto.user.UserUpdateRequest;
 import com.aivle.bigproject.service.UserService;
 import jakarta.validation.Valid;
 import org.springframework.http.HttpStatus;
@@ -78,6 +79,17 @@ public class UserController {
     public ResponseEntity<UserResponse> getMe(@AuthenticationPrincipal Jwt jwt) {
         return ResponseEntity.ok(
                 userService.getMe(Integer.valueOf(jwt.getSubject()))
+        );
+    }
+
+    /** 현재 로그인한 사용자의 이름과 회사를 부분 수정한다. */
+    @PatchMapping("/me")
+    public ResponseEntity<UserResponse> updateMe(
+            @AuthenticationPrincipal Jwt jwt,
+            @Valid @RequestBody UserUpdateRequest request
+    ) {
+        return ResponseEntity.ok(
+                userService.updateMe(Integer.valueOf(jwt.getSubject()), request)
         );
     }
 

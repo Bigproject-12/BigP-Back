@@ -5,6 +5,7 @@ import com.aivle.bigproject.dto.user.LoginRequest;
 import com.aivle.bigproject.dto.user.PasswordChangeRequest;
 import com.aivle.bigproject.dto.user.SignupRequest;
 import com.aivle.bigproject.dto.user.UserResponse;
+import com.aivle.bigproject.dto.user.UserUpdateRequest;
 import com.aivle.bigproject.entity.Company;
 import com.aivle.bigproject.entity.User;
 import com.aivle.bigproject.exception.CustomException;
@@ -128,6 +129,22 @@ public class UserService {
     public UserResponse getMe(Integer userId) {
         User user = userRepository.findById(userId)
                 .orElseThrow(() -> new CustomException(ErrorCode.USER_NOT_FOUND));
+        return UserResponse.from(user);
+    }
+
+    /** 현재 로그인한 사용자의 이름과 회사를 부분 수정한다. */
+    @Transactional
+    public UserResponse updateMe(Integer userId, UserUpdateRequest request) {
+        User user = userRepository.findById(userId)
+                .orElseThrow(() -> new CustomException(ErrorCode.USER_NOT_FOUND));
+
+        if (request.name() != null) {
+            user.setName(request.name().trim());
+        }
+        if (request.companyName() != null) {
+            user.setCompany(findOrCreateCompany(request.companyName().trim()));
+        }
+
         return UserResponse.from(user);
     }
 

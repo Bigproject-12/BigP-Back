@@ -5,6 +5,7 @@ import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
 import com.aivle.bigproject.dto.user.PasswordChangeRequest;
+import com.aivle.bigproject.dto.user.UserUpdateRequest;
 import com.aivle.bigproject.entity.Company;
 import com.aivle.bigproject.entity.User;
 import com.aivle.bigproject.repository.CompanyRepository;
@@ -62,5 +63,23 @@ class UserServiceTest {
         assertEquals(1, response.id());
         assertEquals("JWT 테스트 회사", response.companyName());
         assertEquals("test1@example.com", response.loginId());
+    }
+
+    @Test
+    void updateMeChangesNameAndCompany() {
+        Company previousCompany = Company.builder().id(10).name("기존 회사").build();
+        Company newCompany = Company.builder().id(20).name("새 회사").build();
+        User user = User.builder().id(1).name("기존 이름").company(previousCompany).build();
+        when(userRepository.findById(1)).thenReturn(Optional.of(user));
+        when(companyRepository.findByNameIgnoreCase("새 회사")).thenReturn(Optional.of(newCompany));
+
+        var response = userService.updateMe(
+                1,
+                new UserUpdateRequest(" 수정된 이름 ", " 새 회사 ")
+        );
+
+        assertEquals("수정된 이름", response.name());
+        assertEquals(20, response.companyId());
+        assertEquals("새 회사", response.companyName());
     }
 }
