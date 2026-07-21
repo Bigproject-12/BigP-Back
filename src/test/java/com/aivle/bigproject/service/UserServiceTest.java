@@ -5,10 +5,17 @@ import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
 import com.aivle.bigproject.dto.user.PasswordChangeRequest;
+import com.aivle.bigproject.dto.user.AccountDeleteRequest;
 import com.aivle.bigproject.dto.user.UserUpdateRequest;
 import com.aivle.bigproject.entity.Company;
 import com.aivle.bigproject.entity.User;
 import com.aivle.bigproject.repository.CompanyRepository;
+import com.aivle.bigproject.repository.AnalysisRepository;
+import com.aivle.bigproject.repository.AnnouncementRepository;
+import com.aivle.bigproject.repository.FindingRepository;
+import com.aivle.bigproject.repository.NotificationRepository;
+import com.aivle.bigproject.repository.RepoFavRepository;
+import com.aivle.bigproject.repository.UserRepoRepository;
 import com.aivle.bigproject.repository.UserRepository;
 import com.aivle.bigproject.security.GithubTokenCrypto;
 import com.aivle.bigproject.security.JwtTokenProvider;
@@ -28,6 +35,12 @@ class UserServiceTest {
     @Mock PasswordEncoder passwordEncoder;
     @Mock JwtTokenProvider jwtTokenProvider;
     @Mock GithubTokenCrypto githubTokenCrypto;
+    @Mock NotificationRepository notificationRepository;
+    @Mock FindingRepository findingRepository;
+    @Mock AnalysisRepository analysisRepository;
+    @Mock AnnouncementRepository announcementRepository;
+    @Mock RepoFavRepository repoFavRepository;
+    @Mock UserRepoRepository userRepoRepository;
     @InjectMocks UserService userService;
 
     @Test
@@ -81,5 +94,22 @@ class UserServiceTest {
         assertEquals("수정된 이름", response.name());
         assertEquals(20, response.companyId());
         assertEquals("새 회사", response.companyName());
+    }
+
+    @Test
+    void deleteMeRemovesUserAfterPasswordCheck() {
+        User user = User.builder().id(1).password("encoded-password").build();
+        when(userRepository.findById(1)).thenReturn(Optional.of(user));
+        when(passwordEncoder.matches("Current1!", "encoded-password")).thenReturn(true);
+
+        userService.deleteMe(1, new AccountDeleteRequest("Current1!"));
+
+        verify(notificationRepository).deleteForAccount(1);
+        verify(findingRepository).deleteByAnalysisOwner(1);
+        verify(analysisRepository).deleteByOwner(1);
+        verify(announcementRepository).deleteByUserId(1);
+        verify(repoFavRepository).deleteByUserId(1);
+        verify(userRepoRepository).deleteByUserId(1);
+        verify(userRepository).delete(user);
     }
 }

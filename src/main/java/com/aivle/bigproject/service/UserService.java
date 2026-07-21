@@ -1,5 +1,6 @@
 package com.aivle.bigproject.service;
 
+import com.aivle.bigproject.dto.user.AccountDeleteRequest;
 import com.aivle.bigproject.dto.user.LoginResponse;
 import com.aivle.bigproject.dto.user.LoginRequest;
 import com.aivle.bigproject.dto.user.PasswordChangeRequest;
@@ -11,6 +12,12 @@ import com.aivle.bigproject.entity.User;
 import com.aivle.bigproject.exception.CustomException;
 import com.aivle.bigproject.exception.ErrorCode;
 import com.aivle.bigproject.repository.CompanyRepository;
+import com.aivle.bigproject.repository.AnalysisRepository;
+import com.aivle.bigproject.repository.AnnouncementRepository;
+import com.aivle.bigproject.repository.FindingRepository;
+import com.aivle.bigproject.repository.NotificationRepository;
+import com.aivle.bigproject.repository.RepoFavRepository;
+import com.aivle.bigproject.repository.UserRepoRepository;
 import com.aivle.bigproject.repository.UserRepository;
 import com.aivle.bigproject.security.GithubTokenCrypto;
 import com.aivle.bigproject.security.JwtTokenProvider;
@@ -42,19 +49,37 @@ public class UserService {
     private final PasswordEncoder passwordEncoder;
     private final JwtTokenProvider jwtTokenProvider;
     private final GithubTokenCrypto githubTokenCrypto;
+    private final NotificationRepository notificationRepository;
+    private final FindingRepository findingRepository;
+    private final AnalysisRepository analysisRepository;
+    private final AnnouncementRepository announcementRepository;
+    private final RepoFavRepository repoFavRepository;
+    private final UserRepoRepository userRepoRepository;
 
     public UserService(
             UserRepository userRepository,
             CompanyRepository companyRepository,
             PasswordEncoder passwordEncoder,
             JwtTokenProvider jwtTokenProvider,
-            GithubTokenCrypto githubTokenCrypto
+            GithubTokenCrypto githubTokenCrypto,
+            NotificationRepository notificationRepository,
+            FindingRepository findingRepository,
+            AnalysisRepository analysisRepository,
+            AnnouncementRepository announcementRepository,
+            RepoFavRepository repoFavRepository,
+            UserRepoRepository userRepoRepository
     ) {
         this.userRepository = userRepository;
         this.companyRepository = companyRepository;
         this.passwordEncoder = passwordEncoder;
         this.jwtTokenProvider = jwtTokenProvider;
         this.githubTokenCrypto = githubTokenCrypto;
+        this.notificationRepository = notificationRepository;
+        this.findingRepository = findingRepository;
+        this.analysisRepository = analysisRepository;
+        this.announcementRepository = announcementRepository;
+        this.repoFavRepository = repoFavRepository;
+        this.userRepoRepository = userRepoRepository;
     }
 
     @Transactional
@@ -146,6 +171,25 @@ public class UserService {
         }
 
         return UserResponse.from(user);
+    }
+
+    /** 비밀번호를 재확인하고 사용자 소유 데이터를 정리한 뒤 계정을 삭제한다. */
+    @Transactional
+    public void deleteMe(Integer userId, AccountDeleteRequest request) {
+        User user = userRepository.findById(userId)
+                .orElseThrow(() -> new CustomException(ErrorCode.USER_NOT_FOUND));
+
+        if (!passwordEncoder.matches(request.currentPassword(), user.getPassword())) {
+            throw new CustomException(ErrorCode.WRONG_PASSWORD);
+        }
+
+        notificationRepository.deleteForAccount(userId);
+        findingRepository.deleteByAnalysisOwner(userId);
+        analysisRepository.deleteByOwner(userId);
+        announcementRepository.deleteByUserId(userId);
+        repoFavRepository.deleteByUserId(userId);
+        userRepoRepository.deleteByUserId(userId);
+        userRepository.delete(user);
     }
 
     // 로그인 ID와 GitHub 계정 중복 여부 체크 및 중복된 계정이 존재하면 예외 발생

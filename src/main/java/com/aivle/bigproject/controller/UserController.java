@@ -1,5 +1,6 @@
 package com.aivle.bigproject.controller;
 
+import com.aivle.bigproject.dto.user.AccountDeleteRequest;
 import com.aivle.bigproject.dto.user.LoginRequest;
 import com.aivle.bigproject.dto.user.LoginResponse;
 import com.aivle.bigproject.dto.user.PasswordChangeRequest;
@@ -13,6 +14,7 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.security.oauth2.jwt.Jwt;
 import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.PatchMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
@@ -92,6 +94,16 @@ public class UserController {
         return ResponseEntity.ok(
                 userService.updateMe(Integer.valueOf(jwt.getSubject()), request)
         );
+    }
+
+    /** 현재 비밀번호를 확인한 뒤 로그인한 사용자의 계정을 삭제한다. */
+    @DeleteMapping("/me")
+    public ResponseEntity<Void> deleteMe(
+            @AuthenticationPrincipal Jwt jwt,
+            @Valid @RequestBody AccountDeleteRequest request
+    ) {
+        userService.deleteMe(Integer.valueOf(jwt.getSubject()), request);
+        return ResponseEntity.noContent().build();
     }
 
     @GetMapping
