@@ -1,13 +1,13 @@
 package com.aivle.bigproject.repository;
 
 import com.aivle.bigproject.entity.RepoFav;
+import com.aivle.bigproject.entity.User;
+import com.aivle.bigproject.entity.GithubRepo;
 import org.springframework.data.jpa.repository.JpaRepository;
-import org.springframework.data.jpa.repository.Modifying;
-import org.springframework.data.jpa.repository.Query;
-import org.springframework.data.repository.query.Param;
+import java.util.List;
 
 public interface RepoFavRepository extends JpaRepository<RepoFav, Integer> {
-    @Modifying
-    @Query(value = "DELETE FROM REPO_FAV WHERE user_id = :userId", nativeQuery = true)
-    void deleteByUserId(@Param("userId") Integer userId);
+    boolean existsByUserAndGithubRepo(User user, GithubRepo githubRepo);
+    List<RepoFav> findAllByUser_Id(Integer userId);
+    void deleteByUserAndGithubRepo(User user, GithubRepo githubRepo);
 }
