@@ -1,7 +1,7 @@
 package com.aivle.bigproject.dto.announcement;
 
 import com.aivle.bigproject.entity.Announcement;
-import java.time.LocalDate;
+import java.time.LocalDateTime;
 
 /**
  * 공지사항 목록 조회 응답 DTO -> 목록 화면용
@@ -13,7 +13,7 @@ public record AnnouncementSummaryResponse(
         String title,
         Integer viewCount,
         Boolean isPinned,
-        LocalDate createdAt
+        LocalDateTime createdAt
 ) {
     public static AnnouncementSummaryResponse from(Announcement announcement){
         return new AnnouncementSummaryResponse(
