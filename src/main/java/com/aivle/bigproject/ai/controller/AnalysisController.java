@@ -1,8 +1,8 @@
-package com.aivle.bigproject.aivle.bigproject.ai.controller;
+package com.aivle.bigproject.ai.controller;
 
-import com.aivle.bigproject.aivle.bigproject.ai.dto.DetectRequest;
-import com.aivle.bigproject.aivle.bigproject.ai.dto.DetectResponse;
-import com.aivle.bigproject.aivle.bigproject.ai.service.AnalysisService;
+import com.aivle.bigproject.ai.dto.DetectRequest;
+import com.aivle.bigproject.ai.dto.DetectResponse;
+import com.aivle.bigproject.ai.service.AnalysisService;
 
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;

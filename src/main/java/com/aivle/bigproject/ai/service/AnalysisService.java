@@ -1,7 +1,7 @@
-package com.aivle.bigproject.aivle.bigproject.ai.service;
+package com.aivle.bigproject.ai.service;
 
-import com.aivle.bigproject.aivle.bigproject.ai.dto.DetectRequest;
-import com.aivle.bigproject.aivle.bigproject.ai.dto.DetectResponse;
+import com.aivle.bigproject.ai.dto.DetectRequest;
+import com.aivle.bigproject.ai.dto.DetectResponse;
 import org.springframework.http.HttpEntity;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.MediaType;
