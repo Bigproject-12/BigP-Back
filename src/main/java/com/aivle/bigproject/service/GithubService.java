@@ -75,8 +75,9 @@ public class GithubService {
                 for (Map<String, Object> repoData : repoList) {
                     String repoName = (String) repoData.get("name");
                     String repoUrl = (String) repoData.get("html_url");
-                    String language = (String) repoData.get("language"); 
+                    String language = (String) repoData.get("language");
                     String lastUpdated = (String) repoData.get("updated_at");
+                    Boolean isPrivate = (Boolean) repoData.get("private");
 
                     // DB에 없는 새로운 레포지토리일 경우에만 Insert
                     GithubRepo currentRepo = githubRepoRepository.findByName(repoName)
@@ -86,6 +87,7 @@ public class GithubService {
                                         .repoUrl(repoUrl)
                                         .language(language)
                                         .lastUpdated(lastUpdated)
+                                        .isPrivate(isPrivate)
                                         .createdAt(LocalDate.now())
                                         .build();
                                 return githubRepoRepository.save(newRepo);
