@@ -77,6 +77,7 @@ public class GithubService {
                     String repoUrl = (String) repoData.get("html_url");
                     String language = (String) repoData.get("language");
                     String lastUpdated = (String) repoData.get("updated_at");
+                    String organization = orgName;
                     Boolean isPrivate = (Boolean) repoData.get("private");
 
                     // DB에 없는 새로운 레포지토리일 경우에만 Insert
@@ -88,6 +89,7 @@ public class GithubService {
                                         .language(language)
                                         .lastUpdated(lastUpdated)
                                         .isPrivate(isPrivate)
+                                        .organization(organization)
                                         .createdAt(LocalDate.now())
                                         .build();
                                 return githubRepoRepository.save(newRepo);
