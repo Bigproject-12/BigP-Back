@@ -35,6 +35,9 @@ public class GithubRepo {
     @Column(name = "is_private")
     private Boolean isPrivate;
 
+    @Column(nullable = false)
+    private String organization;
+
     @CreatedDate
     @Column(name = "created_at", nullable = false, updatable = false)
     private LocalDate createdAt;

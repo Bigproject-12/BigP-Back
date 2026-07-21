@@ -16,6 +16,7 @@ import java.time.LocalDate;
     String name,
     String repoUrl,
     String language,
+    String organization,
     String lastUpdated,
     Boolean isPrivate,
     LocalDate createdAt
@@ -27,6 +28,7 @@ import java.time.LocalDate;
                 repo.getName(),
                 repo.getRepoUrl(),
                 repo.getLanguage(),
+                repo.getOrganization(),
                 repo.getLastUpdated(),
                 repo.getIsPrivate(),
                 repo.getCreatedAt()

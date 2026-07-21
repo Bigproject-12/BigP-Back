@@ -1,10 +1,12 @@
 package com.aivle.bigproject.controller;
 
+import com.aivle.bigproject.dto.user.AccountDeleteRequest;
 import com.aivle.bigproject.dto.user.LoginRequest;
 import com.aivle.bigproject.dto.user.LoginResponse;
 import com.aivle.bigproject.dto.user.PasswordChangeRequest;
 import com.aivle.bigproject.dto.user.SignupRequest;
 import com.aivle.bigproject.dto.user.UserResponse;
+import com.aivle.bigproject.dto.user.UserUpdateRequest;
 import com.aivle.bigproject.service.UserService;
 import jakarta.validation.Valid;
 import org.springframework.http.HttpStatus;
@@ -12,7 +14,9 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.security.oauth2.jwt.Jwt;
 import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.PatchMapping;
+import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
@@ -81,11 +85,39 @@ public class UserController {
         );
     }
 
+    /** 현재 로그인한 사용자의 이름과 회사를 부분 수정한다. */
+    @PatchMapping("/me")
+    public ResponseEntity<UserResponse> updateMe(
+            @AuthenticationPrincipal Jwt jwt,
+            @Valid @RequestBody UserUpdateRequest request
+    ) {
+        return ResponseEntity.ok(
+                userService.updateMe(Integer.valueOf(jwt.getSubject()), request)
+        );
+    }
+
+    /** 현재 비밀번호를 확인한 뒤 로그인한 사용자의 계정을 삭제한다. */
+    @DeleteMapping("/me")
+    public ResponseEntity<Void> deleteMe(
+            @AuthenticationPrincipal Jwt jwt,
+            @Valid @RequestBody AccountDeleteRequest request
+    ) {
+        userService.deleteMe(Integer.valueOf(jwt.getSubject()), request);
+        return ResponseEntity.noContent().build();
+    }
+
     @GetMapping
     @PreAuthorize("hasRole('ADMIN')")
     public Page<UserResponse> findAll(
             @PageableDefault(size = 20, sort = "id") Pageable pageable
     ) {
         return userService.findAll(pageable);
-    }   
+    }
+
+    /** 관리자가 회원 목록에서 특정 회원을 선택했을 때 상세 정보를 조회한다. */
+    @GetMapping("/{id}")
+    @PreAuthorize("hasRole('ADMIN')")
+    public UserResponse findById(@PathVariable Integer id) {
+        return userService.getUser(id);
+    }
 }

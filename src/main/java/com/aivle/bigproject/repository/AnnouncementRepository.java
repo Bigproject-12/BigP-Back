@@ -4,6 +4,7 @@ import com.aivle.bigproject.entity.Announcement;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.repository.JpaRepository;
+import org.springframework.data.jpa.repository.Modifying;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 
@@ -33,4 +34,9 @@ public interface AnnouncementRepository extends JpaRepository<Announcement, Inte
                OR u.name    LIKE %:keyword%
             """)
     Page<Announcement> search(@Param("keyword") String keyword, Pageable pageable);
+
+    // 회원 탈퇴 시 해당 사용자가 작성한 공지 일괄 삭제
+    @Modifying
+    @Query(value = "DELETE FROM ANNOUNCEMENT WHERE user_id = :userId", nativeQuery = true)
+    void deleteByUserId(@Param("userId") Integer userId);
 }
