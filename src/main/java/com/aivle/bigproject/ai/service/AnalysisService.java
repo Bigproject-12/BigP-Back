@@ -31,7 +31,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.web.client.RestTemplate;
 import org.springframework.scheduling.annotation.Async;
 
-import com.fasterxml.jackson.databind.ObjectMapper;
+import tools.jackson.databind.json.JsonMapper;
 
 @Service
 public class AnalysisService {
@@ -44,20 +44,20 @@ public class AnalysisService {
     private final CompanyRepository companyRepository;
     private final UserRepository userRepository;
     private final FindingRepository findingRepository;
-    private final ObjectMapper objectMapper;
+    private final JsonMapper jsonMapper;
 
     public AnalysisService(AnalysisRepository analysisRepository, 
                            GithubRepoRepository githubRepoRepository, 
                            CompanyRepository companyRepository, 
                            UserRepository userRepository,
                            FindingRepository findingRepository,
-                           ObjectMapper objectMapper) {
+                           JsonMapper jsonMapper) {
         this.analysisRepository = analysisRepository;
         this.githubRepoRepository = githubRepoRepository;
         this.companyRepository = companyRepository;
         this.userRepository = userRepository;
         this.findingRepository = findingRepository;
-        this.objectMapper = objectMapper;
+        this.jsonMapper = jsonMapper;
     }
 
     public Integer createInitialAnalysis(DetectRequest requestDto, Integer userId) {
@@ -120,8 +120,8 @@ public class AnalysisService {
             
             if (securityCount > 0 || inefficiencyCount > 0) {
                 
-                String secuResultStr = objectMapper.writeValueAsString(response.vulnerabilities());
-                String inefficiencyResultStr = objectMapper.writeValueAsString(response.complexityDetails());
+                String secuResultStr = jsonMapper.writeValueAsString(response.vulnerabilities());
+                String inefficiencyResultStr = jsonMapper.writeValueAsString(response.complexityDetails());
                 String modifiedCode = response.patchedCode() != null ? response.patchedCode() : "";
 
                 Finding finding = Finding.builder()
