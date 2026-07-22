@@ -73,6 +73,7 @@ public class NotificationService {
                 .map(u -> Notification.builder()
                         .user(u)
                         .analysis(null)
+                        .announcement(announcement)
                         .type("ANNOUNCEMENT")
                         .title("새 공지사항이 등록되었습니다")
                         .message(announcement.getTitle())
@@ -82,9 +83,19 @@ public class NotificationService {
         notificationRepository.saveAll(notifications);
     }
 
-    // 알림 개별 읽음 처리
     @Transactional
+    public void markOneAsRead(Integer userId, Integer notificationId) {
+        Notification notification = notificationRepository.findById(notificationId)
+            .orElseThrow(() -> new CustomException(ErrorCode.NOTIFICATION_NOT_FOUND));
+        if (!notification.getUser().getId().equals(userId)) {
+            throw new CustomException(ErrorCode.NO_PERMISSION);
+        }
+        notification.setIsRead(true);
+}
+
+    // 알림 전체 읽음 처리
+    /* @Transactional
     public void markAllAsRead(Integer userId) {
         notificationRepository.markAllAsRead(userId);
-    }
+    } */
 }

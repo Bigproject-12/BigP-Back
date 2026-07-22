@@ -4,7 +4,7 @@ import jakarta.persistence.*;
 import lombok.*;
 import org.springframework.data.annotation.CreatedDate;
 import org.springframework.data.jpa.domain.support.AuditingEntityListener;
-
+import com.aivle.bigproject.entity.Announcement;
 import java.time.LocalDateTime;
 
 @Entity
@@ -29,6 +29,10 @@ public class Notification {
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "analysis_id", nullable = true)
     private Analysis analysis;
+
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "board_id", nullable = true)
+    private Announcement announcement;
 
     @Column(nullable = false)
     private String type; 
