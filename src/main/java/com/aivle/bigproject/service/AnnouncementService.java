@@ -16,6 +16,9 @@ import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.data.domain.PageRequest;
+import org.springframework.data.domain.Sort;
+
 
 @Service
 @RequiredArgsConstructor
@@ -72,7 +75,17 @@ public class AnnouncementService {
         // 빈 문자열·공백만 들어온 경우 검색어 없음(null)으로 통일
         String normalized = (keyword == null || keyword.isBlank()) ? null : keyword.trim();
 
-        return announcementRepository.search(normalized, pageable)
+        // 고정 공지는 항상 위로 오도록 isPinned를 첫 정렬 조건으로 추가
+        Sort pinnedFirst = Sort.by(Sort.Direction.DESC, "isPinned")
+                .and(pageable.getSort());
+
+        Pageable sorted = PageRequest.of(
+                pageable.getPageNumber(),
+                pageable.getPageSize(),
+                pinnedFirst
+        );
+
+        return announcementRepository.search(normalized,sorted)
                 .map(AnnouncementSummaryResponse::from);
     }
 
