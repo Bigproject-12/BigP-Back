@@ -28,6 +28,7 @@ public enum ErrorCode {
 
     // 권한
     NO_PERMISSION(HttpStatus.FORBIDDEN, "권한이 없습니다."),
+    CANNOT_DELETE_ADMIN(HttpStatus.FORBIDDEN, "운영자 계정은 삭제할 수 없습니다."),
 
     // 토큰
     EXPIRED_TOKEN(HttpStatus.UNAUTHORIZED, "토큰이 만료되었습니다."),

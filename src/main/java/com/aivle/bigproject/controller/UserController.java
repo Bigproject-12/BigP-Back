@@ -130,4 +130,12 @@ public class UserController {
     public UserResponse findById(@PathVariable Integer id) {
         return userService.getUser(id);
     }
+
+    /** 관리자가 회원 상세 화면에서 특정 회원을 강제로 삭제한다. */
+    @DeleteMapping("/{id}")
+    @PreAuthorize("hasRole('ADMIN')")
+    public ResponseEntity<Void> deleteUser(@PathVariable Integer id) {
+        userService.deleteUser(id);
+        return ResponseEntity.noContent().build();
+    }
 }
