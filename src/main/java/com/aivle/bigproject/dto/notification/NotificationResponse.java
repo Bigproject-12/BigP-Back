@@ -8,7 +8,7 @@ import java.time.LocalDateTime;
  */
 
 public record NotificationResponse(
-        Integer id,
+        Integer notificationId,
         Integer userId,
         Integer analysisId,
         String type,
@@ -21,6 +21,7 @@ public record NotificationResponse(
         return new NotificationResponse(
                 notification.getId(),
                 notification.getUser().getId(),
+                notification.getAnalysis() == null ? null :
                 notification.getAnalysis().getId(),
                 notification.getType(),
                 notification.getTitle(),

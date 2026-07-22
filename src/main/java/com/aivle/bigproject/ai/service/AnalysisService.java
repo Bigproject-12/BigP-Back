@@ -23,6 +23,9 @@ import com.aivle.bigproject.repository.FindingRepository;
 import com.aivle.bigproject.exception.CustomException;
 import com.aivle.bigproject.exception.ErrorCode;
 
+// Service
+import com.aivle.bigproject.service.NotificationService;
+
 // Spring Web
 import org.springframework.http.HttpEntity;
 import org.springframework.http.HttpHeaders;
@@ -31,7 +34,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.web.client.RestTemplate;
 import org.springframework.scheduling.annotation.Async;
 
-import com.fasterxml.jackson.databind.ObjectMapper;
+import tools.jackson.databind.json.JsonMapper;
 
 @Service
 public class AnalysisService {
@@ -44,20 +47,23 @@ public class AnalysisService {
     private final CompanyRepository companyRepository;
     private final UserRepository userRepository;
     private final FindingRepository findingRepository;
-    private final ObjectMapper objectMapper;
+    private final NotificationService notificationService;
+    private final JsonMapper jsonMapper;
 
     public AnalysisService(AnalysisRepository analysisRepository, 
                            GithubRepoRepository githubRepoRepository, 
                            CompanyRepository companyRepository, 
                            UserRepository userRepository,
                            FindingRepository findingRepository,
-                           ObjectMapper objectMapper) {
+                           NotificationService notificationService,
+                           JsonMapper jsonMapper) {
         this.analysisRepository = analysisRepository;
         this.githubRepoRepository = githubRepoRepository;
         this.companyRepository = companyRepository;
         this.userRepository = userRepository;
         this.findingRepository = findingRepository;
-        this.objectMapper = objectMapper;
+        this.notificationService = notificationService;
+        this.jsonMapper = jsonMapper;
     }
 
     public Integer createInitialAnalysis(DetectRequest requestDto, Integer userId) {
@@ -114,14 +120,15 @@ public class AnalysisService {
             // 통신 성공 및 취소되지 않았을 시 '완료' 상태로 업데이트
             currentAnalysis.setStatus("COMPLETED");
             analysisRepository.save(currentAnalysis);
+            notificationService.notifyAnalysisCompleted(currentAnalysis);
             
             int securityCount = response.vulnerabilities() != null ? response.vulnerabilities().size() : 0;
             int inefficiencyCount = response.complexityDetails() != null ? response.complexityDetails().size() : 0;
             
             if (securityCount > 0 || inefficiencyCount > 0) {
                 
-                String secuResultStr = objectMapper.writeValueAsString(response.vulnerabilities());
-                String inefficiencyResultStr = objectMapper.writeValueAsString(response.complexityDetails());
+                String secuResultStr = jsonMapper.writeValueAsString(response.vulnerabilities());
+                String inefficiencyResultStr = jsonMapper.writeValueAsString(response.complexityDetails());
                 String modifiedCode = response.patchedCode() != null ? response.patchedCode() : "";
 
                 Finding finding = Finding.builder()

@@ -27,7 +27,7 @@ public class Notification {
     private User user;
 
     @ManyToOne(fetch = FetchType.LAZY)
-    @JoinColumn(name = "analysis_id", nullable = false)
+    @JoinColumn(name = "analysis_id", nullable = true)
     private Analysis analysis;
 
     @Column(nullable = false)
