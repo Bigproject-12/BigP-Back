@@ -153,4 +153,13 @@ public class GithubService {
                 .map(userRepo -> RepoResponse.from(userRepo.getGithubRepo()))
                 .toList();
     }
+
+    /** 로그인한 사용자에게 연결된 Repository 상세정보만 반환한다. */
+    public RepoResponse getUserRepo(Integer userId, Integer repoId) {
+        UserRepo userRepo = userRepoRepository
+                .findByUser_IdAndGithubRepo_Id(userId, repoId)
+                .orElseThrow(() -> new CustomException(ErrorCode.REPO_NOT_FOUND));
+
+        return RepoResponse.from(userRepo.getGithubRepo());
+    }
 }
