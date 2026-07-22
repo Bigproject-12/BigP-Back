@@ -3,6 +3,7 @@ package com.aivle.bigproject.ai.service;
 // DTO
 import com.aivle.bigproject.ai.dto.DetectRequest;
 import com.aivle.bigproject.ai.dto.DetectResponse;
+import com.aivle.bigproject.ai.dto.AnalysisResultResponse;
 
 // Entity
 import com.aivle.bigproject.entity.Analysis;
@@ -60,15 +61,19 @@ public class AnalysisService {
     }
 
     // 통신 실패 시 DB 롤백 방지를 위해 @Transactional은 일부러 생략합니다.
-    public DetectResponse sendToAiServer(DetectRequest requestDto) {
+    public DetectResponse sendToAiServer(DetectRequest requestDto, Integer userId) {
+
+        User user = userRepository.findById(userId)
+                .orElseThrow(() -> new CustomException(ErrorCode.USER_NOT_FOUND));
+
+        Company company = user.getCompany();
 
         // 1. 필요한 엔티티 조회
         GithubRepo repo = githubRepoRepository.findById(requestDto.repoId())
-                .orElseThrow(() -> new CustomException(ErrorCode.REPO_NOT_FOUND));
-        Company company = companyRepository.findById(requestDto.companyId())
-                .orElseThrow(() -> new CustomException(ErrorCode.COMPANY_NOT_FOUND));
-        User user = userRepository.findById(requestDto.userId())
-                .orElseThrow(() -> new CustomException(ErrorCode.USER_NOT_FOUND));
+                .orElseThrow(() -> new IllegalArgumentException("레포를 찾을 수 없습니다."));
+        if (company == null) {
+            throw new IllegalArgumentException("사용자에게 소속된 회사 정보가 없습니다.");
+        }
 
         // 2. 분석 내역을 '분석 중' 상태로 DB에 최초 저장
         Analysis analysis = Analysis.builder()
@@ -134,5 +139,26 @@ public class AnalysisService {
             e.printStackTrace();
             throw new RuntimeException("AI 서버 분석 요청에 실패했습니다.");
         }
+    }
+
+    public void stopAnalysis(Integer analysisId) {
+        Analysis analysis = analysisRepository.findById(analysisId)
+                .orElseThrow(() -> new IllegalArgumentException("해당 분석 요청을 찾을 수 없습니다. ID: " + analysisId));
+
+        if ("COMPLETED".equals(analysis.getStatus()) || "FAILED".equals(analysis.getStatus())) {
+            throw new IllegalStateException("이미 처리가 끝난 분석입니다.");
+        }
+
+        analysis.setStatus("CANCELED");
+        analysisRepository.save(analysis);
+    }
+
+    public AnalysisResultResponse getAnalysisResult(Integer analysisId) {
+        Analysis analysis = analysisRepository.findById(analysisId)
+                .orElseThrow(() -> new IllegalArgumentException("해당 분석 요청을 찾을 수 없습니다. ID: " + analysisId));
+
+        Finding finding = findingRepository.findByAnalysisId(analysisId).orElse(null);
+
+        return AnalysisResultResponse.of(analysis, finding);
     }
 }
