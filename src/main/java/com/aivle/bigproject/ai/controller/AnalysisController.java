@@ -1,7 +1,6 @@
 package com.aivle.bigproject.ai.controller;
 
 import com.aivle.bigproject.ai.dto.DetectRequest;
-import com.aivle.bigproject.ai.dto.DetectResponse;
 import com.aivle.bigproject.ai.dto.AnalysisResultResponse;
 import com.aivle.bigproject.ai.service.AnalysisService;
 
