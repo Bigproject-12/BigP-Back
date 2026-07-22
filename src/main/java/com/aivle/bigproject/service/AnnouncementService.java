@@ -10,6 +10,7 @@ import com.aivle.bigproject.exception.CustomException;
 import com.aivle.bigproject.exception.ErrorCode;
 import com.aivle.bigproject.repository.AnnouncementRepository;
 import com.aivle.bigproject.repository.UserRepository;
+import com.aivle.bigproject.service.NotificationService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
@@ -23,6 +24,7 @@ public class AnnouncementService {
 
     private final AnnouncementRepository announcementRepository;
     private final UserRepository userRepository;
+    private final NotificationService notificationService;
 
     /** 공지 등록 */
     @Transactional
@@ -39,6 +41,7 @@ public class AnnouncementService {
                         .isPinned(Boolean.TRUE.equals(request.isPinned()))
                         .build()
         );
+        notificationService.notifyAnnouncementCreated(saved);
         return AnnouncementResponse.from(saved);
     }
 

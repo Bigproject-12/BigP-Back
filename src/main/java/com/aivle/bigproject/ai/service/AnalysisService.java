@@ -23,6 +23,9 @@ import com.aivle.bigproject.repository.FindingRepository;
 import com.aivle.bigproject.exception.CustomException;
 import com.aivle.bigproject.exception.ErrorCode;
 
+// Service
+import com.aivle.bigproject.service.NotificationService;
+
 // Spring Web
 import org.springframework.http.HttpEntity;
 import org.springframework.http.HttpHeaders;
@@ -44,6 +47,7 @@ public class AnalysisService {
     private final CompanyRepository companyRepository;
     private final UserRepository userRepository;
     private final FindingRepository findingRepository;
+    private final NotificationService notificationService;
     private final JsonMapper jsonMapper;
 
     public AnalysisService(AnalysisRepository analysisRepository, 
@@ -51,12 +55,14 @@ public class AnalysisService {
                            CompanyRepository companyRepository, 
                            UserRepository userRepository,
                            FindingRepository findingRepository,
+                           NotificationService notificationService,
                            JsonMapper jsonMapper) {
         this.analysisRepository = analysisRepository;
         this.githubRepoRepository = githubRepoRepository;
         this.companyRepository = companyRepository;
         this.userRepository = userRepository;
         this.findingRepository = findingRepository;
+        this.notificationService = notificationService;
         this.jsonMapper = jsonMapper;
     }
 
@@ -114,6 +120,7 @@ public class AnalysisService {
             // 통신 성공 및 취소되지 않았을 시 '완료' 상태로 업데이트
             currentAnalysis.setStatus("COMPLETED");
             analysisRepository.save(currentAnalysis);
+            notificationService.notifyAnalysisCompleted(currentAnalysis);
             
             int securityCount = response.vulnerabilities() != null ? response.vulnerabilities().size() : 0;
             int inefficiencyCount = response.complexityDetails() != null ? response.complexityDetails().size() : 0;
