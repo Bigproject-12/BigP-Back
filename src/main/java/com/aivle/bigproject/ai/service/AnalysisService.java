@@ -3,18 +3,21 @@ package com.aivle.bigproject.ai.service;
 // DTO
 import com.aivle.bigproject.ai.dto.DetectRequest;
 import com.aivle.bigproject.ai.dto.DetectResponse;
+import com.aivle.bigproject.ai.dto.AnalysisResultResponse;
 
 // Entity
 import com.aivle.bigproject.entity.Analysis;
 import com.aivle.bigproject.entity.Company;
 import com.aivle.bigproject.entity.GithubRepo;
 import com.aivle.bigproject.entity.User;
+import com.aivle.bigproject.entity.Finding;
 
 // Repository
 import com.aivle.bigproject.repository.AnalysisRepository;
 import com.aivle.bigproject.repository.CompanyRepository;
 import com.aivle.bigproject.repository.GithubRepoRepository;
 import com.aivle.bigproject.repository.UserRepository;
+import com.aivle.bigproject.repository.FindingRepository;
 
 // Exception
 import com.aivle.bigproject.exception.CustomException;
@@ -26,10 +29,9 @@ import org.springframework.http.HttpHeaders;
 import org.springframework.http.MediaType;
 import org.springframework.stereotype.Service;
 import org.springframework.web.client.RestTemplate;
+import org.springframework.scheduling.annotation.Async;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
-import com.aivle.bigproject.repository.FindingRepository;
-import com.aivle.bigproject.entity.Finding;
 
 @Service
 public class AnalysisService {
@@ -41,7 +43,6 @@ public class AnalysisService {
     private final GithubRepoRepository githubRepoRepository;
     private final CompanyRepository companyRepository;
     private final UserRepository userRepository;
-
     private final FindingRepository findingRepository;
     private final ObjectMapper objectMapper;
 
@@ -59,44 +60,60 @@ public class AnalysisService {
         this.objectMapper = objectMapper;
     }
 
-    // 통신 실패 시 DB 롤백 방지를 위해 @Transactional은 일부러 생략합니다.
-    public DetectResponse sendToAiServer(DetectRequest requestDto) {
-
-        // 1. 필요한 엔티티 조회
-        GithubRepo repo = githubRepoRepository.findById(requestDto.repoId())
-                .orElseThrow(() -> new CustomException(ErrorCode.REPO_NOT_FOUND));
-        Company company = companyRepository.findById(requestDto.companyId())
-                .orElseThrow(() -> new CustomException(ErrorCode.COMPANY_NOT_FOUND));
-        User user = userRepository.findById(requestDto.userId())
+    public Integer createInitialAnalysis(DetectRequest requestDto, Integer userId) {
+        User user = userRepository.findById(userId)
                 .orElseThrow(() -> new CustomException(ErrorCode.USER_NOT_FOUND));
 
-        // 2. 분석 내역을 '분석 중' 상태로 DB에 최초 저장
+        Company company = user.getCompany();
+
+        GithubRepo repo = githubRepoRepository.findById(requestDto.repoId())
+                .orElseThrow(() -> new IllegalArgumentException("레포를 찾을 수 없습니다."));
+                
+        if (company == null) {
+            throw new IllegalArgumentException("사용자에게 소속된 회사 정보가 없습니다.");
+        }
+
+        // 분석 중 상태로 DB에 저장
         Analysis analysis = Analysis.builder()
                 .githubRepo(repo)
                 .company(company)
                 .user(user)
                 .originCode(requestDto.codeContent())
                 .language(requestDto.language())
-                .prompt(null)
+                .prompt(null) 
                 .status("ANALYZING") // 초기 생성 시 곧바로 ANALYZING 처리
                 .build();
                 
         analysisRepository.save(analysis);
 
-        // 3. FastAPI 서버로 HTTP 요청 준비
+        // 생성된 ID 반환
+        return analysis.getId();
+    }
+
+
+    @Async
+    public void sendToAiServerAsync(Integer analysisId, DetectRequest requestDto) {
+        
         RestTemplate restTemplate = new RestTemplate();
         HttpHeaders headers = new HttpHeaders();
         headers.setContentType(MediaType.APPLICATION_JSON);
         
         HttpEntity<DetectRequest> requestEntity = new HttpEntity<>(requestDto, headers);
 
-        // 4. 요청 및 결과에 따른 상태 업데이트
         try {
             DetectResponse response = restTemplate.postForObject(AI_DETECT_URL, requestEntity, DetectResponse.class);
             
-            // 통신 성공 시 '완료' 상태로 업데이트
-            analysis.setStatus("COMPLETED");
-            analysisRepository.save(analysis);
+            // 통신이 끝난 후 현재 DB 상태 확인 
+            Analysis currentAnalysis = analysisRepository.findById(analysisId).orElseThrow();
+            
+            if ("CANCELED".equals(currentAnalysis.getStatus())) {
+                System.out.println("사용자가 분석을 취소했으므로 결과를 저장하지 않습니다.");
+                return; // 저장 없이 종료
+            }
+
+            // 통신 성공 및 취소되지 않았을 시 '완료' 상태로 업데이트
+            currentAnalysis.setStatus("COMPLETED");
+            analysisRepository.save(currentAnalysis);
             
             int securityCount = response.vulnerabilities() != null ? response.vulnerabilities().size() : 0;
             int inefficiencyCount = response.complexityDetails() != null ? response.complexityDetails().size() : 0;
@@ -108,7 +125,7 @@ public class AnalysisService {
                 String modifiedCode = response.patchedCode() != null ? response.patchedCode() : "";
 
                 Finding finding = Finding.builder()
-                        .analysis(analysis)
+                        .analysis(currentAnalysis)
                         .inefficiencyResult(inefficiencyResultStr)
                         .modifiedCode(modifiedCode)
                         .secuResult(secuResultStr)
@@ -125,14 +142,37 @@ public class AnalysisService {
                 System.out.println("발견된 문제 없어서 FINDING엔 올라갈 게 없음");
             }
             
-            return response;
-            
         } catch (Exception e) {
-            // 통신 실패 시 '실패' 상태로 업데이트
-            analysis.setStatus("FAILED");
-            analysisRepository.save(analysis);
+            // 실패 상태로 업데이트
+            Analysis currentAnalysis = analysisRepository.findById(analysisId).orElseThrow();
+            currentAnalysis.setStatus("FAILED");
+            analysisRepository.save(currentAnalysis);
             e.printStackTrace();
-            throw new RuntimeException("AI 서버 분석 요청에 실패했습니다.");
         }
+    }
+
+ 
+    public void stopAnalysis(Integer analysisId) {
+        Analysis analysis = analysisRepository.findById(analysisId)
+                .orElseThrow(() -> new IllegalArgumentException("해당 분석 요청을 찾을 수 없습니다. ID: " + analysisId));
+
+        if ("COMPLETED".equals(analysis.getStatus()) || "FAILED".equals(analysis.getStatus())) {
+            throw new IllegalStateException("이미 처리가 끝난 분석입니다.");
+        }
+
+        analysis.setStatus("CANCELED");
+        analysisRepository.save(analysis);
+    }
+
+    /**
+     * 분석 결과 반환
+     */
+    public AnalysisResultResponse getAnalysisResult(Integer analysisId) {
+        Analysis analysis = analysisRepository.findById(analysisId)
+                .orElseThrow(() -> new IllegalArgumentException("해당 분석 요청을 찾을 수 없습니다. ID: " + analysisId));
+
+        Finding finding = findingRepository.findByAnalysisId(analysisId).orElse(null);
+
+        return AnalysisResultResponse.of(analysis, finding);
     }
 }
