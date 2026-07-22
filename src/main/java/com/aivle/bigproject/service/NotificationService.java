@@ -81,4 +81,10 @@ public class NotificationService {
                 .toList();
         notificationRepository.saveAll(notifications);
     }
+
+    // 알림 개별 읽음 처리
+    @Transactional
+    public void markAllAsRead(Integer userId) {
+        notificationRepository.markAllAsRead(userId);
+    }
 }

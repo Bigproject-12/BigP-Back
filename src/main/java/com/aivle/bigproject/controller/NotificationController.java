@@ -34,4 +34,10 @@ public class NotificationController {
         notificationService.clearAll(Integer.valueOf(jwt.getSubject()));
         return ResponseEntity.noContent().build();
     }
+
+    @PatchMapping("/read")
+    public ResponseEntity<Void> markAllAsRead(@AuthenticationPrincipal Jwt jwt) {
+        notificationService.markAllAsRead(Integer.valueOf(jwt.getSubject()));
+        return ResponseEntity.noContent().build();
+    }
 }
