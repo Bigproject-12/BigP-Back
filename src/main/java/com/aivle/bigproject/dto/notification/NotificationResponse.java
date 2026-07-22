@@ -8,7 +8,7 @@ import java.time.LocalDateTime;
  */
 
 public record NotificationResponse(
-        Integer id,
+        Integer notificationId,
         Integer userId,
         Integer analysisId,
         String type,
