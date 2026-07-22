@@ -10,7 +10,6 @@ import com.aivle.bigproject.exception.CustomException;
 import com.aivle.bigproject.exception.ErrorCode;
 import com.aivle.bigproject.repository.AnnouncementRepository;
 import com.aivle.bigproject.repository.UserRepository;
-import com.aivle.bigproject.service.NotificationService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
