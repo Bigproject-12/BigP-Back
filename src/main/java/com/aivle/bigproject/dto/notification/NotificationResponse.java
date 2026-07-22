@@ -11,6 +11,7 @@ public record NotificationResponse(
         Integer notificationId,
         Integer userId,
         Integer analysisId,
+        Integer boardId,
         String type,
         String title,
         String message,
@@ -23,6 +24,8 @@ public record NotificationResponse(
                 notification.getUser().getId(),
                 notification.getAnalysis() == null ? null :
                 notification.getAnalysis().getId(),
+                notification.getAnnouncement() == null ? null :
+                notification.getAnnouncement().getBoardId(),
                 notification.getType(),
                 notification.getTitle(),
                 notification.getMessage(),
