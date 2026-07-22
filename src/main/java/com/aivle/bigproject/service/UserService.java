@@ -212,6 +212,24 @@ public class UserService {
             throw new CustomException(ErrorCode.WRONG_PASSWORD);
         }
 
+        deleteUserAndOwnedData(user);
+    }
+
+    /** 관리자가 회원 목록에서 특정 회원을 강제로 삭제한다. ADMIN 계정은 삭제할 수 없다. */
+    @Transactional
+    public void deleteUser(Integer userId) {
+        User user = userRepository.findById(userId)
+                .orElseThrow(() -> new CustomException(ErrorCode.USER_NOT_FOUND));
+
+        if ("ADMIN".equals(user.getRole())) {
+            throw new CustomException(ErrorCode.CANNOT_DELETE_ADMIN);
+        }
+
+        deleteUserAndOwnedData(user);
+    }
+
+    private void deleteUserAndOwnedData(User user) {
+        Integer userId = user.getId();
         notificationRepository.deleteForAccount(userId);
         findingRepository.deleteByAnalysisOwner(userId);
         analysisRepository.deleteByOwner(userId);
