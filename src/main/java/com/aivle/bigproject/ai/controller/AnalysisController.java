@@ -10,6 +10,7 @@ import org.springframework.web.bind.annotation.*;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 
 import org.springframework.security.oauth2.jwt.Jwt;
+import java.util.Map;
 
 @RestController
 @RequestMapping("/api/analysis")
@@ -26,14 +27,15 @@ public class AnalysisController {
      * POST /api/analysis/detect
      */
     @PostMapping
-    public ResponseEntity<DetectResponse> requestAnalysis(@RequestBody DetectRequest request, @AuthenticationPrincipal Jwt jwt) {
+    public ResponseEntity<Map<String, Integer>> requestAnalysis(@RequestBody DetectRequest request, @AuthenticationPrincipal Jwt jwt) {
 
         Integer loggedInUserId = Integer.valueOf(jwt.getSubject());
 
-        DetectResponse aiResult = analysisService.sendToAiServer(request, loggedInUserId);
-        
-        // AI 서버의 결과를 다시 프론트엔드로 반환
-        return ResponseEntity.ok(aiResult);
+        Integer analysisId = analysisService.createInitialAnalysis(request, loggedInUserId);
+
+        analysisService.sendToAiServerAsync(analysisId, request);
+
+        return ResponseEntity.ok(Map.of("analysis_id", analysisId));
     }
 
     @GetMapping("/{analysis_id}")
