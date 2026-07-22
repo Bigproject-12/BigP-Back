@@ -122,7 +122,7 @@ public class AnalysisService {
                 findingRepository.save(finding);
             }
             else{
-                System.out.println("발견된 문제 없어서 FINDING엔 올라갈 게 없음")
+                System.out.println("발견된 문제 없어서 FINDING엔 올라갈 게 없음");
             }
             
             return response;
