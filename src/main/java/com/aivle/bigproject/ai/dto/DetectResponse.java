@@ -1,4 +1,4 @@
-package com.aivle.bigproject.aivle.bigproject.ai.dto;
+package com.aivle.bigproject.ai.dto;
 
 import com.fasterxml.jackson.annotation.JsonProperty;
 import java.util.List;

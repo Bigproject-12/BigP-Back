@@ -27,6 +27,10 @@ public class Analysis {
     @JoinColumn(name = "company_id", nullable = false)
     private Company company;
 
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "user_id", nullable = false)
+    private User user;
+
     @Lob
     @Column(name = "origin_code", nullable = false, columnDefinition = "TEXT")
     private String originCode;
@@ -34,7 +38,7 @@ public class Analysis {
     @Column(nullable = false)
     private String language;
 
-    @Column(nullable = false)
+    @Column(columnDefinition = "TEXT")
     private String prompt;
 
     @Column(nullable = false)
