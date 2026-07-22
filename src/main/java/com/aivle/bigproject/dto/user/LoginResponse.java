@@ -10,6 +10,8 @@ package com.aivle.bigproject.dto.user;
 public record LoginResponse (
     String accessToken, // 로그인 후 인증에 쓸 토큰
 
+    String refreshToken,
+
     String tokenType, // 토큰 인증 방식 표기
     Integer userId,
     String name,
@@ -19,7 +21,13 @@ public record LoginResponse (
      * 토큰과 유저 정보로 로그인 응답 생성
      * tokentype은 우선 "bearer"로 고정
      */
-    public static LoginResponse of(String accessToken, Integer userId, String name, String role){
-        return new LoginResponse(accessToken, "Bearer",userId,name,role);
+    public static LoginResponse of(
+            String accessToken,
+            String refreshToken,
+            Integer userId,
+            String name,
+            String role
+    ) {
+        return new LoginResponse(accessToken, refreshToken, "Bearer", userId, name, role);
     }
 }

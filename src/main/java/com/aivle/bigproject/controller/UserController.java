@@ -4,6 +4,7 @@ import com.aivle.bigproject.dto.user.AccountDeleteRequest;
 import com.aivle.bigproject.dto.user.LoginRequest;
 import com.aivle.bigproject.dto.user.LoginResponse;
 import com.aivle.bigproject.dto.user.PasswordChangeRequest;
+import com.aivle.bigproject.dto.user.RefreshTokenRequest;
 import com.aivle.bigproject.dto.user.SignupRequest;
 import com.aivle.bigproject.dto.user.UserResponse;
 import com.aivle.bigproject.dto.user.UserUpdateRequest;
@@ -59,11 +60,20 @@ public class UserController {
         return ResponseEntity.ok(userService.login(request));
     }
 
+    /** Refresh Token을 검증하고 두 토큰을 모두 새 값으로 교체한다. */
+    @PostMapping("/refresh")
+    public ResponseEntity<LoginResponse> refresh(
+            @Valid @RequestBody RefreshTokenRequest request
+    ) {
+        return ResponseEntity.ok(userService.refresh(request));
+    }
+
     /**
      * 성공 응답을 받은 클라이언트가 보관 중인 Access Token을 삭제한다.
      */
     @PostMapping("/logout")
-    public ResponseEntity<Void> logout() {
+    public ResponseEntity<Void> logout(@AuthenticationPrincipal Jwt jwt) {
+        userService.logout(Integer.valueOf(jwt.getSubject()));
         return ResponseEntity.noContent().build();
     }
 

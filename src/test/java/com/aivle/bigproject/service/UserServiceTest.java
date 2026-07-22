@@ -34,6 +34,7 @@ class UserServiceTest {
     @Mock CompanyRepository companyRepository;
     @Mock PasswordEncoder passwordEncoder;
     @Mock JwtTokenProvider jwtTokenProvider;
+    @Mock RefreshTokenService refreshTokenService;
     @Mock GithubTokenCrypto githubTokenCrypto;
     @Mock NotificationRepository notificationRepository;
     @Mock FindingRepository findingRepository;

@@ -4,6 +4,7 @@ import com.aivle.bigproject.dto.user.AccountDeleteRequest;
 import com.aivle.bigproject.dto.user.LoginResponse;
 import com.aivle.bigproject.dto.user.LoginRequest;
 import com.aivle.bigproject.dto.user.PasswordChangeRequest;
+import com.aivle.bigproject.dto.user.RefreshTokenRequest;
 import com.aivle.bigproject.dto.user.SignupRequest;
 import com.aivle.bigproject.dto.user.UserResponse;
 import com.aivle.bigproject.dto.user.UserUpdateRequest;
@@ -48,6 +49,7 @@ public class UserService {
     // 비밀번호 평문 저장을 방지하기위해 암호화 적용  
     private final PasswordEncoder passwordEncoder;
     private final JwtTokenProvider jwtTokenProvider;
+    private final RefreshTokenService refreshTokenService;
     private final GithubTokenCrypto githubTokenCrypto;
     private final NotificationRepository notificationRepository;
     private final FindingRepository findingRepository;
@@ -61,6 +63,7 @@ public class UserService {
             CompanyRepository companyRepository,
             PasswordEncoder passwordEncoder,
             JwtTokenProvider jwtTokenProvider,
+            RefreshTokenService refreshTokenService,
             GithubTokenCrypto githubTokenCrypto,
             NotificationRepository notificationRepository,
             FindingRepository findingRepository,
@@ -73,6 +76,7 @@ public class UserService {
         this.companyRepository = companyRepository;
         this.passwordEncoder = passwordEncoder;
         this.jwtTokenProvider = jwtTokenProvider;
+        this.refreshTokenService = refreshTokenService;
         this.githubTokenCrypto = githubTokenCrypto;
         this.notificationRepository = notificationRepository;
         this.findingRepository = findingRepository;
@@ -125,16 +129,41 @@ public class UserService {
     }
 
     /** 자격 증명을 검증하고 API 요청에 사용할 JWT Access Token을 발급한다. */
+    @Transactional
     public LoginResponse login(LoginRequest request) {
         User user = authenticate(request);
         String accessToken = jwtTokenProvider.createAccessToken(user);
+        String refreshToken = refreshTokenService.issue(user);
 
         return LoginResponse.of(
                 accessToken,
+                refreshToken,
                 user.getId(),
                 user.getName(),
                 user.getRole()
         );
+    }
+
+    /** 유효한 Refresh Token을 회전시키고 새 Access Token과 Refresh Token을 발급한다. */
+    @Transactional
+    public LoginResponse refresh(RefreshTokenRequest request) {
+        RefreshTokenService.RotatedToken rotated =
+                refreshTokenService.rotate(request.refreshToken());
+        User user = rotated.user();
+
+        return LoginResponse.of(
+                jwtTokenProvider.createAccessToken(user),
+                rotated.refreshToken(),
+                user.getId(),
+                user.getName(),
+                user.getRole()
+        );
+    }
+
+    /** 현재 사용자의 Refresh Token을 폐기한다. */
+    @Transactional
+    public void logout(Integer userId) {
+        refreshTokenService.revoke(userId);
     }
 
     /** 현재 비밀번호를 검증한 뒤 새 비밀번호를 암호화하여 저장한다. */
