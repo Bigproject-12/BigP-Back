@@ -66,7 +66,7 @@ public class AnalysisService {
         GithubRepo repo = githubRepoRepository.findById(requestDto.repoId())
                 .orElseThrow(() -> new CustomException(ErrorCode.REPO_NOT_FOUND));
         Company company = companyRepository.findById(requestDto.companyId())
-                .orElseThrow(() -> new IllegalArgumentException("회사를 찾을 수 없습니다."));
+                .orElseThrow(() -> new CustomException(ErrorCode.COMPANY_NOT_FOUND));
         User user = userRepository.findById(requestDto.userId())
                 .orElseThrow(() -> new CustomException(ErrorCode.USER_NOT_FOUND));
 
