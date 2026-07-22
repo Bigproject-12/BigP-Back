@@ -27,7 +27,7 @@ public class AnnouncementController {
         this.announcementService = announcementService;
     }
 
-    /** 공지사항 게시 — 관리자 전용 */
+    // 공지사항 게시 — 관리자 전용
     @PostMapping
     @PreAuthorize("hasRole('ADMIN')")
     public ResponseEntity<AnnouncementResponse> create(
@@ -40,7 +40,7 @@ public class AnnouncementController {
         return ResponseEntity.status(HttpStatus.CREATED).body(response);
     }
 
-    /** 공지사항 수정 — 관리자 전용 */
+    //공지사항 수정 — 관리자 전용
     @PatchMapping("/{noticeId}")
     @PreAuthorize("hasRole('ADMIN')")
     public ResponseEntity<AnnouncementResponse> update(
@@ -50,7 +50,7 @@ public class AnnouncementController {
         return ResponseEntity.ok(announcementService.update(noticeId, request));
     }
 
-    /** 공지사항 삭제 — 관리자 전용 */
+    //공지사항 삭제 — 관리자 전용
     @DeleteMapping("/{noticeId}")
     @PreAuthorize("hasRole('ADMIN')")
     public ResponseEntity<Void> delete(@PathVariable Integer noticeId) {
@@ -58,13 +58,18 @@ public class AnnouncementController {
         return ResponseEntity.noContent().build();   // 204
     }
 
-    /** 공지사항 상세 조회 — 로그인 사용자 전체 */
+    //공지사항 상세 조회 — 로그인 사용자 전체
     @GetMapping("/{noticeId}")
-    public ResponseEntity<AnnouncementResponse> getDetail(@PathVariable Integer noticeId) {
-        return ResponseEntity.ok(announcementService.getDetail(noticeId));
+    public ResponseEntity<AnnouncementResponse> getDetail(
+            @AuthenticationPrincipal Jwt jwt,
+            @PathVariable Integer noticeId
+    ) {
+        return ResponseEntity.ok(
+                announcementService.getDetail(Integer.valueOf(jwt.getSubject()), noticeId)
+        );
     }
 
-    /** 공지사항 목록 조회 — 검색 + 정렬 + 페이징 */
+    // 공지사항 목록 조회 — 검색 + 정렬 + 페이징
     @GetMapping
     public Page<AnnouncementSummaryResponse> getList(
             @RequestParam(required = false) String keyword,
