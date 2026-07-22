@@ -56,4 +56,13 @@ public class GithubController {
 
         return ResponseEntity.ok(repos);
     }
+
+    @GetMapping("/{repoId}")
+    public ResponseEntity<RepoResponse> getUserRepo(
+            @AuthenticationPrincipal Jwt jwt,
+            @PathVariable Integer repoId
+    ) {
+        Integer userId = Integer.valueOf(jwt.getSubject());
+        return ResponseEntity.ok(githubService.getUserRepo(userId, repoId));
+    }
 }

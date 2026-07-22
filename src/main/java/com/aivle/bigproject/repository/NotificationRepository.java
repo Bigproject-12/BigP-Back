@@ -22,4 +22,13 @@ public interface NotificationRepository extends JpaRepository<Notification, Inte
                )
             """, nativeQuery = true)
     void deleteForAccount(@Param("userId") Integer userId);
+
+    @Modifying
+    @Query(value = "DELETE FROM NOTIFICATION WHERE user_id = :userId", nativeQuery = true)
+    void deleteAllForUser(@Param("userId") Integer userId);
+
+    @Modifying
+    @Query(value = "UPDATE NOTIFICATION SET is_read = true WHERE user_id = :userId AND is_read = false", nativeQuery =true)
+    void markAllAsRead(@Param("userId") Integer userId);
+    
 }
