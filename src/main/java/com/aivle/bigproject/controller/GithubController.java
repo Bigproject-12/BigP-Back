@@ -32,8 +32,7 @@ public class GithubController {
             
             Object repos = githubService.connectAndFetchRepos(
                     userId, 
-                    request.orgName(), 
-                    request.githubToken()
+                    request.orgName()
             );
 
             return ResponseEntity.ok(repos);
@@ -42,7 +41,8 @@ public class GithubController {
             return ResponseEntity.badRequest().body(e.getMessage());
         }
         catch (Exception e) {
-            return ResponseEntity.internalServerError().body("서버 내부 오류가 발생했습니다.");
+            e.printStackTrace();
+            return ResponseEntity.internalServerError().body("서버 내부 오류: " + e.getMessage());
         }
     }
 
@@ -64,5 +64,16 @@ public class GithubController {
     ) {
         Integer userId = Integer.valueOf(jwt.getSubject());
         return ResponseEntity.ok(githubService.getUserRepo(userId, repoId));
+    }
+
+    @PostMapping("/org-webhook")
+    public ResponseEntity<String> registerOrgWebhook(
+            @AuthenticationPrincipal Jwt jwt,
+            @RequestParam String orgName
+    ) {
+        Integer userId = Integer.valueOf(jwt.getSubject());
+        // 저장된 토큰을 복호화해서 사용 (GithubService에 이 로직을 노출하는 별도 메서드가 필요할 수도 있음)
+        githubService.triggerOrgWebhookRegistration(userId, orgName);
+        return ResponseEntity.ok("조직 Webhook 등록 시도 완료 (로그 확인 필요)");
     }
 }

@@ -51,7 +51,9 @@ public class SecurityConfig {
                                 "/api/users/login",
                                 "/api/users/refresh",
                                 "/api/health/**",
-                                "/api/test"
+                                "/api/test",
+                                "/api/github/oauth/**",
+                                "/api/webhook/**"
                         ).permitAll()
                         .anyRequest().authenticated()
                 )
