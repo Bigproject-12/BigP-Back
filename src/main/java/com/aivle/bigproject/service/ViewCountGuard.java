@@ -12,7 +12,7 @@ import java.util.concurrent.ConcurrentHashMap;
 @Component
 public class ViewCountGuard {
 
-    private static final Duration COOLDOWN = Duration.ofHours(1);
+    private static final Duration COOLDOWN = Duration.ofSeconds(3);
 
     // "userId:boardId" → 마지막 조회 시각
     private final Map<String, LocalDateTime> lastViewed = new ConcurrentHashMap<>();
