@@ -1,5 +1,6 @@
 package com.aivle.bigproject.service;
 
+import com.aivle.bigproject.common.PasswordPolicy;
 import com.aivle.bigproject.dto.user.AccountDeleteRequest;
 import com.aivle.bigproject.dto.user.LoginResponse;
 import com.aivle.bigproject.dto.user.LoginRequest;
@@ -160,7 +161,13 @@ public class UserService {
         refreshTokenService.revoke(userId);
     }
 
-    /** 현재 비밀번호를 검증한 뒤 새 비밀번호를 암호화하여 저장한다. */
+    /**
+     * 현재 비밀번호를 검증한 뒤 새 비밀번호를 암호화하여 저장한다.
+     * 화면에 보여줄 에러 우선순위: 현재 비밀번호 불일치 -> 새 비밀번호/확인 불일치
+     * -> 길이 -> 복잡도(정규식) -> 새 비밀번호가 현재 비밀번호와 동일.
+     * PasswordChangeRequest는 이 순서를 지키기 위해 @Size/@Pattern 없이 @NotBlank만 검증하고,
+     * 나머지는 여기서 순서대로 직접 검사한다.
+     */
     @Transactional
     public void changePassword(Integer userId, PasswordChangeRequest request) {
         User user = userRepository.findById(userId)
@@ -168,6 +175,19 @@ public class UserService {
 
         if (!passwordEncoder.matches(request.currentPassword(), user.getPassword())) {
             throw new CustomException(ErrorCode.WRONG_PASSWORD);
+        }
+        if (!request.newPassword().equals(request.newPasswordConfirm())) {
+            throw new CustomException(ErrorCode.NEW_PASSWORD_MISMATCH);
+        }
+        if (request.newPassword().length() < PasswordPolicy.MIN_LENGTH
+                || request.newPassword().length() > PasswordPolicy.MAX_LENGTH) {
+            throw new CustomException(ErrorCode.INVALID_PASSWORD_LENGTH);
+        }
+        if (!request.newPassword().matches(PasswordPolicy.REGEXP)) {
+            throw new CustomException(ErrorCode.INVALID_PASSWORD_PATTERN);
+        }
+        if (passwordEncoder.matches(request.newPassword(), user.getPassword())) {
+            throw new CustomException(ErrorCode.SAME_AS_CURRENT_PASSWORD);
         }
 
         user.setPassword(passwordEncoder.encode(request.newPassword()));
