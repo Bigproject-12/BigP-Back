@@ -16,6 +16,10 @@ import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.security.oauth2.jwt.Jwt;
 import org.springframework.web.bind.annotation.*;
+import org.springframework.web.multipart.MultipartFile;
+import org.springframework.http.MediaType;
+import org.springframework.web.multipart.MultipartFile;
+import java.util.List;
 
 @RestController
 @RequestMapping("/api/notices")
@@ -28,14 +32,15 @@ public class AnnouncementController {
     }
 
     /** 공지사항 게시 — 관리자 전용 */
-    @PostMapping
+    @PostMapping(consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
     @PreAuthorize("hasRole('ADMIN')")
     public ResponseEntity<AnnouncementResponse> create(
             @AuthenticationPrincipal Jwt jwt,
-            @Valid @RequestBody AnnouncementCreateRequest request
+            @RequestPart("request") @Valid AnnouncementCreateRequest request,
+            @RequestPart(value = "files", required = false) List<MultipartFile> files
     ) {
         AnnouncementResponse response =
-                announcementService.create(Integer.valueOf(jwt.getSubject()), request);
+                announcementService.create(Integer.valueOf(jwt.getSubject()), request, files);
 
         return ResponseEntity.status(HttpStatus.CREATED).body(response);
     }
