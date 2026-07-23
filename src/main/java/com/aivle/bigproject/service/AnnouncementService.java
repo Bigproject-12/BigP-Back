@@ -27,8 +27,9 @@ public class AnnouncementService {
     private final AnnouncementRepository announcementRepository;
     private final UserRepository userRepository;
     private final NotificationService notificationService;
+    private final ViewCountGuard viewCountGuard;
 
-    /** 공지 등록 */
+    //공지 등록
     @Transactional
     public AnnouncementResponse create(Integer userId, AnnouncementCreateRequest request) {
         User writer = userRepository.findById(userId)
@@ -47,7 +48,7 @@ public class AnnouncementService {
         return AnnouncementResponse.from(saved);
     }
 
-    /** 공지 수정 — save() 없이 더티 체킹으로 반영 */
+    //공지 수정 — save() 없이 더티 체킹으로 반영
     @Transactional
     public AnnouncementResponse update(Integer boardId, AnnouncementUpdateRequest request) {
         Announcement announcement = findOrThrow(boardId);
@@ -55,21 +56,25 @@ public class AnnouncementService {
         return AnnouncementResponse.from(announcement);
     }
 
-    /** 공지 삭제 */
+    // 공지 삭제
     @Transactional
     public void delete(Integer boardId) {
         announcementRepository.delete(findOrThrow(boardId));
     }
 
-    /** 상세 조회 — 조회수가 오르므로 쓰기 트랜잭션 */
+    // 상세 조회
     @Transactional
-    public AnnouncementResponse getDetail(Integer boardId) {
+    public AnnouncementResponse getDetail(Integer userId, Integer boardId) {
         Announcement announcement = findOrThrow(boardId);
-        announcement.increaseViewCount();
+
+        // 1시간 내 같은 사용자의 재조회는 집계하지 않음
+        if (viewCountGuard.shouldIncrease(userId, boardId)) {
+            announcement.increaseViewCount();
+        }
         return AnnouncementResponse.from(announcement);
     }
 
-    /** 목록 조회 (검색 + 페이징) */
+    //목록 조회 (검색 + 페이징)
     public Page<AnnouncementSummaryResponse> getList(String keyword, Pageable pageable) {
         // 빈 문자열·공백만 들어온 경우 검색어 없음(null)으로 통일
         String normalized = (keyword == null || keyword.isBlank()) ? null : keyword.trim();
@@ -88,7 +93,7 @@ public class AnnouncementService {
                 .map(AnnouncementSummaryResponse::from);
     }
 
-    /** 공통 조회 — 없으면 예외 */
+    // 공통 조회 — 없으면 예외
     private Announcement findOrThrow(Integer boardId) {
         return announcementRepository.findById(boardId)
                 .orElseThrow(() -> new CustomException(ErrorCode.ANNOUNCEMENT_NOT_FOUND));
