@@ -82,3 +82,6 @@ application-secret.yaml
 # Temporary files
 *.tmp
 *.swp
+
+# Environments
+.env

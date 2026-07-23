@@ -41,4 +41,15 @@ public class GithubRepo {
     @CreatedDate
     @Column(name = "created_at", nullable = false, updatable = false)
     private LocalDate createdAt;
+
+    @Column(name = "webhook_id")
+    private Long webhookId;
+
+    @Column(name = "webhook_active")
+    private Boolean webhookActive;
+
+    public void updateWebhookInfo(Long webhookId, Boolean webhookActive) {
+        this.webhookId = webhookId;
+        this.webhookActive = webhookActive;
+    }
 }
