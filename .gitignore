@@ -85,3 +85,6 @@ application-secret.yaml
 
 # Environments
 .env
+
+# Uploaded files
+uploads/
