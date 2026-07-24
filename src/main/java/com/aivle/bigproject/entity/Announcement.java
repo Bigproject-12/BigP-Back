@@ -3,6 +3,9 @@ package com.aivle.bigproject.entity;
 import jakarta.persistence.*;
 import lombok.*;
 import java.time.LocalDateTime;
+import java.util.ArrayList;
+import java.util.List;
+
 import org.springframework.data.annotation.CreatedDate;
 import org.springframework.data.annotation.LastModifiedDate;
 import org.springframework.data.jpa.domain.support.AuditingEntityListener;
@@ -48,6 +51,11 @@ public class Announcement {
     @Builder.Default
     @Column(name = "is_pinned", nullable = false)
     private Boolean isPinned = false;
+
+    //파일 정보와의 관계성 추가 
+    @Builder.Default
+    @OneToMany(mappedBy = "announcement", cascade = CascadeType.ALL, orphanRemoval = true)
+    private List<AnnouncementFile> files = new ArrayList<>();
 
     public void update(String title, String content, Boolean isPinned) {
         if (title != null) this.title = title;
