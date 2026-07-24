@@ -16,6 +16,7 @@ public enum ErrorCode {
     INVALID_PASSWORD_LENGTH(HttpStatus.BAD_REQUEST, PasswordPolicy.LENGTH_MESSAGE),
     INVALID_PASSWORD_PATTERN(HttpStatus.BAD_REQUEST, PasswordPolicy.PATTERN_MESSAGE),
     SAME_AS_CURRENT_PASSWORD(HttpStatus.BAD_REQUEST, "새 비밀번호가 현재 비밀번호와 동일합니다. 다른 비밀번호를 입력해주세요."),
+    INVALID_RESET_CODE(HttpStatus.BAD_REQUEST, "인증 코드가 올바르지 않거나 만료되었습니다."),
     INVALID_CREDENTIALS(HttpStatus.UNAUTHORIZED, "아이디 또는 비밀번호가 올바르지 않습니다."),
     SOCIAL_LOGIN_FAILED(HttpStatus.UNAUTHORIZED, "소셜 로그인에 실패했습니다."),
     SOCIAL_ACCOUNT_NOT_FOUND(HttpStatus.NOT_FOUND, "연동된 소셜 계정을 찾을 수 없습니다."),
