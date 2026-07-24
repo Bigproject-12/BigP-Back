@@ -3,6 +3,8 @@ package com.aivle.bigproject.entity;
 import lombok.*;
 import jakarta.persistence.*;
 import org.springframework.data.jpa.domain.support.AuditingEntityListener;
+import java.time.LocalDateTime;
+import org.springframework.data.annotation.CreatedDate;
 
 @Entity
 @Getter
@@ -38,9 +40,16 @@ public class Analysis {
     @Column(nullable = false)
     private String language;
 
+    @Column(name = "file_path",length = 500) // 히스토리 파일경로 추가
+    private String filePath;
+
     @Column(columnDefinition = "TEXT")
     private String prompt;
 
     @Column(nullable = false)
     private String status;
+
+    @CreatedDate
+    @Column (name= "created_at", updatable=false)  //분석요청 시간 추가
+    private LocalDateTime createdAt;
 }
