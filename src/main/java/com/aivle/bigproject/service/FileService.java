@@ -54,6 +54,13 @@ public class FileService {
                 .build();
     }
 
+    public void deleteFile(AnnouncementFile fileEntity) {
+        File file = new File(fileEntity.getFilePath());
+        if (file.exists()) {
+            file.delete();
+        }
+    }
+
     public AnnouncementFile findById(Integer fileId) {
         return announcementFileRepository.findById(fileId)
                 .orElseThrow(() -> new RuntimeException("파일을 찾을 수 없습니다."));

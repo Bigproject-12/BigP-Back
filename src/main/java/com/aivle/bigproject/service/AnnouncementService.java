@@ -86,8 +86,10 @@ public class AnnouncementService {
     // 공지 삭제
     @Transactional
     public void delete(Integer boardId) {
+        Announcement announcement = findOrThrow(boardId);
+        announcement.getFiles().forEach(fileService::deleteFile);
         notificationRepository.deleteByAnnouncement(boardId);
-        announcementRepository.delete(findOrThrow(boardId));
+        announcementRepository.delete(announcement);
     }
 
     // 상세 조회
