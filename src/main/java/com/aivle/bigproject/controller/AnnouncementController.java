@@ -5,6 +5,8 @@ import com.aivle.bigproject.dto.announcement.AnnouncementResponse;
 import com.aivle.bigproject.dto.announcement.AnnouncementSummaryResponse;
 import com.aivle.bigproject.dto.announcement.AnnouncementUpdateRequest;
 import com.aivle.bigproject.service.AnnouncementService;
+import com.aivle.bigproject.service.FileService;
+
 import jakarta.validation.Valid;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
@@ -16,26 +18,46 @@ import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.security.oauth2.jwt.Jwt;
 import org.springframework.web.bind.annotation.*;
+import org.springframework.web.multipart.MultipartFile;
+import org.springframework.web.util.UriUtils;
+import org.springframework.http.MediaType;
+import org.springframework.web.multipart.MultipartFile;
+
+import org.springframework.core.io.Resource;
+import org.springframework.http.HttpHeaders;
+import org.springframework.http.MediaType;
+import java.nio.charset.StandardCharsets;
+import org.springframework.web.util.UriUtils;
+import com.aivle.bigproject.entity.AnnouncementFile;
+import com.aivle.bigproject.service.FileService;
+import com.aivle.bigproject.entity.AnnouncementFile;
+
+import java.nio.charset.StandardCharsets;
+import java.util.List;
 
 @RestController
 @RequestMapping("/api/notices")
 public class AnnouncementController {
 
     private final AnnouncementService announcementService;
+    private final FileService fileService;
 
-    public AnnouncementController(AnnouncementService announcementService) {
+    public AnnouncementController(AnnouncementService announcementService, FileService fileService) {
         this.announcementService = announcementService;
+        this.fileService = fileService;
     }
 
-    // 공지사항 게시 — 관리자 전용
-    @PostMapping
+
+    /** 공지사항 게시 — 관리자 전용 */
+    @PostMapping(consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
     @PreAuthorize("hasRole('ADMIN')")
     public ResponseEntity<AnnouncementResponse> create(
             @AuthenticationPrincipal Jwt jwt,
-            @Valid @RequestBody AnnouncementCreateRequest request
+            @RequestPart("request") @Valid AnnouncementCreateRequest request,
+            @RequestPart(value = "files", required = false) List<MultipartFile> files
     ) {
         AnnouncementResponse response =
-                announcementService.create(Integer.valueOf(jwt.getSubject()), request);
+                announcementService.create(Integer.valueOf(jwt.getSubject()), request, files);
 
         return ResponseEntity.status(HttpStatus.CREATED).body(response);
     }
@@ -77,5 +99,20 @@ public class AnnouncementController {
             Pageable pageable
     ) {
         return announcementService.getList(keyword, pageable);
+    }
+
+    /*첨부파일 다운로드 - 로그인 사용자 전체*/
+    @GetMapping("/files/{fileId}")
+    public ResponseEntity<Resource> downloadFile(@PathVariable Integer fileId) {
+        AnnouncementFile fileEntity = fileService.findById(fileId);
+        Resource resource = fileService.loadAsResource(fileEntity);
+
+        // 한글 파일명이 깨지지 않도록 유니코드 인코딩 처리
+        String encodedFileName = UriUtils.encode(fileEntity.getOriginalFileName(), StandardCharsets.UTF_8);
+
+        return ResponseEntity.ok()
+                .contentType(MediaType.APPLICATION_OCTET_STREAM)
+                .header(HttpHeaders.CONTENT_DISPOSITION, "attachment; filename=\"" + encodedFileName + "\"")
+                .body(resource);
     }
 }
