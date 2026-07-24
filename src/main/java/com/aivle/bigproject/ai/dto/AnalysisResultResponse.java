@@ -17,6 +17,7 @@ public class AnalysisResultResponse {
     private String inefficiencyResult;
     private String modifiedCode;
     private Boolean aiGenerated;
+    private Double aiProbability;
 
     public static AnalysisResultResponse of(Analysis analysis, Finding finding) {
         AnalysisResultResponseBuilder builder = AnalysisResultResponse.builder()
@@ -29,7 +30,8 @@ public class AnalysisResultResponse {
                    .secuResult(finding.getSecuResult())
                    .inefficiencyResult(finding.getInefficiencyResult())
                    .modifiedCode(finding.getModifiedCode())
-                   .aiGenerated(finding.isAiGenerated());
+                   .aiGenerated(finding.isAiGenerated())
+                   .aiProbability(finding.getAiProbability());
         }
         return builder.build();
     }
