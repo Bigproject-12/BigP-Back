@@ -138,6 +138,7 @@ public class AnalysisService {
                         .secuResult(secuResultStr)
                         .duplicateResult("[]") 
                         .isAiGenerated(response.isAiGenerated() != null && response.isAiGenerated())
+                        .aiProbability(response.aiProbability())
                         .totalIssues(securityCount + inefficiencyCount)
                         .securityCount(securityCount)
                         .inefficiencyCount(inefficiencyCount)

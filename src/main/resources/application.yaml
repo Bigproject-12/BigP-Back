@@ -20,6 +20,20 @@ spring:
     properties:
       hibernate:
         format_sql: true
+  mail:
+    host: ${MAIL_HOST:smtp.gmail.com}
+    port: ${MAIL_PORT:587}
+    username: ${MAIL_USERNAME:}
+    password: ${MAIL_PASSWORD:}
+    properties:
+      mail:
+        smtp:
+          auth: true
+          starttls:
+            enable: true
+  servlet:
+    multipart:
+      max-file-size: 50MB
 
 jwt:
   issuer: ${JWT_ISSUER:bigproject}
@@ -30,8 +44,8 @@ jwt:
 github:
   client-id: Ov23li2Eh48qZVICSN54
   client-secret: ${GITHUB_CLIENT_SECRET}
-  oauth-redirect-uri: http://localhost:8081/api/github/oauth/callback 
-  oauth-scope: "repo admin:repo_hook read:user"
+  oauth-redirect-uri: http://localhost:8081/api/github/oauth/callback
+  oauth-scope: "repo admin:repo_hook admin:org_hook read:user"
   webhook-secret: ${GITHUB_WEBHOOK_SECRET}
-  webhook-callback-url: ${GITHUB_WEBHOOK_CALLBACK_URL}   
+  webhook-callback-url: ${GITHUB_WEBHOOK_CALLBACK_URL}  
   token-encryption-key: ${GITHUB_TOKEN_ENCRYPTION_KEY}

@@ -5,19 +5,33 @@ import com.aivle.bigproject.dto.announcement.AnnouncementResponse;
 import com.aivle.bigproject.dto.announcement.AnnouncementSummaryResponse;
 import com.aivle.bigproject.dto.announcement.AnnouncementUpdateRequest;
 import com.aivle.bigproject.entity.Announcement;
+import com.aivle.bigproject.entity.AnnouncementFile;
 import com.aivle.bigproject.entity.User;
 import com.aivle.bigproject.exception.CustomException;
 import com.aivle.bigproject.exception.ErrorCode;
 import com.aivle.bigproject.repository.AnnouncementRepository;
+import com.aivle.bigproject.repository.NotificationRepository;
 import com.aivle.bigproject.repository.UserRepository;
 import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.PathVariable;
+import org.springframework.web.multipart.MultipartFile;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Sort;
+import org.springframework.http.ResponseEntity;
 
+import java.util.ArrayList;
+import java.util.List;
+
+import org.springframework.core.io.Resource;
+import org.springframework.http.HttpHeaders;
+import org.springframework.http.MediaType;
+import java.nio.charset.StandardCharsets;
+import org.springframework.web.util.UriUtils;
 
 @Service
 @RequiredArgsConstructor
@@ -27,11 +41,14 @@ public class AnnouncementService {
     private final AnnouncementRepository announcementRepository;
     private final UserRepository userRepository;
     private final NotificationService notificationService;
+    private final NotificationRepository notificationRepository;
+    private final FileService fileService;
+
     private final ViewCountGuard viewCountGuard;
 
     //공지 등록
     @Transactional
-    public AnnouncementResponse create(Integer userId, AnnouncementCreateRequest request) {
+    public AnnouncementResponse create(Integer userId, AnnouncementCreateRequest request, List<MultipartFile> files) {
         User writer = userRepository.findById(userId)
                 .orElseThrow(() -> new CustomException(ErrorCode.USER_NOT_FOUND));
 
@@ -44,6 +61,16 @@ public class AnnouncementService {
                         .isPinned(Boolean.TRUE.equals(request.isPinned()))
                         .build()
         );
+
+
+        if (files != null && !files.isEmpty()) {
+            for (MultipartFile file : files) {
+                if (!file.isEmpty()) {
+                    AnnouncementFile announcementFile = fileService.storeFile(file, saved);
+                    saved.getFiles().add(announcementFile);
+                }
+            }
+        }
         notificationService.notifyAnnouncementCreated(saved);
         return AnnouncementResponse.from(saved);
     }
@@ -59,7 +86,10 @@ public class AnnouncementService {
     // 공지 삭제
     @Transactional
     public void delete(Integer boardId) {
-        announcementRepository.delete(findOrThrow(boardId));
+        Announcement announcement = findOrThrow(boardId);
+        announcement.getFiles().forEach(fileService::deleteFile);
+        notificationRepository.deleteByAnnouncement(boardId);
+        announcementRepository.delete(announcement);
     }
 
     // 상세 조회
