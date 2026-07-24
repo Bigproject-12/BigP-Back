@@ -6,14 +6,23 @@ import java.util.List;
  * 대시보드 통계 응답 DTO
  */
 public record DashboardResponse(
-        long monthlyAnalysisCount,
-        long vulnerabilityCount,
-        double avgImprovementRate,
-        long autoPrCount,
-        List<QualityTrendPoint> qualityTrend,
-        List<IssueTypeBucket> issueTypeDistribution,
-        String styleSummary   // 스타일요약 - myspace
+        long repositoryCount,
+        long totalAnalysisCount,
+        long analyzingCount,
+        long completedCount,
+        long failedCount,
+        long canceledCount,
+        long totalIssueCount,
+        long securityIssueCount,
+        long inefficiencyIssueCount,
+        List<RecentAnalysis> recentAnalyses
 ){
-    public record QualityTrendPoint(String label, double score) {}
-    public record IssueTypeBucket(String issueType, long count) {}
+    public record RecentAnalysis(
+            Integer analysisId,
+            Integer repoId,
+            String repoName,
+            String language,
+            String status,
+            long totalIssueCount
+    ) {}
 }
