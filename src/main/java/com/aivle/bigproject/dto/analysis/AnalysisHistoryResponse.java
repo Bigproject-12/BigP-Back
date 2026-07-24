@@ -20,10 +20,18 @@ public record AnalysisHistoryResponse (
                 analysis.getId(),
                 analysis.getFilePath(),
                 analysis.getCreatedAt(),
-                finding != null? finding.getTotalIssues() : null, // 진행중 / 실패 / 취소에는 finding이 없으므로
+                resolveIssueCount(analysis,finding),// 진행중 / 실패 / 취소에는 finding이 없으므로
                 null, // 개선율
                 analysis.getStatus()
         );
+    }
+
+    // 이슈가 0건일때
+    private static Integer resolveIssueCount(Analysis analysis,Finding finding){
+        if (finding != null){
+            return finding.getTotalIssues();
+        }
+        return "COMPLETED".equals(analysis.getStatus()) ? 0:null;
     }
 }
 
