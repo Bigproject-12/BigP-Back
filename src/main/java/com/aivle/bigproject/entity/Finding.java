@@ -45,6 +45,9 @@ public class Finding {
     @Column(name = "is_ai_generated", nullable = false)
     private boolean isAiGenerated;
 
+    @Column(name = "ai_probability")
+    private Double aiProbability;
+
     @Column(name = "total_issues", nullable = false)
     private Integer totalIssues;
 
