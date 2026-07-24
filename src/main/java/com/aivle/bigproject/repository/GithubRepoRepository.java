@@ -8,4 +8,6 @@ public interface GithubRepoRepository extends JpaRepository<GithubRepo, Integer>
     boolean existsByName(String name);
 
     Optional<GithubRepo> findByName(String name);
+
+    Optional<GithubRepo> findByNameAndOrganization(String name, String organization);
 }

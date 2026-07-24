@@ -8,8 +8,13 @@ import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 import java.util.List;
 
-
 public interface AnalysisRepository extends JpaRepository<Analysis, Integer> {
+
+    long countByUserId(Integer userId);
+
+    long countByUserIdAndStatus(Integer userId, String status);
+
+    List<Analysis> findTop5ByUserIdOrderByIdDesc(Integer userId);
 
     @Modifying
     @Query(value = "DELETE FROM ANALYSIS WHERE user_id = :userId", nativeQuery = true)
@@ -24,7 +29,7 @@ public interface AnalysisRepository extends JpaRepository<Analysis, Integer> {
                 f.totalIssues,
                 NULL,
                 a.status
-            )     
+            )
             FROM Analysis a
             LEFT JOIN Finding f ON f.analysis = a
             WHERE a.githubRepo.id = :repoId
