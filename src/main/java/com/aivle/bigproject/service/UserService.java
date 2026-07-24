@@ -5,6 +5,8 @@ import com.aivle.bigproject.dto.user.AccountDeleteRequest;
 import com.aivle.bigproject.dto.user.LoginResponse;
 import com.aivle.bigproject.dto.user.LoginRequest;
 import com.aivle.bigproject.dto.user.PasswordChangeRequest;
+import com.aivle.bigproject.dto.user.PasswordResetCodeRequest;
+import com.aivle.bigproject.dto.user.PasswordResetRequest;
 import com.aivle.bigproject.dto.user.RefreshTokenRequest;
 import com.aivle.bigproject.dto.user.SignupRequest;
 import com.aivle.bigproject.dto.user.UserResponse;
@@ -52,6 +54,7 @@ public class UserService {
     private final AnnouncementRepository announcementRepository;
     private final RepoFavRepository repoFavRepository;
     private final UserRepoRepository userRepoRepository;
+    private final PasswordResetCodeService passwordResetCodeService;
 
     public UserService(
             UserRepository userRepository,
@@ -65,7 +68,8 @@ public class UserService {
             AnalysisRepository analysisRepository,
             AnnouncementRepository announcementRepository,
             RepoFavRepository repoFavRepository,
-            UserRepoRepository userRepoRepository
+            UserRepoRepository userRepoRepository,
+            PasswordResetCodeService passwordResetCodeService
     ) {
         this.userRepository = userRepository;
         this.companyRepository = companyRepository;
@@ -79,6 +83,7 @@ public class UserService {
         this.announcementRepository = announcementRepository;
         this.repoFavRepository = repoFavRepository;
         this.userRepoRepository = userRepoRepository;
+        this.passwordResetCodeService = passwordResetCodeService;
     }
 
     @Transactional
@@ -175,6 +180,45 @@ public class UserService {
 
         if (!passwordEncoder.matches(request.currentPassword(), user.getPassword())) {
             throw new CustomException(ErrorCode.WRONG_PASSWORD);
+        }
+        if (!request.newPassword().equals(request.newPasswordConfirm())) {
+            throw new CustomException(ErrorCode.NEW_PASSWORD_MISMATCH);
+        }
+        if (request.newPassword().length() < PasswordPolicy.MIN_LENGTH
+                || request.newPassword().length() > PasswordPolicy.MAX_LENGTH) {
+            throw new CustomException(ErrorCode.INVALID_PASSWORD_LENGTH);
+        }
+        if (!request.newPassword().matches(PasswordPolicy.REGEXP)) {
+            throw new CustomException(ErrorCode.INVALID_PASSWORD_PATTERN);
+        }
+        if (passwordEncoder.matches(request.newPassword(), user.getPassword())) {
+            throw new CustomException(ErrorCode.SAME_AS_CURRENT_PASSWORD);
+        }
+
+        user.setPassword(passwordEncoder.encode(request.newPassword()));
+    }
+
+    /** 비회원 비밀번호 찾기: 가입된 이메일이면 인증 코드를 보낸다. 계정 존재 여부는 노출하지 않는다. */
+    @Transactional(readOnly = true)
+    public void requestPasswordResetCode(PasswordResetCodeRequest request) {
+        String loginId = normalizeLoginId(request.loginId());
+        userRepository.findByLoginIdIgnoreCase(loginId)
+                .ifPresent(user -> passwordResetCodeService.issueAndSend(loginId));
+    }
+
+    /**
+     * 이메일로 받은 인증 코드를 확인한 뒤 비밀번호를 재설정한다.
+     * 에러 우선순위: 인증 코드 불일치/만료 -> 새 비밀번호/확인 불일치
+     * -> 길이 -> 복잡도(정규식) -> 새 비밀번호가 기존 비밀번호와 동일.
+     */
+    @Transactional
+    public void resetPassword(PasswordResetRequest request) {
+        String loginId = normalizeLoginId(request.loginId());
+        User user = userRepository.findByLoginIdIgnoreCase(loginId)
+                .orElseThrow(() -> new CustomException(ErrorCode.INVALID_RESET_CODE));
+
+        if (!passwordResetCodeService.verifyAndConsume(loginId, request.code())) {
+            throw new CustomException(ErrorCode.INVALID_RESET_CODE);
         }
         if (!request.newPassword().equals(request.newPasswordConfirm())) {
             throw new CustomException(ErrorCode.NEW_PASSWORD_MISMATCH);

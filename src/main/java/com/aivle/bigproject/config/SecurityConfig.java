@@ -50,6 +50,8 @@ public class SecurityConfig {
                                 "/api/users/signup",
                                 "/api/users/login",
                                 "/api/users/refresh",
+                                "/api/users/password/reset-code",
+                                "/api/users/password/reset",
                                 "/api/health/**",
                                 "/api/test",
                                 "/api/github/oauth/**",

@@ -4,6 +4,8 @@ import com.aivle.bigproject.dto.user.AccountDeleteRequest;
 import com.aivle.bigproject.dto.user.LoginRequest;
 import com.aivle.bigproject.dto.user.LoginResponse;
 import com.aivle.bigproject.dto.user.PasswordChangeRequest;
+import com.aivle.bigproject.dto.user.PasswordResetCodeRequest;
+import com.aivle.bigproject.dto.user.PasswordResetRequest;
 import com.aivle.bigproject.dto.user.RefreshTokenRequest;
 import com.aivle.bigproject.dto.user.SignupRequest;
 import com.aivle.bigproject.dto.user.UserResponse;
@@ -84,6 +86,24 @@ public class UserController {
             @Valid @RequestBody PasswordChangeRequest request
     ) {
         userService.changePassword(Integer.valueOf(jwt.getSubject()), request);
+        return ResponseEntity.noContent().build();
+    }
+
+    /** 비회원 비밀번호 찾기: 가입된 이메일로 인증 코드를 보낸다. */
+    @PostMapping("/password/reset-code")
+    public ResponseEntity<Void> requestPasswordResetCode(
+            @Valid @RequestBody PasswordResetCodeRequest request
+    ) {
+        userService.requestPasswordResetCode(request);
+        return ResponseEntity.noContent().build();
+    }
+
+    /** 이메일 인증 코드를 확인하고 새 비밀번호로 재설정한다. */
+    @PostMapping("/password/reset")
+    public ResponseEntity<Void> resetPassword(
+            @Valid @RequestBody PasswordResetRequest request
+    ) {
+        userService.resetPassword(request);
         return ResponseEntity.noContent().build();
     }
 
