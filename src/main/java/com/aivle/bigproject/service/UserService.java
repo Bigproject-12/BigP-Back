@@ -7,6 +7,7 @@ import com.aivle.bigproject.dto.user.LoginRequest;
 import com.aivle.bigproject.dto.user.PasswordChangeRequest;
 import com.aivle.bigproject.dto.user.PasswordResetCodeRequest;
 import com.aivle.bigproject.dto.user.PasswordResetRequest;
+import com.aivle.bigproject.dto.user.PasswordResetVerifyRequest;
 import com.aivle.bigproject.dto.user.RefreshTokenRequest;
 import com.aivle.bigproject.dto.user.SignupRequest;
 import com.aivle.bigproject.dto.user.UserResponse;
@@ -198,12 +199,22 @@ public class UserService {
         user.setPassword(passwordEncoder.encode(request.newPassword()));
     }
 
-    /** 비회원 비밀번호 찾기: 가입된 이메일이면 인증 코드를 보낸다. 계정 존재 여부는 노출하지 않는다. */
+    /** 비회원 비밀번호 찾기: 가입된 이메일로 인증 코드를 보낸다. 가입 안 된 이메일이면 바로 알려준다. */
     @Transactional(readOnly = true)
     public void requestPasswordResetCode(PasswordResetCodeRequest request) {
         String loginId = normalizeLoginId(request.loginId());
         userRepository.findByLoginIdIgnoreCase(loginId)
-                .ifPresent(user -> passwordResetCodeService.issueAndSend(loginId));
+                .orElseThrow(() -> new CustomException(ErrorCode.USER_NOT_FOUND));
+        passwordResetCodeService.issueAndSend(loginId);
+    }
+
+    /** 인증 코드가 맞는지만 확인한다(소모하지 않음). "인증 확인" 버튼에서 호출. */
+    @Transactional(readOnly = true)
+    public void verifyPasswordResetCode(PasswordResetVerifyRequest request) {
+        String loginId = normalizeLoginId(request.loginId());
+        if (!passwordResetCodeService.verify(loginId, request.code())) {
+            throw new CustomException(ErrorCode.INVALID_RESET_CODE);
+        }
     }
 
     /**
@@ -217,7 +228,10 @@ public class UserService {
         User user = userRepository.findByLoginIdIgnoreCase(loginId)
                 .orElseThrow(() -> new CustomException(ErrorCode.INVALID_RESET_CODE));
 
-        if (!passwordResetCodeService.verifyAndConsume(loginId, request.code())) {
+        // 코드는 일단 확인만 한다(소모 X). 뒤에서 새 비밀번호 검증이 실패해도
+        // 코드가 살아있어야 다시 시도할 수 있다 - 여기서 바로 소모하면 새
+        // 비밀번호 형식만 틀려도 멀쩡한 코드가 같이 타버린다.
+        if (!passwordResetCodeService.verify(loginId, request.code())) {
             throw new CustomException(ErrorCode.INVALID_RESET_CODE);
         }
         if (!request.newPassword().equals(request.newPasswordConfirm())) {
@@ -234,6 +248,10 @@ public class UserService {
             throw new CustomException(ErrorCode.SAME_AS_CURRENT_PASSWORD);
         }
 
+        // 모든 검증을 통과한 시점에만 실제로 코드를 소모한다.
+        if (!passwordResetCodeService.verifyAndConsume(loginId, request.code())) {
+            throw new CustomException(ErrorCode.INVALID_RESET_CODE);
+        }
         user.setPassword(passwordEncoder.encode(request.newPassword()));
     }
 

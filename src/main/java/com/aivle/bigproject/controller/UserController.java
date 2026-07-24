@@ -6,6 +6,7 @@ import com.aivle.bigproject.dto.user.LoginResponse;
 import com.aivle.bigproject.dto.user.PasswordChangeRequest;
 import com.aivle.bigproject.dto.user.PasswordResetCodeRequest;
 import com.aivle.bigproject.dto.user.PasswordResetRequest;
+import com.aivle.bigproject.dto.user.PasswordResetVerifyRequest;
 import com.aivle.bigproject.dto.user.RefreshTokenRequest;
 import com.aivle.bigproject.dto.user.SignupRequest;
 import com.aivle.bigproject.dto.user.UserResponse;
@@ -95,6 +96,15 @@ public class UserController {
             @Valid @RequestBody PasswordResetCodeRequest request
     ) {
         userService.requestPasswordResetCode(request);
+        return ResponseEntity.noContent().build();
+    }
+
+    /** 인증 코드가 맞는지만 확인한다 (소모하지 않음). */
+    @PostMapping("/password/verify-code")
+    public ResponseEntity<Void> verifyPasswordResetCode(
+            @Valid @RequestBody PasswordResetVerifyRequest request
+    ) {
+        userService.verifyPasswordResetCode(request);
         return ResponseEntity.noContent().build();
     }
 

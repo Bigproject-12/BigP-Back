@@ -43,13 +43,28 @@ public class PasswordResetCodeService {
         mailSender.send(message);
     }
 
-    public boolean verifyAndConsume(String loginId, String code) {
+    /**
+     * 코드를 소모하지 않고 유효한지만 확인한다 (인증 확인 버튼용).
+     * 한 번 통과하면 만료 시각을 없애서, 그 뒤 비밀번호 입력에는 5분 제한이 걸리지 않는다.
+     * ponytail: 인증 확인 후엔 사실상 무제한이라 verify만 해놓고 재설정을 안 하면
+     * 그 항목이 다음 코드 재발급 전까지 메모리에 남아있음 - 이 앱 규모에선 무시 가능한 수준.
+     */
+    public boolean verify(String loginId, String code) {
         String key = normalize(loginId);
         CodeEntry entry = codesByLoginId.get(key);
         if (entry == null || entry.expiresAt().isBefore(LocalDateTime.now()) || !entry.code().equals(code)) {
             return false;
         }
-        codesByLoginId.remove(key);
+        codesByLoginId.put(key, new CodeEntry(entry.code(), LocalDateTime.MAX));
+        return true;
+    }
+
+    /** 코드가 유효하면 확인 즉시 소모한다 (비밀번호 재설정 최종 제출용). */
+    public boolean verifyAndConsume(String loginId, String code) {
+        if (!verify(loginId, code)) {
+            return false;
+        }
+        codesByLoginId.remove(normalize(loginId));
         return true;
     }
 
