@@ -35,6 +35,7 @@ import org.springframework.web.client.RestTemplate;
 import org.springframework.scheduling.annotation.Async;
 
 import tools.jackson.databind.json.JsonMapper;
+import java.util.List;
 
 @Service
 public class AnalysisService {
@@ -109,15 +110,13 @@ public class AnalysisService {
         try {
             DetectResponse response = restTemplate.postForObject(AI_DETECT_URL, requestEntity, DetectResponse.class);
             
-            // 통신이 끝난 후 현재 DB 상태 확인 
             Analysis currentAnalysis = analysisRepository.findById(analysisId).orElseThrow();
             
             if ("CANCELED".equals(currentAnalysis.getStatus())) {
                 System.out.println("사용자가 분석을 취소했으므로 결과를 저장하지 않습니다.");
-                return; // 저장 없이 종료
+                return;
             }
 
-            // 통신 성공 및 취소되지 않았을 시 '완료' 상태로 업데이트
             currentAnalysis.setStatus("COMPLETED");
             analysisRepository.save(currentAnalysis);
             notificationService.notifyAnalysisCompleted(currentAnalysis);
@@ -125,33 +124,31 @@ public class AnalysisService {
             int securityCount = response.vulnerabilities() != null ? response.vulnerabilities().size() : 0;
             int inefficiencyCount = response.complexityDetails() != null ? response.complexityDetails().size() : 0;
             
-            if (securityCount > 0 || inefficiencyCount > 0) {
-                
-                String secuResultStr = jsonMapper.writeValueAsString(response.vulnerabilities());
-                String inefficiencyResultStr = jsonMapper.writeValueAsString(response.complexityDetails());
-                String modifiedCode = response.patchedCode() != null ? response.patchedCode() : "";
+            // 조건 없이 항상 Finding 저장 (null 방어 포함)
+            String secuResultStr = jsonMapper.writeValueAsString(
+                    response.vulnerabilities() != null ? response.vulnerabilities() : List.of()
+            );
+            String inefficiencyResultStr = jsonMapper.writeValueAsString(
+                    response.complexityDetails() != null ? response.complexityDetails() : List.of()
+            );
+            String modifiedCode = response.patchedCode() != null ? response.patchedCode() : "";
 
-                Finding finding = Finding.builder()
-                        .analysis(currentAnalysis)
-                        .inefficiencyResult(inefficiencyResultStr)
-                        .modifiedCode(modifiedCode)
-                        .secuResult(secuResultStr)
-                        .duplicateResult("[]") 
-                        .isAiGenerated(response.isAiGenerated() != null && response.isAiGenerated())
-                        .aiProbability(response.aiProbability())
-                        .totalIssues(securityCount + inefficiencyCount)
-                        .securityCount(securityCount)
-                        .inefficiencyCount(inefficiencyCount)
-                        .build();
+            Finding finding = Finding.builder()
+                    .analysis(currentAnalysis)
+                    .inefficiencyResult(inefficiencyResultStr)
+                    .modifiedCode(modifiedCode)
+                    .secuResult(secuResultStr)
+                    .duplicateResult("[]") 
+                    .isAiGenerated(response.isAiGenerated() != null && response.isAiGenerated())
+                    .aiProbability(response.aiProbability())
+                    .totalIssues(securityCount + inefficiencyCount)
+                    .securityCount(securityCount)
+                    .inefficiencyCount(inefficiencyCount)
+                    .build();
 
-                findingRepository.save(finding);
-            }
-            else{
-                System.out.println("발견된 문제 없어서 FINDING엔 올라갈 게 없음");
-            }
+            findingRepository.save(finding);
             
         } catch (Exception e) {
-            // 실패 상태로 업데이트
             Analysis currentAnalysis = analysisRepository.findById(analysisId).orElseThrow();
             currentAnalysis.setStatus("FAILED");
             analysisRepository.save(currentAnalysis);
