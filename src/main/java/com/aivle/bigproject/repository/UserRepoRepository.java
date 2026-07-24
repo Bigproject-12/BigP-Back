@@ -20,4 +20,12 @@ public interface UserRepoRepository extends JpaRepository<UserRepo, Integer> {
     @Modifying
     @Query(value = "DELETE FROM USER_REPO WHERE user_id = :userId", nativeQuery = true)
     void deleteByUserId(@Param("userId") Integer userId);
+
+    @Modifying
+    @Query(value = """
+            DELETE FROM USER_REPO 
+            WHERE user_id = :userId 
+            AND repo_id IN (SELECT repo_id FROM GITHUB_REPO WHERE organization = :orgName)
+            """, nativeQuery = true)
+    void deleteByUserIdAndOrganization(@Param("userId") Integer userId, @Param("orgName") String orgName);
 }

@@ -20,6 +20,9 @@ spring:
     properties:
       hibernate:
         format_sql: true
+  servlet:
+    multipart:
+      max-file-size: 50MB
 
 jwt:
   issuer: ${JWT_ISSUER:bigproject}
@@ -28,4 +31,10 @@ jwt:
   refresh-token-expiration-seconds: ${JWT_REFRESH_TOKEN_EXPIRATION_SECONDS:1209600}
 
 github:
-  token-encryption-key: "MTIzNDU2Nzg5MDEyMzQ1Njc4OTAxMjM0NTY3ODkwMTI="
+  client-id: Ov23li2Eh48qZVICSN54
+  client-secret: 0526cc6472e750da992e11c4ab654bc8a06b5799
+  oauth-redirect-uri: http://localhost:8081/api/github/oauth/callback 
+  oauth-scope: "repo admin:repo_hook read:user"
+  webhook-secret: my-gardrall-webhook-secret-key
+  webhook-callback-url: https://smee.io/WDAvS6zcVrcXEWLw
+  token-encryption-key: MTIzNDU2Nzg5MDEyMzQ1Njc4OTAxMjM0NTY3ODkwMTI=
