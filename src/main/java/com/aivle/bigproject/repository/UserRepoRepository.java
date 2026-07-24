@@ -15,6 +15,8 @@ public interface UserRepoRepository extends JpaRepository<UserRepo, Integer> {
 
     List<UserRepo> findAllByUserId(Integer userId);
 
+    long countByUserId(Integer userId);
+
     Optional<UserRepo> findByUser_IdAndGithubRepo_Id(Integer userId, Integer repoId);
 
     @Modifying

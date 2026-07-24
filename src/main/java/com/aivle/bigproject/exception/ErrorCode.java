@@ -1,5 +1,6 @@
 package com.aivle.bigproject.exception;
 
+import com.aivle.bigproject.common.PasswordPolicy;
 import lombok.Getter;
 import org.springframework.http.HttpStatus;
 
@@ -10,7 +11,11 @@ public enum ErrorCode {
     // 로그인 및 회원가입
     USER_NOT_FOUND(HttpStatus.NOT_FOUND, "사용자를 찾을 수 없습니다."),
     ID_ALREADY_EXISTS(HttpStatus.CONFLICT, "아이디 또는 이메일이 이미 존재합니다."),
-    WRONG_PASSWORD(HttpStatus.UNAUTHORIZED, "비밀번호가 올바르지 않습니다."),
+    WRONG_PASSWORD(HttpStatus.UNAUTHORIZED, "현재 비밀번호가 올바르지 않습니다."),
+    NEW_PASSWORD_MISMATCH(HttpStatus.BAD_REQUEST, "새 비밀번호가 새 비밀번호 확인과 일치하지 않습니다."),
+    INVALID_PASSWORD_LENGTH(HttpStatus.BAD_REQUEST, PasswordPolicy.LENGTH_MESSAGE),
+    INVALID_PASSWORD_PATTERN(HttpStatus.BAD_REQUEST, PasswordPolicy.PATTERN_MESSAGE),
+    SAME_AS_CURRENT_PASSWORD(HttpStatus.BAD_REQUEST, "새 비밀번호가 현재 비밀번호와 동일합니다. 다른 비밀번호를 입력해주세요."),
     INVALID_CREDENTIALS(HttpStatus.UNAUTHORIZED, "아이디 또는 비밀번호가 올바르지 않습니다."),
     SOCIAL_LOGIN_FAILED(HttpStatus.UNAUTHORIZED, "소셜 로그인에 실패했습니다."),
     SOCIAL_ACCOUNT_NOT_FOUND(HttpStatus.NOT_FOUND, "연동된 소셜 계정을 찾을 수 없습니다."),

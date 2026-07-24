@@ -18,4 +18,19 @@ public interface FindingRepository extends JpaRepository<Finding, Integer> {
     void deleteByAnalysisOwner(@Param("userId") Integer userId);
 
     Optional<Finding> findByAnalysisId(Integer analysisId);
+
+    @Query("""
+            SELECT COALESCE(SUM(f.totalIssues), 0) AS totalIssueCount,
+                   COALESCE(SUM(f.securityCount), 0) AS securityIssueCount,
+                   COALESCE(SUM(f.inefficiencyCount), 0) AS inefficiencyIssueCount
+            FROM Finding f
+            WHERE f.analysis.user.id = :userId
+            """)
+    IssueCountSummary sumIssueCountsByUserId(@Param("userId") Integer userId);
+
+    interface IssueCountSummary {
+        long getTotalIssueCount();
+        long getSecurityIssueCount();
+        long getInefficiencyIssueCount();
+    }
 }
