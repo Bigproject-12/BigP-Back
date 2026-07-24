@@ -10,6 +10,7 @@ import com.aivle.bigproject.entity.User;
 import com.aivle.bigproject.exception.CustomException;
 import com.aivle.bigproject.exception.ErrorCode;
 import com.aivle.bigproject.repository.AnnouncementRepository;
+import com.aivle.bigproject.repository.NotificationRepository;
 import com.aivle.bigproject.repository.UserRepository;
 import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.Page;
@@ -40,6 +41,7 @@ public class AnnouncementService {
     private final AnnouncementRepository announcementRepository;
     private final UserRepository userRepository;
     private final NotificationService notificationService;
+    private final NotificationRepository notificationRepository;
     private final FileService fileService;
 
     private final ViewCountGuard viewCountGuard;
@@ -84,6 +86,7 @@ public class AnnouncementService {
     // 공지 삭제
     @Transactional
     public void delete(Integer boardId) {
+        notificationRepository.deleteByAnnouncement(boardId);
         announcementRepository.delete(findOrThrow(boardId));
     }
 
