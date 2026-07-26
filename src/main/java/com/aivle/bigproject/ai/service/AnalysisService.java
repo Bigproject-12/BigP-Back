@@ -116,10 +116,6 @@ public class AnalysisService {
                 System.out.println("사용자가 분석을 취소했으므로 결과를 저장하지 않습니다.");
                 return;
             }
-
-            currentAnalysis.setStatus("COMPLETED");
-            analysisRepository.save(currentAnalysis);
-            notificationService.notifyAnalysisCompleted(currentAnalysis);
             
             int securityCount = response.vulnerabilities() != null ? response.vulnerabilities().size() : 0;
             int inefficiencyCount = response.complexityDetails() != null ? response.complexityDetails().size() : 0;
@@ -147,6 +143,10 @@ public class AnalysisService {
                     .build();
 
             findingRepository.save(finding);
+
+            currentAnalysis.setStatus("COMPLETED");
+            analysisRepository.save(currentAnalysis);
+            notificationService.notifyAnalysisCompleted(currentAnalysis);
             
         } catch (Exception e) {
             Analysis currentAnalysis = analysisRepository.findById(analysisId).orElseThrow();
