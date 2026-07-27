@@ -1,6 +1,8 @@
 package com.aivle.bigproject.ai.dto;
 
+import com.fasterxml.jackson.annotation.JsonProperty;
+
 public record IndexFileItem(
-    String file_path,
+    @JsonProperty("file_path") String filePath,
     String content
 ) {}
