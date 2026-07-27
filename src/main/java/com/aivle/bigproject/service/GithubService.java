@@ -15,15 +15,19 @@ import com.aivle.bigproject.entity.UserRepo;
 import com.aivle.bigproject.repository.UserRepoRepository;
 import com.aivle.bigproject.dto.repo.RepoResponse;
 import com.aivle.bigproject.repository.RepoEmbeddingRepository; 
+import com.aivle.bigproject.dto.repo.BranchResponse;
 
 
 import org.springframework.http.HttpEntity;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpMethod;
+import org.springframework.core.ParameterizedTypeReference;
 import org.springframework.http.ResponseEntity;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.client.RestTemplate;
+import org.springframework.web.client.HttpClientErrorException;
+import org.springframework.web.client.RestClientException;
 import org.springframework.beans.factory.annotation.Value;
 import lombok.extern.slf4j.Slf4j;
 
@@ -33,6 +37,7 @@ import java.util.Map;
 import java.util.List;
 import java.util.ArrayList;
 import java.util.Set;
+import java.util.Collections;
 
 @Slf4j
 @Service
@@ -188,6 +193,54 @@ public class GithubService {
                 .orElseThrow(() -> new CustomException(ErrorCode.REPO_NOT_FOUND));
 
         return RepoResponse.from(userRepo.getGithubRepo());
+    }
+
+    public List<BranchResponse> getRepositoryBranches(Integer userId, Integer repoId) {
+        UserRepo userRepo = userRepoRepository
+                .findByUser_IdAndGithubRepo_Id(userId, repoId)
+                .orElseThrow(() -> new CustomException(ErrorCode.REPO_NOT_FOUND));
+        User user = userRepo.getUser();
+        if (user.getGithubAccessToken() == null) {
+            throw new CustomException(ErrorCode.GITHUB_TOKEN_NOT_CONNECTED);
+        }
+
+        GithubRepo repo = userRepo.getGithubRepo();
+        HttpHeaders headers = new HttpHeaders();
+        headers.setBearerAuth(githubTokenCrypto.decrypt(user.getGithubAccessToken()));
+        headers.set("Accept", "application/vnd.github+json");
+        headers.set("X-GitHub-Api-Version", "2026-03-10");
+        String url = "https://api.github.com/repos/" + repo.getOrganization()
+                + "/" + repo.getName() + "/branches?per_page=100";
+
+        try {
+            ResponseEntity<List<Map<String, Object>>> response = new RestTemplate().exchange(
+                    url,
+                    HttpMethod.GET,
+                    new HttpEntity<>(headers),
+                    new ParameterizedTypeReference<>() {}
+            );
+            List<Map<String, Object>> branches = response.getBody() == null
+                    ? Collections.emptyList()
+                    : response.getBody();
+
+            return branches.stream()
+                    .map(branch -> {
+                        Map<String, Object> commit = (Map<String, Object>) branch.get("commit");
+                        return new BranchResponse(
+                                (String) branch.get("name"),
+                                commit == null ? null : (String) commit.get("sha"),
+                                Boolean.TRUE.equals(branch.get("protected"))
+                        );
+                    })
+                    .toList();
+        } catch (HttpClientErrorException.NotFound exception) {
+            throw new CustomException(ErrorCode.REPO_NOT_FOUND);
+        } catch (HttpClientErrorException.Forbidden exception) {
+            throw new CustomException(ErrorCode.NO_PERMISSION);
+        } catch (RestClientException exception) {
+            log.error("GitHub 브랜치 조회 실패 (repoId={}): {}", repoId, exception.getMessage());
+            throw new CustomException(ErrorCode.GITHUB_API_ERROR);
+        }
     }
 
     private void registerWebhook(GithubRepo repo, String token) {
