@@ -11,6 +11,12 @@ public class AnalysisResultResponse {
     private Integer analysisId;
     private String status;
     private String originCode;
+
+    private Integer repoId;
+    private String repoName;
+    //private String branch;
+    private String language;
+    private String filePath;
     
     private Integer totalIssues;
     private String secuResult;
@@ -23,7 +29,11 @@ public class AnalysisResultResponse {
         AnalysisResultResponseBuilder builder = AnalysisResultResponse.builder()
                 .analysisId(analysis.getId())
                 .status(analysis.getStatus())
-                .originCode(analysis.getOriginCode());
+                .originCode(analysis.getOriginCode())
+                .repoId(analysis.getGithubRepo().getId())
+                .repoName(analysis.getGithubRepo().getName())
+                .language(analysis.getLanguage())
+                .filePath(analysis.getFilePath());
 
         if (finding != null) {
             builder.totalIssues(finding.getTotalIssues())
