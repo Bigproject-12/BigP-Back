@@ -9,6 +9,7 @@ import org.springframework.web.bind.annotation.*;
 import com.aivle.bigproject.service.GithubService;
 
 import com.aivle.bigproject.dto.repo.RepoResponse; 
+import com.aivle.bigproject.dto.repo.BranchResponse;
 import java.util.List;
 
 @RestController
@@ -64,6 +65,15 @@ public class GithubController {
     ) {
         Integer userId = Integer.valueOf(jwt.getSubject());
         return ResponseEntity.ok(githubService.getUserRepo(userId, repoId));
+    }
+
+    @GetMapping("/{repoId}/branches")
+    public ResponseEntity<List<BranchResponse>> getRepositoryBranches(
+            @AuthenticationPrincipal Jwt jwt,
+            @PathVariable Integer repoId
+    ) {
+        return ResponseEntity.ok(githubService.getRepositoryBranches(
+                Integer.valueOf(jwt.getSubject()), repoId));
     }
 
     @PostMapping("/org-webhook")
