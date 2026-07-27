@@ -119,7 +119,7 @@ public class GithubService {
                     if (!repoEmbeddingRepository.existsByGithubRepo_Id(currentRepo.getId())) {
                         fetchAndEmbedRepoFiles(currentRepo.getId(), organization, repoName, "dev", tokenToUse);
                     }
-                    
+
                     if (!userRepoRepository.existsByUserAndGithubRepo(user, currentRepo)) {
                         UserRepo userRepo = UserRepo.builder()
                                 .user(user)             
@@ -316,7 +316,14 @@ public class GithubService {
                     HttpEntity<String> rawEntity = new HttpEntity<>(rawHeaders);
 
                     ResponseEntity<String> fileResponse = restTemplate.exchange(contentUrl, HttpMethod.GET, rawEntity, String.class);
-                    fileList.add(new IndexFileItem(path, fileResponse.getBody()));
+                    String content = fileResponse.getBody();
+
+                    if (content == null || content.isBlank()) {
+                        log.info("{} 파일 내용이 비어있어 임베딩 대상에서 제외합니다.", path);
+                        continue;
+                    }
+
+                    fileList.add(new IndexFileItem(path, content));
                 } catch (Exception e) {
                     log.warn("{} 파일 내용 조회 실패, 건너뜀: {}", path, e.getMessage());
                 }

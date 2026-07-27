@@ -19,9 +19,8 @@ import java.util.ArrayList;
 @Service
 public class EmbeddingService {
 
-    private final String AI_INDEX_URL = "http://localhost:8000/index"; 
+    private final String AI_INDEX_URL = "http://localhost:8000/api/embedding/index"; 
     
-    // 👇 DB 저장을 위해 의존성 주입 추가
     private final RepoEmbeddingRepository repoEmbeddingRepository;
     private final GithubRepoRepository githubRepoRepository;
 
@@ -30,7 +29,7 @@ public class EmbeddingService {
         this.githubRepoRepository = githubRepoRepository;
     }
 
-    @Transactional // 👇 DB 저장 작업이 있으므로 트랜잭션 보장
+    @Transactional 
     public void requestEmbedding(Integer repoId, List<IndexFileItem> fileList) {
         
         // 1. 레포지토리 엔티티 먼저 찾기
