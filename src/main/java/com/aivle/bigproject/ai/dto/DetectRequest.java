@@ -7,5 +7,6 @@ public record DetectRequest(
     String codeContent,
     Integer repoId,
     String language,
-    String prompt
+    String prompt,
+    String filePath // 히스토리 관련 추가
 ) {}
