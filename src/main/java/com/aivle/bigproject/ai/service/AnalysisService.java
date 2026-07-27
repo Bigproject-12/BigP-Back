@@ -210,10 +210,14 @@ public class AnalysisService {
 
         String sha = githubService.getFileSha(
                 userId, repo.getOrganization(), repo.getName(), analysis.getFilePath(), analysis.getBranch());
+        
+        String codeTocommit = (finding.getModifiedCode() != null &&
+        !finding.getModifiedCode().isBlank())
+                ? finding.getModifiedCode() : analysis.getOriginCode();
 
         githubService.commitFile(
                 userId, repo.getOrganization(), repo.getName(), analysis.getFilePath(), analysis.getBranch(),
-                finding.getModifiedCode(), sha, "GuardrAil: AI 코드 개선 반영 (분석 ID: " + analysisId + ")");
+                codeTocommit, sha, "GuardrAil: AI 코드 개선 반영 (분석 ID: " + analysisId + ")");
     }
 
         public String createPullRequest(Integer analysisId, Integer userId) {
