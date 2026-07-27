@@ -153,6 +153,7 @@ public class AnalysisService {
             Analysis currentAnalysis = analysisRepository.findById(analysisId).orElseThrow();
             currentAnalysis.setStatus("FAILED");
             analysisRepository.save(currentAnalysis);
+            notificationService.notifyAnalysisFailed(currentAnalysis);
             e.printStackTrace();
         }
     }

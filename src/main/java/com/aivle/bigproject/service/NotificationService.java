@@ -52,6 +52,7 @@ public class NotificationService {
     }
 
     //  코드 분석 완료 시 사용자에게 알림 생성
+    // 분석 성공 시
     @Transactional
     public void notifyAnalysisCompleted(Analysis analysis) {
         Notification notification = Notification.builder()
@@ -64,6 +65,21 @@ public class NotificationService {
                 .build();
         notificationRepository.save(notification);
     }
+
+    // 분석 실패 시
+    @Transactional
+    public void notifyAnalysisFailed(Analysis analysis) {
+        Notification notification = Notification.builder()
+                .user(analysis.getUser())
+                .analysis(analysis)
+                .type("ANALYSIS_FAILED")
+                .title("코드 분석에 실패했습니다.")
+                .message(analysis.getLanguage() + " 코드 분석 중 오류가 발생했습니다. 다시 시도해주세요")
+                .isRead(false)
+                .build();
+        notificationRepository.save(notification);
+    }
+
 
     // 관리자가 공지사항 등록 시 전체 사용자에게 알림
     @Transactional
