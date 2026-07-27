@@ -17,6 +17,7 @@ import com.aivle.bigproject.repository.UserRepoRepository;
 import java.util.List;
 import java.util.Optional;
 import java.time.LocalDate;
+import java.time.LocalDateTime;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.InjectMocks;
@@ -47,6 +48,8 @@ class DashboardServiceTest {
                 mock(FindingRepository.IssueCountSummary.class);
         FindingRepository.DailyQualityScore dailyQualityScore =
                 mock(FindingRepository.DailyQualityScore.class);
+        FindingRepository.RiskRepositorySummary riskRepository =
+                mock(FindingRepository.RiskRepositorySummary.class);
 
         when(userRepoRepository.countByUserId(1)).thenReturn(2L);
         when(analysisRepository.countByUserIdAndPeriod(
@@ -71,6 +74,18 @@ class DashboardServiceTest {
         when(findingRepository.findDailyQualityScoresByUserIdAndPeriod(
                 anyInt(), org.mockito.ArgumentMatchers.any(), org.mockito.ArgumentMatchers.any()))
                 .thenReturn(List.of(dailyQualityScore));
+        when(riskRepository.getRepoId()).thenReturn(10);
+        when(riskRepository.getRepoName()).thenReturn("BigP-Back");
+        when(riskRepository.getQualityScore()).thenReturn(64.0);
+        when(riskRepository.getTotalIssueCount()).thenReturn(7L);
+        when(riskRepository.getSecurityIssueCount()).thenReturn(3L);
+        when(riskRepository.getInefficiencyIssueCount()).thenReturn(2L);
+        when(riskRepository.getOtherIssueCount()).thenReturn(2L);
+        when(riskRepository.getLastAnalyzedAt())
+                .thenReturn(LocalDateTime.of(2026, 7, 24, 10, 30));
+        when(findingRepository.findTop5RiskRepositoriesByUserIdAndPeriod(
+                anyInt(), org.mockito.ArgumentMatchers.any(), org.mockito.ArgumentMatchers.any()))
+                .thenReturn(List.of(riskRepository));
         when(analysisRepository.findTop5ByUserIdAndPeriod(
                 anyInt(), org.mockito.ArgumentMatchers.any(), org.mockito.ArgumentMatchers.any()))
                 .thenReturn(List.of(analysis));
@@ -91,6 +106,11 @@ class DashboardServiceTest {
         assertEquals(3, response.issueDistribution().size());
         assertEquals(42.9, response.issueDistribution().get(0).percentage());
         assertEquals(28.6, response.issueDistribution().get(2).percentage());
+        assertEquals(1, response.riskRepositories().size());
+        assertEquals(1, response.riskRepositories().get(0).rank());
+        assertEquals("BigP-Back", response.riskRepositories().get(0).repoName());
+        assertEquals(64.0, response.riskRepositories().get(0).qualityScore());
+        assertEquals(2, response.riskRepositories().get(0).otherIssueCount());
         assertEquals("BigP-Back", response.recentAnalyses().get(0).repoName());
         assertEquals(4, response.recentAnalyses().get(0).totalIssueCount());
     }

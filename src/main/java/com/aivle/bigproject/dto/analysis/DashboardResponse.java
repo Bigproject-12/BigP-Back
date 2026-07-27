@@ -1,6 +1,7 @@
 package com.aivle.bigproject.dto.analysis;
 
 import java.time.LocalDate;
+import java.time.LocalDateTime;
 import java.util.List;
 
 /**
@@ -20,6 +21,7 @@ public record DashboardResponse(
         Comparison comparison,
         List<QualityTrend> qualityScoreTrend,
         List<IssueDistribution> issueDistribution,
+        List<RiskRepository> riskRepositories,
         List<RecentAnalysis> recentAnalyses
 ){
     public record Comparison(
@@ -37,6 +39,18 @@ public record DashboardResponse(
             String type,
             long count,
             double percentage
+    ) {}
+
+    public record RiskRepository(
+            int rank,
+            Integer repoId,
+            String repoName,
+            double qualityScore,
+            long totalIssueCount,
+            long securityIssueCount,
+            long inefficiencyIssueCount,
+            long otherIssueCount,
+            LocalDateTime lastAnalyzedAt
     ) {}
 
     public record RecentAnalysis(

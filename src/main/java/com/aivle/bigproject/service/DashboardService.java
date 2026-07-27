@@ -12,6 +12,7 @@ import java.time.LocalDateTime;
 import java.util.Map;
 import java.util.function.Function;
 import java.util.stream.Collectors;
+import java.util.stream.IntStream;
 import java.util.List;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -101,6 +102,12 @@ public class DashboardService {
                 distribution("INEFFICIENCY", issueCounts.getInefficiencyIssueCount(), issueCounts.getTotalIssueCount()),
                 distribution("OTHER", otherIssueCount, issueCounts.getTotalIssueCount())
         );
+        List<FindingRepository.RiskRepositorySummary> riskSummaries = findingRepository
+                .findTop5RiskRepositoriesByUserIdAndPeriod(userId, fromDateTime, toExclusive);
+        List<DashboardResponse.RiskRepository> riskRepositories = IntStream
+                .range(0, riskSummaries.size())
+                .mapToObj(index -> toRiskRepository(index + 1, riskSummaries.get(index)))
+                .toList();
 
         // 대시보드 응답 데이터를 생성하여, 반환
         return new DashboardResponse(
@@ -125,7 +132,25 @@ public class DashboardService {
                 ),
                 qualityTrend,
                 issueDistribution,
+                riskRepositories,
                 recentAnalyses
+        );
+    }
+
+    private DashboardResponse.RiskRepository toRiskRepository(
+            int rank,
+            FindingRepository.RiskRepositorySummary summary
+    ) {
+        return new DashboardResponse.RiskRepository(
+                rank,
+                summary.getRepoId(),
+                summary.getRepoName(),
+                summary.getQualityScore(),
+                summary.getTotalIssueCount(),
+                summary.getSecurityIssueCount(),
+                summary.getInefficiencyIssueCount(),
+                summary.getOtherIssueCount(),
+                summary.getLastAnalyzedAt()
         );
     }
 
