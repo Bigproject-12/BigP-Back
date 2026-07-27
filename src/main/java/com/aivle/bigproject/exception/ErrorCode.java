@@ -33,6 +33,8 @@ public enum ErrorCode {
     GITHUB_API_ERROR(HttpStatus.BAD_GATEWAY, "GitHub API 요청에 실패했습니다."),
     REPO_ALREADY_EXISTS(HttpStatus.CONFLICT, "이미 연동된 레포지토리입니다."),
     REPO_NOT_FOUND(HttpStatus.NOT_FOUND, "존재하지 않는 레포지토리입니다."),
+    GITHUB_FILE_FETCH_FAILED(HttpStatus.BAD_REQUEST, "파일 정보를 가져오는데 실패했습니다. 브랜치나 경로를 확인해주세요."),
+    GITHUB_COMMIT_FAILED(HttpStatus.CONFLICT, "Github에 반영하는데 실패했습니다. 그 사이 브랜치가 변경됐을 수도 있습니다. 다시 분석해주세요"),
 
     // 권한
     NO_PERMISSION(HttpStatus.FORBIDDEN, "권한이 없습니다."),

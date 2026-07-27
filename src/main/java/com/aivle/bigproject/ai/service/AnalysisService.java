@@ -25,6 +25,7 @@ import com.aivle.bigproject.exception.ErrorCode;
 
 // Service
 import com.aivle.bigproject.service.NotificationService;
+import com.aivle.bigproject.service.GithubService;
 
 // Spring Web
 import org.springframework.http.HttpEntity;
@@ -50,6 +51,7 @@ public class AnalysisService {
     private final FindingRepository findingRepository;
     private final NotificationService notificationService;
     private final JsonMapper jsonMapper;
+    private final GithubService githubService;
 
     public AnalysisService(AnalysisRepository analysisRepository, 
                            GithubRepoRepository githubRepoRepository, 
@@ -57,7 +59,8 @@ public class AnalysisService {
                            UserRepository userRepository,
                            FindingRepository findingRepository,
                            NotificationService notificationService,
-                           JsonMapper jsonMapper) {
+                           JsonMapper jsonMapper,
+                           GithubService githubService) {
         this.analysisRepository = analysisRepository;
         this.githubRepoRepository = githubRepoRepository;
         this.companyRepository = companyRepository;
@@ -65,6 +68,7 @@ public class AnalysisService {
         this.findingRepository = findingRepository;
         this.notificationService = notificationService;
         this.jsonMapper = jsonMapper;
+        this.githubService = githubService;
     }
 
     public Integer createInitialAnalysis(DetectRequest requestDto, Integer userId) {
@@ -88,6 +92,7 @@ public class AnalysisService {
                 .originCode(requestDto.codeContent())
                 .language(requestDto.language())
                 .filePath(requestDto.filePath()) // 히스토리관련 추가
+                .branch(requestDto.branch())
                 .prompt(null) 
                 .status("ANALYZING") // 초기 생성 시 곧바로 ANALYZING 처리
                 .build();
@@ -181,5 +186,31 @@ public class AnalysisService {
         Finding finding = findingRepository.findByAnalysisId(analysisId).orElse(null);
 
         return AnalysisResultResponse.of(analysis, finding);
+    }
+
+    public void pushImprovedCode(Integer analysisId, Integer userId) {
+        Analysis analysis = analysisRepository.findById(analysisId)
+                .orElseThrow(() -> new IllegalArgumentException("해당 분석 요청을 찾을 수 없습니다. ID: " + analysisId));
+
+        if (!analysis.getUser().getId().equals(userId)) {
+            throw new CustomException(ErrorCode.NO_PERMISSION);
+        }
+        if (!"COMPLETED".equals(analysis.getStatus())) {
+            throw new IllegalStateException("완료된 분석만 push할 수 있습니다.");
+        }
+        if (analysis.getBranch() == null || analysis.getFilePath() == null) {
+            throw new IllegalStateException("브랜치 또는 파일 경로 정보가 없어 push할 수 없습니다.");
+        }
+
+        Finding finding = findingRepository.findByAnalysisId(analysisId)
+                .orElseThrow(() -> new IllegalStateException("분석 결과가 없습니다."));
+
+        GithubRepo repo = analysis.getGithubRepo();
+        String sha = githubService.getFileSha(
+                userId, repo.getOrganization(), repo.getName(), analysis.getFilePath(), analysis.getBranch());
+
+        githubService.commitFile(
+                userId, repo.getOrganization(), repo.getName(), analysis.getFilePath(), analysis.getBranch(),
+                finding.getModifiedCode(), sha, "GuardrAil: AI 코드 개선 반영 (분석 #" + analysisId + ")");
     }
 }

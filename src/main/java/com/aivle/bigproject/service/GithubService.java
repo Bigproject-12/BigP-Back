@@ -35,6 +35,8 @@ import lombok.extern.slf4j.Slf4j;
 import java.time.LocalDate;
 import java.util.Map;
 import java.util.List;
+import java.util.Base64;
+import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
 import java.util.Set;
 import java.util.Collections;
@@ -322,6 +324,53 @@ public class GithubService {
         String token = githubTokenCrypto.decrypt(user.getGithubAccessToken());
         registerOrgWebhook(orgName, token);
     }
+
+    public String getFileSha(Integer userId, String orgName, String repoName, String filePath, String branch) {
+        User user = userRepository.findById(userId)
+                .orElseThrow(() -> new CustomException(ErrorCode.USER_NOT_FOUND));
+        String token = githubTokenCrypto.decrypt(user.getGithubAccessToken());
+
+        RestTemplate restTemplate = new RestTemplate();
+        HttpHeaders headers = new HttpHeaders();
+        headers.setBearerAuth(token);
+        headers.set("Accept", "application/vnd.github+json");
+        HttpEntity<String> entity = new HttpEntity<>(headers);
+
+        String url = "https://api.github.com/repos/" + orgName + "/" + repoName + "/contents/" + filePath + "?ref=" + branch;
+
+        try { ResponseEntity<Map> response = restTemplate.exchange(url, HttpMethod.GET, entity, Map.class);
+            return (String) response.getBody().get("sha");
+            } catch (Exception e) {
+                throw new CustomException(ErrorCode.GITHUB_FILE_FETCH_FAILED);
+            }
+        }
+
+    public void commitFile(Integer userId, String orgName, String repoName, String filePath, String branch,
+                            String content, String sha, String message) {
+        User user = userRepository.findById(userId)
+                .orElseThrow(() -> new CustomException(ErrorCode.USER_NOT_FOUND));
+        String token = githubTokenCrypto.decrypt(user.getGithubAccessToken());
+
+        RestTemplate restTemplate = new RestTemplate();
+        HttpHeaders headers = new HttpHeaders();
+        headers.setBearerAuth(token);
+        headers.set("Accept", "application/vnd.github+json");
+
+        String encodedContent = Base64.getEncoder().encodeToString(content.getBytes(StandardCharsets.UTF_8));
+        Map<String, Object> body = Map.of(
+            "message", message,
+            "content", encodedContent,
+            "sha", sha,
+            "branch", branch );
+        
+        HttpEntity<Map<String, Object>> entity = new HttpEntity<>(body, headers);
+        String url = "https://api.github.com/repos/" + orgName + "/" + repoName + "/contents/" + filePath;
+
+        try { restTemplate.exchange(url, HttpMethod.PUT, entity, Map.class);
+            } catch (Exception e) {
+                throw new CustomException(ErrorCode.GITHUB_COMMIT_FAILED);
+            }
+        }
 
     @Async
     public void fetchAndEmbedRepoFiles(Integer repoId, String orgName, String repoName, String branch, String token) {
