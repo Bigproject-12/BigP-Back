@@ -76,7 +76,7 @@ class GithubServiceTest {
         assertEquals(ErrorCode.GITHUB_TOKEN_NOT_CONNECTED, exception.getErrorCode());
     }
 
-    private GithubService service() {
+   /*  private GithubService service() {
         return new GithubService(
                 userRepository,
                 githubTokenCrypto,
@@ -86,5 +86,5 @@ class GithubServiceTest {
                 "test-secret"
         );
     }
-        
+        */
 }
