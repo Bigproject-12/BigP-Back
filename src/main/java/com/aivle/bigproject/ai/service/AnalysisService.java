@@ -82,7 +82,7 @@ public class AnalysisService {
                 .orElseThrow(() -> new CustomException(ErrorCode.REPO_NOT_FOUND));
                 
         if (company == null) {
-            throw new CustomException(ErrorCode.COMPANY_ALREADY_EXISTS);
+            throw new CustomException(ErrorCode.COMPANY_NOT_LINKED);
         }
 
         // 분석 중 상태로 DB에 저장
