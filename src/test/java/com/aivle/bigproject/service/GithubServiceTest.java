@@ -6,7 +6,9 @@ import static org.mockito.Mockito.when;
 
 import com.aivle.bigproject.entity.GithubRepo;
 import com.aivle.bigproject.entity.UserRepo;
+import com.aivle.bigproject.entity.User;
 import com.aivle.bigproject.exception.CustomException;
+import com.aivle.bigproject.exception.ErrorCode;
 import com.aivle.bigproject.repository.GithubRepoRepository;
 import com.aivle.bigproject.repository.UserRepoRepository;
 import com.aivle.bigproject.repository.UserRepository;
@@ -16,7 +18,6 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
-/*
 @ExtendWith(MockitoExtension.class)
 class GithubServiceTest {
 
@@ -47,15 +48,43 @@ class GithubServiceTest {
 
         assertThrows(CustomException.class, () -> service.getUserRepo(1, 99));
     }
- 
+
+    @Test
+    void getBranchesRejectsUnconnectedRepository() {
+        when(userRepoRepository.findByUser_IdAndGithubRepo_Id(1, 99))
+                .thenReturn(Optional.empty());
+
+        CustomException exception = assertThrows(
+                CustomException.class,
+                () -> service().getRepositoryBranches(1, 99));
+
+        assertEquals(ErrorCode.REPO_NOT_FOUND, exception.getErrorCode());
+    }
+
+    @Test
+    void getBranchesRequiresGithubToken() {
+        User user = User.builder().id(1).build();
+        GithubRepo repo = GithubRepo.builder().id(10).build();
+        UserRepo userRepo = UserRepo.builder().user(user).githubRepo(repo).build();
+        when(userRepoRepository.findByUser_IdAndGithubRepo_Id(1, 10))
+                .thenReturn(Optional.of(userRepo));
+
+        CustomException exception = assertThrows(
+                CustomException.class,
+                () -> service().getRepositoryBranches(1, 10));
+
+        assertEquals(ErrorCode.GITHUB_TOKEN_NOT_CONNECTED, exception.getErrorCode());
+    }
+
     private GithubService service() {
         return new GithubService(
                 userRepository,
                 githubTokenCrypto,
                 githubRepoRepository,
-                userRepoRepository
+                userRepoRepository,
+                "https://example.com/webhook",
+                "test-secret"
         );
     }
         
 }
-*/

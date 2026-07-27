@@ -29,6 +29,8 @@ public enum ErrorCode {
 
     // GitHub & 레포지토리
     GITHUB_ALREADY_CONNECTED(HttpStatus.CONFLICT, "이미 연동된 GitHub 계정입니다."),
+    GITHUB_TOKEN_NOT_CONNECTED(HttpStatus.BAD_REQUEST, "연동된 GitHub 토큰이 없습니다."),
+    GITHUB_API_ERROR(HttpStatus.BAD_GATEWAY, "GitHub API 요청에 실패했습니다."),
     REPO_ALREADY_EXISTS(HttpStatus.CONFLICT, "이미 연동된 레포지토리입니다."),
     REPO_NOT_FOUND(HttpStatus.NOT_FOUND, "존재하지 않는 레포지토리입니다."),
 
