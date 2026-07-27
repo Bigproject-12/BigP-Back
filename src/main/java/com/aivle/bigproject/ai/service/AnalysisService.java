@@ -87,6 +87,7 @@ public class AnalysisService {
                 .user(user)
                 .originCode(requestDto.codeContent())
                 .language(requestDto.language())
+                .filePath(requestDto.filePath()) // 히스토리관련 추가
                 .prompt(null) 
                 .status("ANALYZING") // 초기 생성 시 곧바로 ANALYZING 처리
                 .build();
