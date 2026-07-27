@@ -43,6 +43,9 @@ public class Analysis {
     @Column(name = "file_path",length = 500) // 히스토리 파일경로 추가
     private String filePath;
 
+    @Column(name = "branch", length =255)
+    private String branch;
+
     @Column(columnDefinition = "TEXT")
     private String prompt;
 

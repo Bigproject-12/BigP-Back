@@ -8,5 +8,6 @@ public record DetectRequest(
     Integer repoId,
     String language,
     String prompt,
-    String filePath // 히스토리 관련 추가
+    String filePath,
+    String branch
 ) {}
