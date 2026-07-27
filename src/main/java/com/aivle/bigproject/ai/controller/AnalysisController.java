@@ -59,4 +59,12 @@ public class AnalysisController {
     ) { analysisService.pushImprovedCode(analysisId, Integer.valueOf(jwt.getSubject()));
         return ResponseEntity.ok().build();
     }
+
+    @PostMapping("/{analysis_id}/pr")
+    public ResponseEntity<Map<String,String>> createPullRequest(
+            @PathVariable("analysis_id") Integer analysisId,
+            @AuthenticationPrincipal Jwt jwt
+    ) { String prUrl = analysisService.createPullRequest(analysisId, Integer.valueOf(jwt.getSubject()));
+        return ResponseEntity.ok(Map.of("prUrl", prUrl));
+    }
 }
