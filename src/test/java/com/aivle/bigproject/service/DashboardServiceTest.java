@@ -1,6 +1,7 @@
 package com.aivle.bigproject.service;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.mockito.Mockito.when;
 import static org.mockito.Mockito.mock;
 import static org.mockito.ArgumentMatchers.anyInt;
@@ -9,11 +10,13 @@ import static org.mockito.ArgumentMatchers.anyString;
 import com.aivle.bigproject.entity.Analysis;
 import com.aivle.bigproject.entity.Finding;
 import com.aivle.bigproject.entity.GithubRepo;
+import com.aivle.bigproject.exception.CustomException;
 import com.aivle.bigproject.repository.AnalysisRepository;
 import com.aivle.bigproject.repository.FindingRepository;
 import com.aivle.bigproject.repository.UserRepoRepository;
 import java.util.List;
 import java.util.Optional;
+import java.time.LocalDate;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.InjectMocks;
@@ -40,24 +43,61 @@ class DashboardServiceTest {
         Finding finding = Finding.builder().totalIssues(4).build();
         FindingRepository.IssueCountSummary issueCounts =
                 mock(FindingRepository.IssueCountSummary.class);
+        FindingRepository.IssueCountSummary previousIssueCounts =
+                mock(FindingRepository.IssueCountSummary.class);
+        FindingRepository.DailyQualityScore dailyQualityScore =
+                mock(FindingRepository.DailyQualityScore.class);
 
         when(userRepoRepository.countByUserId(1)).thenReturn(2L);
-        when(analysisRepository.countByUserId(1)).thenReturn(3L);
-        when(analysisRepository.countByUserIdAndStatus(anyInt(), anyString()))
+        when(analysisRepository.countByUserIdAndPeriod(
+                anyInt(), org.mockito.ArgumentMatchers.any(), org.mockito.ArgumentMatchers.any()))
+                .thenReturn(3L, 2L);
+        when(analysisRepository.countByUserIdAndStatusAndPeriod(
+                anyInt(), anyString(),
+                org.mockito.ArgumentMatchers.any(), org.mockito.ArgumentMatchers.any()))
                 .thenAnswer(invocation -> "COMPLETED".equals(invocation.getArgument(1)) ? 2L : 0L);
         when(issueCounts.getTotalIssueCount()).thenReturn(7L);
         when(issueCounts.getSecurityIssueCount()).thenReturn(3L);
-        when(issueCounts.getInefficiencyIssueCount()).thenReturn(4L);
-        when(findingRepository.sumIssueCountsByUserId(1)).thenReturn(issueCounts);
-        when(analysisRepository.findTop5ByUserIdOrderByIdDesc(1)).thenReturn(List.of(analysis));
+        when(issueCounts.getInefficiencyIssueCount()).thenReturn(2L);
+        when(previousIssueCounts.getTotalIssueCount()).thenReturn(10L);
+        when(findingRepository.sumIssueCountsByUserIdAndPeriod(
+                anyInt(), org.mockito.ArgumentMatchers.any(), org.mockito.ArgumentMatchers.any()))
+                .thenReturn(issueCounts, previousIssueCounts);
+        when(findingRepository.averageQualityScoreByUserIdAndPeriod(
+                anyInt(), org.mockito.ArgumentMatchers.any(), org.mockito.ArgumentMatchers.any()))
+                .thenReturn(80.0, 70.0);
+        when(dailyQualityScore.getAnalysisDate()).thenReturn(LocalDate.of(2026, 7, 24));
+        when(dailyQualityScore.getAverageScore()).thenReturn(80.0);
+        when(findingRepository.findDailyQualityScoresByUserIdAndPeriod(
+                anyInt(), org.mockito.ArgumentMatchers.any(), org.mockito.ArgumentMatchers.any()))
+                .thenReturn(List.of(dailyQualityScore));
+        when(analysisRepository.findTop5ByUserIdAndPeriod(
+                anyInt(), org.mockito.ArgumentMatchers.any(), org.mockito.ArgumentMatchers.any()))
+                .thenReturn(List.of(analysis));
         when(findingRepository.findByAnalysisId(20)).thenReturn(Optional.of(finding));
 
-        var response = dashboardService.getDashboard(1);
+        var response = dashboardService.getDashboard(
+                1, LocalDate.of(2026, 7, 18), LocalDate.of(2026, 7, 24));
 
         assertEquals(2, response.repositoryCount());
         assertEquals(3, response.totalAnalysisCount());
         assertEquals(7, response.totalIssueCount());
+        assertEquals(80.0, response.averageQualityScore());
+        assertEquals(50.0, response.comparison().analysisChangeRate());
+        assertEquals(-30.0, response.comparison().issueChangeRate());
+        assertEquals(10.0, response.comparison().qualityScoreChange());
+        assertEquals(7, response.qualityScoreTrend().size());
+        assertEquals(80.0, response.qualityScoreTrend().get(6).averageScore());
+        assertEquals(3, response.issueDistribution().size());
+        assertEquals(42.9, response.issueDistribution().get(0).percentage());
+        assertEquals(28.6, response.issueDistribution().get(2).percentage());
         assertEquals("BigP-Back", response.recentAnalyses().get(0).repoName());
         assertEquals(4, response.recentAnalyses().get(0).totalIssueCount());
+    }
+
+    @Test
+    void rejectsReversedDateRange() {
+        assertThrows(CustomException.class, () -> dashboardService.getDashboard(
+                1, LocalDate.of(2026, 7, 25), LocalDate.of(2026, 7, 24)));
     }
 }
