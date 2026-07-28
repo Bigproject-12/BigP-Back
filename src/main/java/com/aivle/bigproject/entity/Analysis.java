@@ -43,8 +43,17 @@ public class Analysis {
     @Column(name = "file_path",length = 500) // 히스토리 파일경로 추가
     private String filePath;
 
-    @Column(name = "branch", length =255)
+    @Column(name = "branch")
     private String branch;
+
+    @Column(name = "source_blob_sha", length = 64)
+    private String sourceBlobSha;
+
+    @Column(name = "pushed_commit_sha", length = 64)
+    private String pushedCommitSha;
+
+    @Column(name = "pushed_at")
+    private LocalDateTime pushedAt;
 
     @Column(columnDefinition = "TEXT")
     private String prompt;
@@ -55,4 +64,9 @@ public class Analysis {
     @CreatedDate
     @Column (name= "created_at", updatable=false)  //분석요청 시간 추가
     private LocalDateTime createdAt;
+
+    public void markPushed(String commitSha, LocalDateTime pushedAt) {
+        this.pushedCommitSha = commitSha;
+        this.pushedAt = pushedAt;
+    }
 }
