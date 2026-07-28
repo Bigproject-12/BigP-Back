@@ -19,40 +19,44 @@ public interface AnalysisRepository extends JpaRepository<Analysis, Integer> {
 
     @Query(value = """
             SELECT COUNT(*) FROM ANALYSIS
-            WHERE user_id = :userId
+            WHERE company_id = :companyId
               AND created_at >= :from
               AND created_at < :toExclusive
             """, nativeQuery = true)
-    long countByUserIdAndPeriod(
-            @Param("userId") Integer userId,
+    long countByCompanyIdAndPeriod(
+            @Param("companyId") Integer companyId,
             @Param("from") LocalDateTime from,
             @Param("toExclusive") LocalDateTime toExclusive);
 
     @Query(value = """
             SELECT COUNT(*) FROM ANALYSIS
-            WHERE user_id = :userId
+            WHERE company_id = :companyId
               AND status = :status
               AND created_at >= :from
               AND created_at < :toExclusive
             """, nativeQuery = true)
-    long countByUserIdAndStatusAndPeriod(
-            @Param("userId") Integer userId,
+    long countByCompanyIdAndStatusAndPeriod(
+            @Param("companyId") Integer companyId,
             @Param("status") String status,
             @Param("from") LocalDateTime from,
             @Param("toExclusive") LocalDateTime toExclusive);
 
     @Query(value = """
             SELECT * FROM ANALYSIS
-            WHERE user_id = :userId
+            WHERE company_id = :companyId
               AND created_at >= :from
               AND created_at < :toExclusive
             ORDER BY analysis_id DESC
             LIMIT 5
             """, nativeQuery = true)
-    List<Analysis> findTop5ByUserIdAndPeriod(
-            @Param("userId") Integer userId,
+    List<Analysis> findTop5ByCompanyIdAndPeriod(
+            @Param("companyId") Integer companyId,
             @Param("from") LocalDateTime from,
             @Param("toExclusive") LocalDateTime toExclusive);
+
+    // 조직에 딸려 들어온 레포 전체가 아니라, 실제로 이 회사가 분석에 사용한 레포 수만 센다.
+    @Query(value = "SELECT COUNT(DISTINCT repo_id) FROM ANALYSIS WHERE company_id = :companyId", nativeQuery = true)
+    long countDistinctRepoByCompanyId(@Param("companyId") Integer companyId);
 
     @Modifying
     @Query(value = "DELETE FROM ANALYSIS WHERE user_id = :userId", nativeQuery = true)
