@@ -100,7 +100,7 @@ public class AnalysisService {
                 .filePath(requestDto.filePath()) // 히스토리관련 추가
                 .branch(requestDto.branch())
                 .prompt(null) 
-                .status("ANALYZING") 
+                .status("ANALYZING") // 초기 생성 시 곧바로 ANALYZING 처리
                 .build();
                 
         analysisRepository.save(analysis);
@@ -116,7 +116,7 @@ public class AnalysisService {
                 ? embeddingService.searchDuplicates(requestDto.repoId(), requestDto.codeContent())
                 : List.of();
 
-        
+
         DetectRequest enrichedRequest = new DetectRequest(
                 requestDto.codeContent(),
                 requestDto.repoId(),
@@ -129,7 +129,6 @@ public class AnalysisService {
         RestTemplate restTemplate = new RestTemplate();
         HttpHeaders headers = new HttpHeaders();
         headers.setContentType(MediaType.APPLICATION_JSON);
-        
         
         HttpEntity<DetectRequest> requestEntity = new HttpEntity<>(enrichedRequest, headers);
 
@@ -146,6 +145,7 @@ public class AnalysisService {
             int securityCount = response.vulnerabilities() != null ? response.vulnerabilities().size() : 0;
             int inefficiencyCount = response.complexityDetails() != null ? response.complexityDetails().size() : 0;
             
+            // 조건 없이 항상 Finding 저장 (null 방어 포함)
             String secuResultStr = jsonMapper.writeValueAsString(
                     response.vulnerabilities() != null ? response.vulnerabilities() : List.of()
             );
@@ -207,7 +207,6 @@ public class AnalysisService {
         return AnalysisResultResponse.of(analysis, finding);
     }
 
-    
     public void pushImprovedCode(Integer analysisId, Integer userId) {
         Analysis analysis = analysisRepository.findById(analysisId)
                 .orElseThrow(() -> new CustomException(ErrorCode.ANALYSIS_NOT_FOUND));
