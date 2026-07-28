@@ -64,7 +64,6 @@ public class AnalysisService {
                            FindingRepository findingRepository,
                            NotificationService notificationService,
                            EmbeddingService embeddingService,
-                           JsonMapper jsonMapper) {
                            JsonMapper jsonMapper,
                            GithubService githubService) {
         this.analysisRepository = analysisRepository;
@@ -98,7 +97,6 @@ public class AnalysisService {
                 .user(user)
                 .originCode(requestDto.codeContent())
                 .language(requestDto.language())
-                .filePath(requestDto.filePath())
                 .filePath(requestDto.filePath()) // 히스토리관련 추가
                 .branch(requestDto.branch())
                 .prompt(null) 
@@ -125,6 +123,7 @@ public class AnalysisService {
                 requestDto.language(),
                 requestDto.prompt(),
                 requestDto.filePath(),
+                requestDto.branch(),
                 duplicates
         );
         RestTemplate restTemplate = new RestTemplate();
