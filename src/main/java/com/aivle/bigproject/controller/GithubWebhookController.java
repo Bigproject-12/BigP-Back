@@ -65,12 +65,12 @@ public class GithubWebhookController {
         String action = json.get("action").asText();
 
         if ("member_removed".equals(action)) {
-            String orgName = json.get("organization").get("id").asText();
-            String removedGitId = json.get("membership").get("user").get("login").asText();
+            String orgName = json.get("organization").get("login").asText();
+            String removedGitId = json.get("membership").get("user").get("id").asText();
             String removedGitLogin = json.get("membership").get("user").get("login").asText();
 
             log.info("{} 조직에서 {} 님(id={})이 추방됨을 감지했습니다.", orgName, removedGitLogin, removedGitId);
-        githubService.revokeOrgAccess(orgName, removedGitId);
+            githubService.revokeOrgAccess(orgName, removedGitId);
         }
     }
 

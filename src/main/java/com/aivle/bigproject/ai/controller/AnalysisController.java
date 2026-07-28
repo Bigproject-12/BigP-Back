@@ -10,6 +10,9 @@ import org.springframework.security.core.annotation.AuthenticationPrincipal;
 
 import org.springframework.security.oauth2.jwt.Jwt;
 import java.util.Map;
+import org.springframework.web.bind.annotation.PostMapping;
+import org.springframework.web.bind.annotation.RequestBody;
+
 
 @RestController
 @RequestMapping("/api/analysis")
@@ -47,5 +50,13 @@ public class AnalysisController {
     public ResponseEntity<String> stopAnalysis(@PathVariable("analysis_id") Integer analysisId) {
         analysisService.stopAnalysis(analysisId);
         return ResponseEntity.ok("분석이 중지되었습니다.");
+    }
+
+    @PostMapping("/{analysis_id}/push")
+    public ResponseEntity<Void> pushToGithub(
+            @PathVariable("analysis_id") Integer analysisId,
+            @AuthenticationPrincipal Jwt jwt
+    ) { analysisService.pushImprovedCode(analysisId, Integer.valueOf(jwt.getSubject()));
+        return ResponseEntity.ok().build();
     }
 }
