@@ -15,11 +15,11 @@ public class AnalysisResultResponse {
 
     private Integer repoId;
     private String repoName;
-    //private String branch;
+    private String branch;
     private String language;
     private String filePath;
     private BigDecimal improvableRatio;
-    
+
     private Integer totalIssues;
     private String secuResult;
     private String inefficiencyResult;
@@ -36,7 +36,8 @@ public class AnalysisResultResponse {
                 .repoName(analysis.getGithubRepo().getName())
                 .language(analysis.getLanguage())
                 .filePath(analysis.getFilePath())
-                .improvableRatio(analysis.getImprovableRatio());
+                .improvableRatio(analysis.getImprovableRatio())
+                .branch(analysis.getBranch());
 
         if (finding != null) {
             builder.totalIssues(finding.getTotalIssues())
