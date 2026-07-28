@@ -4,6 +4,7 @@ import com.aivle.bigproject.entity.Analysis;
 import com.aivle.bigproject.entity.Finding;
 import lombok.Builder;
 import lombok.Getter;
+import java.math.BigDecimal;
 
 @Getter
 @Builder
@@ -17,6 +18,7 @@ public class AnalysisResultResponse {
     //private String branch;
     private String language;
     private String filePath;
+    private BigDecimal improvableRatio;
     
     private Integer totalIssues;
     private String secuResult;
@@ -33,7 +35,8 @@ public class AnalysisResultResponse {
                 .repoId(analysis.getGithubRepo().getId())
                 .repoName(analysis.getGithubRepo().getName())
                 .language(analysis.getLanguage())
-                .filePath(analysis.getFilePath());
+                .filePath(analysis.getFilePath())
+                .improvableRatio(analysis.getImprovableRatio());
 
         if (finding != null) {
             builder.totalIssues(finding.getTotalIssues())
