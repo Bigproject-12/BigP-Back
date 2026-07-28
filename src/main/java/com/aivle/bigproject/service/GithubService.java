@@ -17,7 +17,6 @@ import com.aivle.bigproject.dto.repo.RepoResponse;
 import com.aivle.bigproject.repository.RepoEmbeddingRepository; 
 import com.aivle.bigproject.dto.repo.BranchResponse;
 
-
 import org.springframework.http.HttpEntity;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpMethod;
@@ -30,7 +29,6 @@ import org.springframework.web.client.HttpClientErrorException;
 import org.springframework.web.client.RestClientException;
 import org.springframework.beans.factory.annotation.Value;
 import lombok.extern.slf4j.Slf4j;
-
 
 import java.time.LocalDate;
 import java.util.Map;
