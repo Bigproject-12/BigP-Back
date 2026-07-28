@@ -26,6 +26,7 @@ public enum ErrorCode {
     COMPANY_NOT_FOUND(HttpStatus.NOT_FOUND, "회사를 찾을 수 없습니다."),
     COMPANY_ALREADY_EXISTS(HttpStatus.CONFLICT, "이미 등록된 기업입니다."),
     COMPANY_IN_USE(HttpStatus.CONFLICT, "소속된 사용자가 있어 삭제할 수 없습니다."),
+    COMPANY_NOT_LINKED(HttpStatus.BAD_REQUEST, "사용자에게 회사 정보가 없습니다."),
 
     // GitHub & 레포지토리
     GITHUB_ALREADY_CONNECTED(HttpStatus.CONFLICT, "이미 연동된 GitHub 계정입니다."),
@@ -35,6 +36,17 @@ public enum ErrorCode {
     REPO_NOT_FOUND(HttpStatus.NOT_FOUND, "존재하지 않는 레포지토리입니다."),
     GITHUB_FILE_FETCH_FAILED(HttpStatus.BAD_REQUEST, "파일 정보를 가져오는데 실패했습니다. 브랜치나 경로를 확인해주세요."),
     GITHUB_COMMIT_FAILED(HttpStatus.CONFLICT, "Github에 반영하는데 실패했습니다. 그 사이 브랜치가 변경됐을 수도 있습니다. 다시 분석해주세요"),
+    GITHUB_DEFAULT_BRANCH_FETCH_FAILED(HttpStatus.BAD_REQUEST, "레포지토리의 기본 브랜치 정보를 가져오는데 실패했습니다."),
+    GITHUB_PR_CREATE_FAILED(HttpStatus.CONFLICT, "Pull Request 생성에 실패했습니다."),
+    GITHUB_PR_SAME_BRANCH(HttpStatus.BAD_REQUEST, "분석 브랜치가 기본 브랜치와 동일하여 PR을 생성할 수 없습니다."),
+
+    // 분석
+    ANALYSIS_NOT_FOUND(HttpStatus.NOT_FOUND, "해당 분석 내용을 찾을 수 없습니다."),
+    ANALYSIS_ALREADY_FINISHED(HttpStatus.CONFLICT, "이미 완료된 분석입니다."),
+    ANALYSIS_NOT_COMPLETED(HttpStatus.BAD_REQUEST, "완료된 분석만 처리할 수 있습니다."),
+    ANALYSIS_BRANCH_FILE_INFO_MISSING(HttpStatus.BAD_REQUEST, "브랜치 또는 파일 경로 정보가 없어 push할 수 없습니다."),
+    ANALYSIS_BRANCH_INFO_MISSING(HttpStatus.BAD_REQUEST, "브랜치 정보가 없어 PR을 생성할 수 없습니다."),
+    FINDING_NOT_FOUND(HttpStatus.NOT_FOUND, "분석 결과가 없습니다."),
 
     // 권한
     NO_PERMISSION(HttpStatus.FORBIDDEN, "권한이 없습니다."),
