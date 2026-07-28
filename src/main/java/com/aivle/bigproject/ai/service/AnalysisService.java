@@ -3,7 +3,6 @@ package com.aivle.bigproject.ai.service;
 // DTO
 import com.aivle.bigproject.ai.dto.DetectRequest;
 import com.aivle.bigproject.ai.dto.DetectResponse;
-import com.aivle.bigproject.ai.dto.DuplicateSnippet;
 import com.aivle.bigproject.ai.dto.AnalysisResultResponse;
 
 // Entity
@@ -26,7 +25,6 @@ import com.aivle.bigproject.exception.ErrorCode;
 
 // Service
 import com.aivle.bigproject.service.NotificationService;
-import com.aivle.bigproject.ai.service.EmbeddingService;
 import com.aivle.bigproject.service.GithubService;
 
 import org.springframework.beans.propertyeditors.CustomNumberEditor;
@@ -54,7 +52,6 @@ public class AnalysisService {
     private final FindingRepository findingRepository;
     private final NotificationService notificationService;
     private final JsonMapper jsonMapper;
-    private final EmbeddingService embeddingService;
     private final GithubService githubService;
 
     public AnalysisService(AnalysisRepository analysisRepository, 
@@ -63,8 +60,6 @@ public class AnalysisService {
                            UserRepository userRepository,
                            FindingRepository findingRepository,
                            NotificationService notificationService,
-                           EmbeddingService embeddingService,
-                           JsonMapper jsonMapper) {
                            JsonMapper jsonMapper,
                            GithubService githubService) {
         this.analysisRepository = analysisRepository;
@@ -73,7 +68,6 @@ public class AnalysisService {
         this.userRepository = userRepository;
         this.findingRepository = findingRepository;
         this.notificationService = notificationService;
-        this.embeddingService = embeddingService;
         this.jsonMapper = jsonMapper;
         this.githubService = githubService;
     }
@@ -98,11 +92,10 @@ public class AnalysisService {
                 .user(user)
                 .originCode(requestDto.codeContent())
                 .language(requestDto.language())
-                .filePath(requestDto.filePath())
                 .filePath(requestDto.filePath()) // 히스토리관련 추가
                 .branch(requestDto.branch())
                 .prompt(null) 
-                .status("ANALYZING") 
+                .status("ANALYZING") // 초기 생성 시 곧바로 ANALYZING 처리
                 .build();
                 
         analysisRepository.save(analysis);
@@ -114,25 +107,12 @@ public class AnalysisService {
 
     @Async
     public void sendToAiServerAsync(Integer analysisId, DetectRequest requestDto) {
-        List<DuplicateSnippet> duplicates = requestDto.repoId() != null
-                ? embeddingService.searchDuplicates(requestDto.repoId(), requestDto.codeContent())
-                : List.of();
-
         
-        DetectRequest enrichedRequest = new DetectRequest(
-                requestDto.codeContent(),
-                requestDto.repoId(),
-                requestDto.language(),
-                requestDto.prompt(),
-                requestDto.filePath(),
-                duplicates
-        );
         RestTemplate restTemplate = new RestTemplate();
         HttpHeaders headers = new HttpHeaders();
         headers.setContentType(MediaType.APPLICATION_JSON);
         
-        
-        HttpEntity<DetectRequest> requestEntity = new HttpEntity<>(enrichedRequest, headers);
+        HttpEntity<DetectRequest> requestEntity = new HttpEntity<>(requestDto, headers);
 
         try {
             DetectResponse response = restTemplate.postForObject(AI_DETECT_URL, requestEntity, DetectResponse.class);
@@ -147,6 +127,7 @@ public class AnalysisService {
             int securityCount = response.vulnerabilities() != null ? response.vulnerabilities().size() : 0;
             int inefficiencyCount = response.complexityDetails() != null ? response.complexityDetails().size() : 0;
             
+            // 조건 없이 항상 Finding 저장 (null 방어 포함)
             String secuResultStr = jsonMapper.writeValueAsString(
                     response.vulnerabilities() != null ? response.vulnerabilities() : List.of()
             );
@@ -208,7 +189,6 @@ public class AnalysisService {
         return AnalysisResultResponse.of(analysis, finding);
     }
 
-    
     public void pushImprovedCode(Integer analysisId, Integer userId) {
         Analysis analysis = analysisRepository.findById(analysisId)
                 .orElseThrow(() -> new CustomException(ErrorCode.ANALYSIS_NOT_FOUND));
