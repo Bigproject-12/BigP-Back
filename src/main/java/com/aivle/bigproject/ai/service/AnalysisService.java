@@ -3,6 +3,7 @@ package com.aivle.bigproject.ai.service;
 // DTO
 import com.aivle.bigproject.ai.dto.DetectRequest;
 import com.aivle.bigproject.ai.dto.DetectResponse;
+import com.aivle.bigproject.ai.dto.DuplicateSnippet;
 import com.aivle.bigproject.ai.dto.AnalysisResultResponse;
 
 // Entity
@@ -25,6 +26,7 @@ import com.aivle.bigproject.exception.ErrorCode;
 
 // Service
 import com.aivle.bigproject.service.NotificationService;
+import com.aivle.bigproject.ai.service.EmbeddingService;
 import com.aivle.bigproject.service.GithubService;
 
 import org.springframework.beans.propertyeditors.CustomNumberEditor;
@@ -52,6 +54,7 @@ public class AnalysisService {
     private final FindingRepository findingRepository;
     private final NotificationService notificationService;
     private final JsonMapper jsonMapper;
+    private final EmbeddingService embeddingService;
     private final GithubService githubService;
 
     public AnalysisService(AnalysisRepository analysisRepository, 
@@ -69,6 +72,7 @@ public class AnalysisService {
         this.userRepository = userRepository;
         this.findingRepository = findingRepository;
         this.notificationService = notificationService;
+        this.embeddingService = embeddingService;
         this.jsonMapper = jsonMapper;
         this.githubService = githubService;
     }
@@ -108,7 +112,11 @@ public class AnalysisService {
 
     @Async
     public void sendToAiServerAsync(Integer analysisId, DetectRequest requestDto) {
-        
+        List<DuplicateSnippet> duplicates = requestDto.repoId() != null
+                ? embeddingService.searchDuplicates(requestDto.repoId(), requestDto.codeContent())
+                : List.of();
+
+
         DetectRequest enrichedRequest = new DetectRequest(
                 requestDto.codeContent(),
                 requestDto.repoId(),
@@ -122,7 +130,7 @@ public class AnalysisService {
         HttpHeaders headers = new HttpHeaders();
         headers.setContentType(MediaType.APPLICATION_JSON);
         
-        HttpEntity<DetectRequest> requestEntity = new HttpEntity<>(requestDto, headers);
+        HttpEntity<DetectRequest> requestEntity = new HttpEntity<>(enrichedRequest, headers);
 
         try {
             DetectResponse response = restTemplate.postForObject(AI_DETECT_URL, requestEntity, DetectResponse.class);
