@@ -6,7 +6,7 @@ import com.aivle.bigproject.exception.CustomException;
 import com.aivle.bigproject.exception.ErrorCode;
 import com.aivle.bigproject.repository.AnalysisRepository;
 import com.aivle.bigproject.repository.FindingRepository;
-import com.aivle.bigproject.repository.UserRepoRepository;
+import com.aivle.bigproject.repository.UserRepository;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.util.Map;
@@ -24,19 +24,21 @@ public class DashboardService {
 
     private final AnalysisRepository analysisRepository;
     private final FindingRepository findingRepository;
-    private final UserRepoRepository userRepoRepository;
+    private final UserRepository userRepository;
 
     public DashboardService(
             AnalysisRepository analysisRepository,
             FindingRepository findingRepository,
-            UserRepoRepository userRepoRepository
+            UserRepository userRepository
     ) {
         this.analysisRepository = analysisRepository;
         this.findingRepository = findingRepository;
-        this.userRepoRepository = userRepoRepository;
+        this.userRepository = userRepository;
     }
 
     // 필요한 데이터를 조회하여 DashboardResponse 객체를 생성하고 반환
+    // 대시보드는 로그인한 유저 개인이 아니라 그 유저가 속한 회사(company_id) 전체 집계다 —
+    // 같은 회사 팀원이라면 누가 분석을 돌렸든 같은 대시보드를 봐야 한다.
     public DashboardResponse getDashboard(Integer userId, LocalDate from, LocalDate to) {
         // 기간이 지정되지 않은 경우 오늘을 기준으로 조회하도록 설정
         LocalDate endDate = to != null ? to : LocalDate.now();
@@ -46,6 +48,10 @@ public class DashboardService {
             throw new CustomException(ErrorCode.INVALID_DATE_RANGE);
         }
 
+        Integer companyId = userRepository.findById(userId)
+                .orElseThrow(() -> new CustomException(ErrorCode.USER_NOT_FOUND))
+                .getCompany().getId();
+
         LocalDateTime fromDateTime = startDate.atStartOfDay();
         LocalDateTime toExclusive = endDate.plusDays(1).atStartOfDay();
         long periodDays = startDate.datesUntil(endDate.plusDays(1)).count();
@@ -54,34 +60,34 @@ public class DashboardService {
 
         //현재 기간의 전체 이슈, 보안 이슈, 비효율 이슈 개수를 조회
         FindingRepository.IssueCountSummary issueCounts =
-                findingRepository.sumIssueCountsByUserIdAndPeriod(
-                        userId, fromDateTime, toExclusive);
+                findingRepository.sumIssueCountsByCompanyIdAndPeriod(
+                        companyId, fromDateTime, toExclusive);
         // 이전 기간의 이슈 수를 조회
         FindingRepository.IssueCountSummary previousIssueCounts =
-                findingRepository.sumIssueCountsByUserIdAndPeriod(
-                        userId, previousFrom, previousToExclusive);
+                findingRepository.sumIssueCountsByCompanyIdAndPeriod(
+                        companyId, previousFrom, previousToExclusive);
         //현재 기간의 분석 수를 조회
-        long analysisCount = analysisRepository.countByUserIdAndPeriod(
-                userId, fromDateTime, toExclusive);
+        long analysisCount = analysisRepository.countByCompanyIdAndPeriod(
+                companyId, fromDateTime, toExclusive);
         // 이전 기간의 분석 수를 조회
-        long previousAnalysisCount = analysisRepository.countByUserIdAndPeriod(
-                userId, previousFrom, previousToExclusive);
+        long previousAnalysisCount = analysisRepository.countByCompanyIdAndPeriod(
+                companyId, previousFrom, previousToExclusive);
         //현재 기간의 평균 품질 점수를 조회
-        double averageQualityScore = findingRepository.averageQualityScoreByUserIdAndPeriod(
-                userId, fromDateTime, toExclusive);
+        double averageQualityScore = findingRepository.averageQualityScoreByCompanyIdAndPeriod(
+                companyId, fromDateTime, toExclusive);
         // 이전 기간의 평균 품질 점수를 조회
-        double previousQualityScore = findingRepository.averageQualityScoreByUserIdAndPeriod(
-                userId, previousFrom, previousToExclusive);
+        double previousQualityScore = findingRepository.averageQualityScoreByCompanyIdAndPeriod(
+                companyId, previousFrom, previousToExclusive);
 
         // 최신 분석 데이터를 조회
         List<DashboardResponse.RecentAnalysis> recentAnalyses = analysisRepository
-                .findTop5ByUserIdAndPeriod(userId, fromDateTime, toExclusive)
+                .findTop5ByCompanyIdAndPeriod(companyId, fromDateTime, toExclusive)
                 .stream()
                 .map(this::toRecentAnalysis)
                 .toList();
 
         Map<LocalDate, FindingRepository.DailyQualityScore> dailyScores = findingRepository
-                .findDailyQualityScoresByUserIdAndPeriod(userId, fromDateTime, toExclusive)
+                .findDailyQualityScoresByCompanyIdAndPeriod(companyId, fromDateTime, toExclusive)
                 .stream()
                 .collect(Collectors.toMap(
                         FindingRepository.DailyQualityScore::getAnalysisDate,
@@ -103,7 +109,7 @@ public class DashboardService {
                 distribution("OTHER", otherIssueCount, issueCounts.getTotalIssueCount())
         );
         List<FindingRepository.RiskRepositorySummary> riskSummaries = findingRepository
-                .findTop5RiskRepositoriesByUserIdAndPeriod(userId, fromDateTime, toExclusive);
+                .findTop5RiskRepositoriesByCompanyIdAndPeriod(companyId, fromDateTime, toExclusive);
         List<DashboardResponse.RiskRepository> riskRepositories = IntStream
                 .range(0, riskSummaries.size())
                 .mapToObj(index -> toRiskRepository(index + 1, riskSummaries.get(index)))
@@ -111,16 +117,16 @@ public class DashboardService {
 
         // 대시보드 응답 데이터를 생성하여, 반환
         return new DashboardResponse(
-                userRepoRepository.countByUserId(userId),
+                analysisRepository.countDistinctRepoByCompanyId(companyId),
                 analysisCount,
-                analysisRepository.countByUserIdAndStatusAndPeriod(
-                        userId, "ANALYZING", fromDateTime, toExclusive),
-                analysisRepository.countByUserIdAndStatusAndPeriod(
-                        userId, "COMPLETED", fromDateTime, toExclusive),
-                analysisRepository.countByUserIdAndStatusAndPeriod(
-                        userId, "FAILED", fromDateTime, toExclusive),
-                analysisRepository.countByUserIdAndStatusAndPeriod(
-                        userId, "CANCELED", fromDateTime, toExclusive),
+                analysisRepository.countByCompanyIdAndStatusAndPeriod(
+                        companyId, "ANALYZING", fromDateTime, toExclusive),
+                analysisRepository.countByCompanyIdAndStatusAndPeriod(
+                        companyId, "COMPLETED", fromDateTime, toExclusive),
+                analysisRepository.countByCompanyIdAndStatusAndPeriod(
+                        companyId, "FAILED", fromDateTime, toExclusive),
+                analysisRepository.countByCompanyIdAndStatusAndPeriod(
+                        companyId, "CANCELED", fromDateTime, toExclusive),
                 issueCounts.getTotalIssueCount(),
                 issueCounts.getSecurityIssueCount(),
                 issueCounts.getInefficiencyIssueCount(),

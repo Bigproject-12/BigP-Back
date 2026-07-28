@@ -8,12 +8,14 @@ import static org.mockito.ArgumentMatchers.anyInt;
 import static org.mockito.ArgumentMatchers.anyString;
 
 import com.aivle.bigproject.entity.Analysis;
+import com.aivle.bigproject.entity.Company;
 import com.aivle.bigproject.entity.Finding;
 import com.aivle.bigproject.entity.GithubRepo;
+import com.aivle.bigproject.entity.User;
 import com.aivle.bigproject.exception.CustomException;
 import com.aivle.bigproject.repository.AnalysisRepository;
 import com.aivle.bigproject.repository.FindingRepository;
-import com.aivle.bigproject.repository.UserRepoRepository;
+import com.aivle.bigproject.repository.UserRepository;
 import java.util.List;
 import java.util.Optional;
 import java.time.LocalDate;
@@ -29,11 +31,15 @@ class DashboardServiceTest {
 
     @Mock AnalysisRepository analysisRepository;
     @Mock FindingRepository findingRepository;
-    @Mock UserRepoRepository userRepoRepository;
+    @Mock UserRepository userRepository;
     @InjectMocks DashboardService dashboardService;
 
     @Test
-    void returnsOnlyUsersDashboardSummary() {
+    void returnsCompanyWideDashboardSummary() {
+        Company company = Company.builder().id(100).name("AIVLE").build();
+        User user = User.builder().id(1).company(company).build();
+        when(userRepository.findById(1)).thenReturn(Optional.of(user));
+
         GithubRepo repo = GithubRepo.builder().id(10).name("BigP-Back").build();
         Analysis analysis = Analysis.builder()
                 .id(20)
@@ -51,11 +57,11 @@ class DashboardServiceTest {
         FindingRepository.RiskRepositorySummary riskRepository =
                 mock(FindingRepository.RiskRepositorySummary.class);
 
-        when(userRepoRepository.countByUserId(1)).thenReturn(2L);
-        when(analysisRepository.countByUserIdAndPeriod(
+        when(analysisRepository.countDistinctRepoByCompanyId(100)).thenReturn(2L);
+        when(analysisRepository.countByCompanyIdAndPeriod(
                 anyInt(), org.mockito.ArgumentMatchers.any(), org.mockito.ArgumentMatchers.any()))
                 .thenReturn(3L, 2L);
-        when(analysisRepository.countByUserIdAndStatusAndPeriod(
+        when(analysisRepository.countByCompanyIdAndStatusAndPeriod(
                 anyInt(), anyString(),
                 org.mockito.ArgumentMatchers.any(), org.mockito.ArgumentMatchers.any()))
                 .thenAnswer(invocation -> "COMPLETED".equals(invocation.getArgument(1)) ? 2L : 0L);
@@ -63,15 +69,15 @@ class DashboardServiceTest {
         when(issueCounts.getSecurityIssueCount()).thenReturn(3L);
         when(issueCounts.getInefficiencyIssueCount()).thenReturn(2L);
         when(previousIssueCounts.getTotalIssueCount()).thenReturn(10L);
-        when(findingRepository.sumIssueCountsByUserIdAndPeriod(
+        when(findingRepository.sumIssueCountsByCompanyIdAndPeriod(
                 anyInt(), org.mockito.ArgumentMatchers.any(), org.mockito.ArgumentMatchers.any()))
                 .thenReturn(issueCounts, previousIssueCounts);
-        when(findingRepository.averageQualityScoreByUserIdAndPeriod(
+        when(findingRepository.averageQualityScoreByCompanyIdAndPeriod(
                 anyInt(), org.mockito.ArgumentMatchers.any(), org.mockito.ArgumentMatchers.any()))
                 .thenReturn(80.0, 70.0);
         when(dailyQualityScore.getAnalysisDate()).thenReturn(LocalDate.of(2026, 7, 24));
         when(dailyQualityScore.getAverageScore()).thenReturn(80.0);
-        when(findingRepository.findDailyQualityScoresByUserIdAndPeriod(
+        when(findingRepository.findDailyQualityScoresByCompanyIdAndPeriod(
                 anyInt(), org.mockito.ArgumentMatchers.any(), org.mockito.ArgumentMatchers.any()))
                 .thenReturn(List.of(dailyQualityScore));
         when(riskRepository.getRepoId()).thenReturn(10);
@@ -83,10 +89,10 @@ class DashboardServiceTest {
         when(riskRepository.getOtherIssueCount()).thenReturn(2L);
         when(riskRepository.getLastAnalyzedAt())
                 .thenReturn(LocalDateTime.of(2026, 7, 24, 10, 30));
-        when(findingRepository.findTop5RiskRepositoriesByUserIdAndPeriod(
+        when(findingRepository.findTop5RiskRepositoriesByCompanyIdAndPeriod(
                 anyInt(), org.mockito.ArgumentMatchers.any(), org.mockito.ArgumentMatchers.any()))
                 .thenReturn(List.of(riskRepository));
-        when(analysisRepository.findTop5ByUserIdAndPeriod(
+        when(analysisRepository.findTop5ByCompanyIdAndPeriod(
                 anyInt(), org.mockito.ArgumentMatchers.any(), org.mockito.ArgumentMatchers.any()))
                 .thenReturn(List.of(analysis));
         when(findingRepository.findByAnalysisId(20)).thenReturn(Optional.of(finding));

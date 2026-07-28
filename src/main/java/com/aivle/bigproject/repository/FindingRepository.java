@@ -35,23 +35,23 @@ public interface FindingRepository extends JpaRepository<Finding, Integer> {
             """)
     IssueCountSummary sumIssueCountsByUserId(@Param("userId") Integer userId);
 
-    // 유저별 기간별 이슈 수를 조회
+    // 회사별 기간별 이슈 수를 조회
     @Query(value = """
             SELECT COALESCE(SUM(f.total_issues), 0) AS totalIssueCount,
                    COALESCE(SUM(f.security_count), 0) AS securityIssueCount,
                    COALESCE(SUM(f.inefficiency_count), 0) AS inefficiencyIssueCount
             FROM FINDING f
             JOIN ANALYSIS a ON a.analysis_id = f.analysis_id
-            WHERE a.user_id = :userId
+            WHERE a.company_id = :companyId
               AND a.created_at >= :from
               AND a.created_at < :toExclusive
             """, nativeQuery = true)
-    IssueCountSummary sumIssueCountsByUserIdAndPeriod(
-            @Param("userId") Integer userId,
+    IssueCountSummary sumIssueCountsByCompanyIdAndPeriod(
+            @Param("companyId") Integer companyId,
             @Param("from") LocalDateTime from,
             @Param("toExclusive") LocalDateTime toExclusive);
 
-    // 유저별 기간별 평균 품질 점수를 조회
+    // 회사별 기간별 평균 품질 점수를 조회
     @Query(value = """
             SELECT COALESCE(ROUND(AVG(GREATEST(0,
                        100 - f.security_count * 10
@@ -60,16 +60,16 @@ public interface FindingRepository extends JpaRepository<Finding, Integer> {
                    )), 1), 0) AS averageScore
             FROM FINDING f
             JOIN ANALYSIS a ON a.analysis_id = f.analysis_id
-            WHERE a.user_id = :userId
+            WHERE a.company_id = :companyId
               AND a.created_at >= :from
               AND a.created_at < :toExclusive
             """, nativeQuery = true)
-    double averageQualityScoreByUserIdAndPeriod(
-            @Param("userId") Integer userId,
+    double averageQualityScoreByCompanyIdAndPeriod(
+            @Param("companyId") Integer companyId,
             @Param("from") LocalDateTime from,
             @Param("toExclusive") LocalDateTime toExclusive);
 
-    // 유저별 기간별 일일 품질 점수를 조회
+    // 회사별 기간별 일일 품질 점수를 조회
     @Query(value = """
             SELECT DATE(a.created_at) AS analysisDate,
                    ROUND(AVG(GREATEST(0,
@@ -79,14 +79,14 @@ public interface FindingRepository extends JpaRepository<Finding, Integer> {
                    )), 1) AS averageScore
             FROM FINDING f
             JOIN ANALYSIS a ON a.analysis_id = f.analysis_id
-            WHERE a.user_id = :userId
+            WHERE a.company_id = :companyId
               AND a.created_at >= :from
               AND a.created_at < :toExclusive
             GROUP BY DATE(a.created_at)
             ORDER BY DATE(a.created_at)
             """, nativeQuery = true)
-    List<DailyQualityScore> findDailyQualityScoresByUserIdAndPeriod(
-            @Param("userId") Integer userId,
+    List<DailyQualityScore> findDailyQualityScoresByCompanyIdAndPeriod(
+            @Param("companyId") Integer companyId,
             @Param("from") LocalDateTime from,
             @Param("toExclusive") LocalDateTime toExclusive);
 
@@ -114,19 +114,20 @@ public interface FindingRepository extends JpaRepository<Finding, Integer> {
                 FROM FINDING
                 GROUP BY analysis_id
             ) f ON f.analysis_id = a.analysis_id
-            WHERE a.user_id = :userId
+            WHERE a.company_id = :companyId
               AND a.status = 'COMPLETED'
               AND a.created_at >= :from
               AND a.created_at < :toExclusive
               AND EXISTS (
                   SELECT 1 FROM USER_REPO ur
-                  WHERE ur.user_id = :userId
+                  JOIN USER u ON u.user_id = ur.user_id
+                  WHERE u.company_id = :companyId
                     AND ur.repo_id = a.repo_id
               )
               AND a.analysis_id = (
                   SELECT a2.analysis_id
                   FROM ANALYSIS a2
-                  WHERE a2.user_id = :userId
+                  WHERE a2.company_id = :companyId
                     AND a2.repo_id = a.repo_id
                     AND a2.status = 'COMPLETED'
                     AND a2.created_at >= :from
@@ -144,8 +145,8 @@ public interface FindingRepository extends JpaRepository<Finding, Integer> {
                      lastAnalyzedAt DESC
             LIMIT 5
             """, nativeQuery = true)
-    List<RiskRepositorySummary> findTop5RiskRepositoriesByUserIdAndPeriod(
-            @Param("userId") Integer userId,
+    List<RiskRepositorySummary> findTop5RiskRepositoriesByCompanyIdAndPeriod(
+            @Param("companyId") Integer companyId,
             @Param("from") LocalDateTime from,
             @Param("toExclusive") LocalDateTime toExclusive);
 

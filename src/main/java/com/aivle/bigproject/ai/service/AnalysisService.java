@@ -27,7 +27,9 @@ import com.aivle.bigproject.exception.ErrorCode;
 // Service
 import com.aivle.bigproject.service.NotificationService;
 import com.aivle.bigproject.ai.service.EmbeddingService;
+import com.aivle.bigproject.service.GithubService;
 
+import org.springframework.beans.propertyeditors.CustomNumberEditor;
 // Spring Web
 import org.springframework.http.HttpEntity;
 import org.springframework.http.HttpHeaders;
@@ -53,6 +55,7 @@ public class AnalysisService {
     private final NotificationService notificationService;
     private final JsonMapper jsonMapper;
     private final EmbeddingService embeddingService;
+    private final GithubService githubService;
 
     public AnalysisService(AnalysisRepository analysisRepository, 
                            GithubRepoRepository githubRepoRepository, 
@@ -62,6 +65,8 @@ public class AnalysisService {
                            NotificationService notificationService,
                            EmbeddingService embeddingService,
                            JsonMapper jsonMapper) {
+                           JsonMapper jsonMapper,
+                           GithubService githubService) {
         this.analysisRepository = analysisRepository;
         this.githubRepoRepository = githubRepoRepository;
         this.companyRepository = companyRepository;
@@ -70,6 +75,7 @@ public class AnalysisService {
         this.notificationService = notificationService;
         this.embeddingService = embeddingService;
         this.jsonMapper = jsonMapper;
+        this.githubService = githubService;
     }
 
     public Integer createInitialAnalysis(DetectRequest requestDto, Integer userId) {
@@ -79,10 +85,10 @@ public class AnalysisService {
         Company company = user.getCompany();
 
         GithubRepo repo = githubRepoRepository.findById(requestDto.repoId())
-                .orElseThrow(() -> new IllegalArgumentException("레포를 찾을 수 없습니다."));
+                .orElseThrow(() -> new CustomException(ErrorCode.REPO_NOT_FOUND));
                 
         if (company == null) {
-            throw new IllegalArgumentException("사용자에게 소속된 회사 정보가 없습니다.");
+            throw new CustomException(ErrorCode.COMPANY_NOT_LINKED);
         }
 
         // 분석 중 상태로 DB에 저장
@@ -93,6 +99,8 @@ public class AnalysisService {
                 .originCode(requestDto.codeContent())
                 .language(requestDto.language())
                 .filePath(requestDto.filePath())
+                .filePath(requestDto.filePath()) // 히스토리관련 추가
+                .branch(requestDto.branch())
                 .prompt(null) 
                 .status("ANALYZING") 
                 .build();
@@ -178,10 +186,10 @@ public class AnalysisService {
  
     public void stopAnalysis(Integer analysisId) {
         Analysis analysis = analysisRepository.findById(analysisId)
-                .orElseThrow(() -> new IllegalArgumentException("해당 분석 요청을 찾을 수 없습니다. ID: " + analysisId));
+                .orElseThrow(() -> new CustomException(ErrorCode.ANALYSIS_NOT_FOUND));
 
         if ("COMPLETED".equals(analysis.getStatus()) || "FAILED".equals(analysis.getStatus())) {
-            throw new IllegalStateException("이미 처리가 끝난 분석입니다.");
+            throw new CustomException(ErrorCode.ANALYSIS_ALREADY_FINISHED);
         }
 
         analysis.setStatus("CANCELED");
@@ -193,7 +201,7 @@ public class AnalysisService {
      */
     public AnalysisResultResponse getAnalysisResult(Integer analysisId) {
         Analysis analysis = analysisRepository.findById(analysisId)
-                .orElseThrow(() -> new IllegalArgumentException("해당 분석 요청을 찾을 수 없습니다. ID: " + analysisId));
+                .orElseThrow(() -> new CustomException((ErrorCode.ANALYSIS_NOT_FOUND)));
 
         Finding finding = findingRepository.findByAnalysisId(analysisId).orElse(null);
 
@@ -201,4 +209,73 @@ public class AnalysisService {
     }
 
     
+    public void pushImprovedCode(Integer analysisId, Integer userId) {
+        Analysis analysis = analysisRepository.findById(analysisId)
+                .orElseThrow(() -> new CustomException(ErrorCode.ANALYSIS_NOT_FOUND));
+
+        if (!analysis.getUser().getId().equals(userId)) {
+            throw new CustomException(ErrorCode.NO_PERMISSION);
+        }
+        if (!"COMPLETED".equals(analysis.getStatus())) {
+            throw new CustomException(ErrorCode.ANALYSIS_NOT_COMPLETED);
+        }
+        if (analysis.getBranch() == null || analysis.getFilePath() == null) {
+            throw new CustomException(ErrorCode.ANALYSIS_BRANCH_FILE_INFO_MISSING);
+        }
+
+        Finding finding = findingRepository.findByAnalysisId(analysisId)
+                .orElseThrow(() -> new CustomException(ErrorCode.FINDING_NOT_FOUND));
+
+        GithubRepo repo = analysis.getGithubRepo();
+
+        String sha = githubService.getFileSha(
+                userId, repo.getOrganization(), repo.getName(), analysis.getFilePath(), analysis.getBranch());
+        
+        String codeTocommit = (finding.getModifiedCode() != null &&
+        !finding.getModifiedCode().isBlank())
+                ? finding.getModifiedCode() : analysis.getOriginCode();
+
+        githubService.commitFile(
+                userId, repo.getOrganization(), repo.getName(), analysis.getFilePath(), analysis.getBranch(),
+                codeTocommit, sha, "GuardrAil: AI 코드 개선 반영 (분석 ID: " + analysisId + ")");
+    }
+
+        public String createPullRequest(Integer analysisId, Integer userId) {
+        Analysis analysis = analysisRepository.findById(analysisId)
+                .orElseThrow(() -> new CustomException(ErrorCode.ANALYSIS_NOT_FOUND));
+
+        if (!analysis.getUser().getId().equals(userId)) {
+            throw new CustomException(ErrorCode.NO_PERMISSION);
+        }
+        if (!"COMPLETED".equals(analysis.getStatus())) {
+            throw new CustomException(ErrorCode.ANALYSIS_NOT_COMPLETED);
+        }
+        if (analysis.getBranch() == null) {
+            throw new CustomException(ErrorCode.ANALYSIS_BRANCH_INFO_MISSING);
+        }
+
+        Finding finding = findingRepository.findByAnalysisId(analysisId)
+                .orElseThrow(() -> new CustomException(ErrorCode.FINDING_NOT_FOUND));
+
+        GithubRepo repo = analysis.getGithubRepo();
+        String defaultBranch = githubService.getDefaultBranch(userId, repo.getOrganization(), repo.getName());
+
+        if (analysis.getBranch().equals(defaultBranch)) {
+            throw new CustomException(ErrorCode.GITHUB_PR_SAME_BRANCH);
+        }
+
+        String fileName = analysis.getFilePath() != null
+                ? analysis.getFilePath().substring(analysis.getFilePath().lastIndexOf('/') + 1)
+                : "코드";
+
+        String title = "GuardrAil: " + fileName + " 코드 개선 (이슈 " + finding.getTotalIssues() + "건)";
+        String body = "분석 결과: 총 " + finding.getTotalIssues() + "건의 이슈 개선.\n\n"
+                + "- 파일: `" + analysis.getFilePath() + "`\n"
+                + "- 보안 이슈: " + finding.getSecurityCount() + "건\n"
+                + "- 비효율 이슈: " + finding.getInefficiencyCount() + "건\n\n"
+                + "분석 세부 내용은 분석 ID: " + analysisId + "에서 확인 가능.";
+
+        return githubService.createPullRequest(
+                userId, repo.getOrganization(), repo.getName(), analysis.getBranch(), defaultBranch, title, body);
+    }
 }
