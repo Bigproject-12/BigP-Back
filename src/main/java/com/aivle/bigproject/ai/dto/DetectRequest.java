@@ -10,6 +10,7 @@ public record DetectRequest(
     String language,
     String prompt,
     String filePath,
+    String branch,
     @JsonProperty("duplicate_snippets")
     List<DuplicateSnippet> duplicateSnippets
 ) {}

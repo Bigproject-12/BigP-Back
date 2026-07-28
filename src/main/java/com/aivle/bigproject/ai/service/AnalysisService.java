@@ -60,6 +60,7 @@ public class AnalysisService {
                            UserRepository userRepository,
                            FindingRepository findingRepository,
                            NotificationService notificationService,
+                           EmbeddingService embeddingService,
                            JsonMapper jsonMapper,
                            GithubService githubService) {
         this.analysisRepository = analysisRepository;
@@ -108,6 +109,15 @@ public class AnalysisService {
     @Async
     public void sendToAiServerAsync(Integer analysisId, DetectRequest requestDto) {
         
+        DetectRequest enrichedRequest = new DetectRequest(
+                requestDto.codeContent(),
+                requestDto.repoId(),
+                requestDto.language(),
+                requestDto.prompt(),
+                requestDto.filePath(),
+                requestDto.branch(),
+                duplicates
+        );
         RestTemplate restTemplate = new RestTemplate();
         HttpHeaders headers = new HttpHeaders();
         headers.setContentType(MediaType.APPLICATION_JSON);
