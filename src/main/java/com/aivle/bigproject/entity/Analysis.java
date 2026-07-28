@@ -55,7 +55,6 @@ public class Analysis {
     @Column(name = "pushed_at")
     private LocalDateTime pushedAt;
 
->>>>>>> d614ad9 (feat/Add Entity and Analysis Push fields for automatic PR saving)
     @Column(columnDefinition = "TEXT")
     private String prompt;
 
