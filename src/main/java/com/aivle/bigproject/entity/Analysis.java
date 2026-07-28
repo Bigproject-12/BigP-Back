@@ -3,6 +3,8 @@ package com.aivle.bigproject.entity;
 import lombok.*;
 import jakarta.persistence.*;
 import org.springframework.data.jpa.domain.support.AuditingEntityListener;
+
+import java.math.BigDecimal;
 import java.time.LocalDateTime;
 import org.springframework.data.annotation.CreatedDate;
 
@@ -65,8 +67,13 @@ public class Analysis {
     @Column (name= "created_at", updatable=false)  //분석요청 시간 추가
     private LocalDateTime createdAt;
 
+    @Column(name = "improvable_ratio",precision = 5,scale = 1)
+    private BigDecimal improvableRatio; // 이슈가 걸친 고유 줄 수 / 전체 줄 수 * 100
+
+
     public void markPushed(String commitSha, LocalDateTime pushedAt) {
         this.pushedCommitSha = commitSha;
         this.pushedAt = pushedAt;
     }
 }
+
