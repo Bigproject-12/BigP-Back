@@ -14,7 +14,7 @@ public class AnalysisResultResponse {
 
     private Integer repoId;
     private String repoName;
-    //private String branch;
+    private String branch;
     private String language;
     private String filePath;
     
@@ -33,7 +33,8 @@ public class AnalysisResultResponse {
                 .repoId(analysis.getGithubRepo().getId())
                 .repoName(analysis.getGithubRepo().getName())
                 .language(analysis.getLanguage())
-                .filePath(analysis.getFilePath());
+                .filePath(analysis.getFilePath())
+                .branch(analysis.getBranch());
 
         if (finding != null) {
             builder.totalIssues(finding.getTotalIssues())
