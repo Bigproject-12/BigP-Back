@@ -31,12 +31,26 @@ public class RepoEmbedding {
     @Column(name = "faiss_vector_id", nullable = false)
     private Integer faissVectorId;
 
+    @Column(name = "function_name")
+    private String functionName;
+
+    @Lob
+    @Column(name = "parameters", columnDefinition = "TEXT")
+    private String parameters;   // ["num1", "num2"] 형태의 JSON 문자열로 저장
+
+    @Lob
+    @Column(name = "code_snippet", columnDefinition = "TEXT")
+    private String codeSnippet;
+
     @Builder
-    public RepoEmbedding(GithubRepo githubRepo, String filePath, Integer startLine, Integer endLine, Integer faissVectorId) {
+    public RepoEmbedding(GithubRepo githubRepo, String filePath, Integer startLine, Integer endLine, Integer faissVectorId, String functionName, String parameters, String codeSnippet) {
         this.githubRepo = githubRepo;
         this.filePath = filePath;
         this.startLine = startLine;
         this.endLine = endLine;
         this.faissVectorId = faissVectorId;
+        this.functionName = functionName;
+        this.parameters = parameters;
+        this.codeSnippet = codeSnippet;
     }
 }

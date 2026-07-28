@@ -13,6 +13,8 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.client.RestTemplate;
 
+import tools.jackson.databind.json.JsonMapper;
+
 import java.util.List;
 import java.util.ArrayList;
 
@@ -23,10 +25,14 @@ public class EmbeddingService {
     
     private final RepoEmbeddingRepository repoEmbeddingRepository;
     private final GithubRepoRepository githubRepoRepository;
+    private final JsonMapper jsonMapper;
 
-    public EmbeddingService(RepoEmbeddingRepository repoEmbeddingRepository, GithubRepoRepository githubRepoRepository) {
+    public EmbeddingService(RepoEmbeddingRepository repoEmbeddingRepository, 
+                             GithubRepoRepository githubRepoRepository,
+                             JsonMapper jsonMapper) {
         this.repoEmbeddingRepository = repoEmbeddingRepository;
         this.githubRepoRepository = githubRepoRepository;
+        this.jsonMapper = jsonMapper;
     }
 
     @Transactional 
@@ -53,12 +59,19 @@ public class EmbeddingService {
                 List<RepoEmbedding> embeddingsToSave = new ArrayList<>();
                 
                 for (ChunkMetadata chunk : response.chunks()) {
+                    String parametersJson = jsonMapper.writeValueAsString(
+                            chunk.parameters() != null ? chunk.parameters() : List.of()
+                    );
+
                     RepoEmbedding embedding = RepoEmbedding.builder()
                             .githubRepo(githubRepo)
                             .filePath(chunk.file_path())
                             .startLine(chunk.start_line())
                             .endLine(chunk.end_line())
                             .faissVectorId(chunk.faiss_vector_id())
+                            .functionName(chunk.function_name())
+                            .parameters(parametersJson)
+                            .codeSnippet(chunk.code())
                             .build();
                             
                     embeddingsToSave.add(embedding);
@@ -73,5 +86,49 @@ public class EmbeddingService {
             System.err.println("AI 서버 임베딩 요청 또는 DB 저장에 실패했습니다.");
             e.printStackTrace();
         }
+    }
+
+    private final String AI_SEARCH_URL = "http://localhost:8000/api/embedding/search";
+
+    public List<DuplicateSnippet> searchDuplicates(Integer repoId, String codeContent) {
+        SearchDuplicateRequest requestDto = new SearchDuplicateRequest(repoId, codeContent);
+
+        HttpHeaders headers = new HttpHeaders();
+        headers.setContentType(MediaType.APPLICATION_JSON);
+        HttpEntity<SearchDuplicateRequest> requestEntity = new HttpEntity<>(requestDto, headers);
+        RestTemplate restTemplate = new RestTemplate();
+
+        List<DuplicateSnippet> results = new ArrayList<>();
+
+        try {
+            SearchDuplicateResponse response = restTemplate.postForObject(AI_SEARCH_URL, requestEntity, SearchDuplicateResponse.class);
+
+            if (response != null && response.duplicates() != null) {
+                for (VectorMatch match : response.duplicates()) {
+                    repoEmbeddingRepository.findByGithubRepoIdAndFaissVectorId(repoId, match.faiss_vector_id())
+                            .ifPresent(embedding -> {
+                                List<String> parameters;
+                                try {
+                                    parameters = jsonMapper.readValue(embedding.getParameters(), List.class);
+                                } catch (Exception ex) {
+                                    parameters = List.of();
+                                }
+                                results.add(new DuplicateSnippet(
+                                        embedding.getFilePath(),
+                                        embedding.getFunctionName(),
+                                        parameters,
+                                        embedding.getStartLine(),
+                                        embedding.getEndLine(),
+                                        embedding.getCodeSnippet(),
+                                        match.similarity_score()
+                                ));
+                            });
+                }
+            }
+        } catch (Exception e) {
+            System.err.println("중복 코드 검색 중 오류 발생: " + e.getMessage());
+        }
+
+        return results;
     }
 }

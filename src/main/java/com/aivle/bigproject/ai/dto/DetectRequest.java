@@ -1,6 +1,7 @@
 package com.aivle.bigproject.ai.dto;
 
 import com.fasterxml.jackson.annotation.JsonProperty;
+import java.util.List;
 
 public record DetectRequest(
     @JsonProperty("code_content")
@@ -9,5 +10,7 @@ public record DetectRequest(
     String language,
     String prompt,
     String filePath,
-    String branch
+    String branch,
+    @JsonProperty("duplicate_snippets")
+    List<DuplicateSnippet> duplicateSnippets
 ) {}
