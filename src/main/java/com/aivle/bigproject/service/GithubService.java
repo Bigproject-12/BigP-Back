@@ -17,6 +17,8 @@ import com.aivle.bigproject.dto.repo.RepoResponse;
 import com.aivle.bigproject.repository.RepoEmbeddingRepository; 
 import com.aivle.bigproject.dto.repo.BranchResponse;
 import com.aivle.bigproject.dto.repo.GithubPullRequestResult;
+import com.aivle.bigproject.dto.repo.GithubPullRequestResponse;
+import com.aivle.bigproject.repository.GithubPullRequestRepository;
 
 import org.springframework.http.HttpEntity;
 import org.springframework.http.HttpHeaders;
@@ -40,6 +42,8 @@ import java.util.ArrayList;
 import java.util.Set;
 import java.util.Collections;
 import java.util.Locale;
+import java.time.OffsetDateTime;
+import java.util.stream.Collectors;
 
 @Slf4j
 @Service
@@ -54,12 +58,13 @@ public class GithubService {
     private final String webhookSecret;
     private final EmbeddingService embeddingService;
     private final RepoEmbeddingRepository repoEmbeddingRepository;
+    private final GithubPullRequestRepository githubPullRequestRepository;
 
     private static final Set<String> EMBEDDABLE_EXTENSIONS = Set.of(
             ".java", ".py", ".js", ".jsx", ".ts", ".tsx"
     );
 
-    public GithubService(UserRepository userRepository, GithubTokenCrypto githubTokenCrypto, GithubRepoRepository githubRepoRepository, EmbeddingService embeddingService, UserRepoRepository userRepoRepository, RepoEmbeddingRepository repoEmbeddingRepository, @Value("${github.webhook-callback-url}") String webhookCallbackUrl,
+    public GithubService(UserRepository userRepository, GithubTokenCrypto githubTokenCrypto, GithubRepoRepository githubRepoRepository, EmbeddingService embeddingService, UserRepoRepository userRepoRepository, RepoEmbeddingRepository repoEmbeddingRepository, GithubPullRequestRepository githubPullRequestRepository, @Value("${github.webhook-callback-url}") String webhookCallbackUrl,
         @Value("${github.webhook-secret}") String webhookSecret) {
         this.userRepository = userRepository;
         this.githubTokenCrypto = githubTokenCrypto;
@@ -67,6 +72,7 @@ public class GithubService {
         this.userRepoRepository = userRepoRepository;
         this.embeddingService = embeddingService;
         this.repoEmbeddingRepository = repoEmbeddingRepository;
+        this.githubPullRequestRepository = githubPullRequestRepository;
         this.webhookCallbackUrl = webhookCallbackUrl;
         this.webhookSecret = webhookSecret;
     }
@@ -245,6 +251,114 @@ public class GithubService {
         }
     }
 
+    public List<GithubPullRequestResponse> getRepositoryPullRequests(
+            Integer userId,
+            Integer repoId,
+            String scope,
+            String state,
+            int page,
+            int size
+    ) {
+        String normalizedScope = scope.toLowerCase(Locale.ROOT);
+        String normalizedState = state.toLowerCase(Locale.ROOT);
+        if ((!"mine".equals(normalizedScope) && !"all".equals(normalizedScope))
+                || (!"open".equals(normalizedState)
+                    && !"closed".equals(normalizedState)
+                    && !"all".equals(normalizedState))
+                || page < 1 || size < 1 || size > 50) {
+            throw new CustomException(ErrorCode.INVALID_PR_QUERY);
+        }
+
+        UserRepo userRepo = userRepoRepository
+                .findByUser_IdAndGithubRepo_Id(userId, repoId)
+                .orElseThrow(() -> new CustomException(ErrorCode.REPO_NOT_FOUND));
+        User user = userRepo.getUser();
+        if (user.getGithubAccessToken() == null) {
+            throw new CustomException(ErrorCode.GITHUB_TOKEN_NOT_CONNECTED);
+        }
+
+        GithubRepo repo = userRepo.getGithubRepo();
+        HttpHeaders headers = new HttpHeaders();
+        headers.setBearerAuth(githubTokenCrypto.decrypt(user.getGithubAccessToken()));
+        headers.set("Accept", "application/vnd.github+json");
+        headers.set("X-GitHub-Api-Version", "2026-03-10");
+        String url = "https://api.github.com/repos/" + repo.getOrganization() + "/" + repo.getName()
+                + "/pulls?state=" + normalizedState + "&page=" + page + "&per_page=" + size;
+
+        try {
+            ResponseEntity<List<Map<String, Object>>> response = restTemplate().exchange(
+                    url,
+                    HttpMethod.GET,
+                    new HttpEntity<>(headers),
+                    new ParameterizedTypeReference<>() {}
+            );
+            List<Map<String, Object>> pullRequests = response.getBody() == null
+                    ? Collections.emptyList()
+                    : response.getBody();
+            List<Map<String, Object>> visiblePullRequests = pullRequests.stream()
+                    .filter(pr -> "all".equals(normalizedScope)
+                            || user.getGitName() != null
+                            && user.getGitName().equalsIgnoreCase(nestedString(pr, "user", "login")))
+                    .toList();
+            Set<Integer> githubPrNumbers = visiblePullRequests.stream()
+                    .map(pr -> ((Number) pr.get("number")).intValue())
+                    .collect(Collectors.toSet());
+            Set<Integer> platformGeneratedNumbers = githubPrNumbers.isEmpty()
+                    ? Collections.emptySet()
+                    : githubPullRequestRepository.findPlatformGeneratedNumbers(repoId, githubPrNumbers);
+
+            return visiblePullRequests.stream()
+                    .map(pr -> toPullRequestResponse(pr, platformGeneratedNumbers))
+                    .toList();
+        } catch (HttpClientErrorException.NotFound exception) {
+            throw new CustomException(ErrorCode.REPO_NOT_FOUND);
+        } catch (HttpClientErrorException.Forbidden exception) {
+            throw new CustomException(ErrorCode.NO_PERMISSION);
+        } catch (RestClientException exception) {
+            log.error("GitHub PR 조회 실패 (repoId={}): {}", repoId, exception.getMessage());
+            throw new CustomException(ErrorCode.GITHUB_API_ERROR);
+        }
+    }
+
+    RestTemplate restTemplate() {
+        return new RestTemplate();
+    }
+
+    private GithubPullRequestResponse toPullRequestResponse(
+            Map<String, Object> pullRequest,
+            Set<Integer> platformGeneratedNumbers
+    ) {
+        Integer number = ((Number) pullRequest.get("number")).intValue();
+        OffsetDateTime mergedAt = parseDateTime((String) pullRequest.get("merged_at"));
+        String githubState = (String) pullRequest.get("state");
+        String status = "open".equalsIgnoreCase(githubState)
+                ? "OPEN"
+                : mergedAt != null ? "MERGED" : "CLOSED";
+
+        return new GithubPullRequestResponse(
+                number,
+                (String) pullRequest.get("title"),
+                nestedString(pullRequest, "user", "login"),
+                status,
+                (String) pullRequest.get("html_url"),
+                nestedString(pullRequest, "head", "ref"),
+                nestedString(pullRequest, "base", "ref"),
+                parseDateTime((String) pullRequest.get("created_at")),
+                parseDateTime((String) pullRequest.get("updated_at")),
+                mergedAt,
+                platformGeneratedNumbers.contains(number)
+        );
+    }
+
+    private String nestedString(Map<String, Object> source, String objectKey, String valueKey) {
+        Object nested = source.get(objectKey);
+        return nested instanceof Map<?, ?> values ? (String) values.get(valueKey) : null;
+    }
+
+    private OffsetDateTime parseDateTime(String value) {
+        return value == null ? null : OffsetDateTime.parse(value);
+    }
+
     private void registerWebhook(GithubRepo repo, String token) {
         RestTemplate restTemplate = new RestTemplate();
         HttpHeaders headers = new HttpHeaders();
@@ -259,7 +373,7 @@ public class GithubService {
         Map<String, Object> body = Map.of(
                 "name", "web",
                 "active", true,
-                "events", List.of("push"),
+                "events", List.of("push", "pull_request"),
                 "config", config
         );
 
