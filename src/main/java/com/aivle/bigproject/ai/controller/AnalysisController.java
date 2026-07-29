@@ -1,6 +1,8 @@
 package com.aivle.bigproject.ai.controller;
 
 import com.aivle.bigproject.ai.dto.DetectRequest;
+import com.aivle.bigproject.ai.dto.PromptReconstructApiResponse;
+import com.aivle.bigproject.ai.dto.ReconstructPromptRequest;
 import com.aivle.bigproject.ai.dto.AnalysisResultResponse;
 import com.aivle.bigproject.ai.service.AnalysisService;
 
@@ -10,8 +12,6 @@ import org.springframework.security.core.annotation.AuthenticationPrincipal;
 
 import org.springframework.security.oauth2.jwt.Jwt;
 import java.util.Map;
-import org.springframework.web.bind.annotation.PostMapping;
-import org.springframework.web.bind.annotation.RequestBody;
 
 
 @RestController
@@ -66,5 +66,13 @@ public class AnalysisController {
             @AuthenticationPrincipal Jwt jwt
     ) { String prUrl = analysisService.createPullRequest(analysisId, Integer.valueOf(jwt.getSubject()));
         return ResponseEntity.ok(Map.of("prUrl", prUrl));
+    }
+
+    @PostMapping("/{analysisId}/reconstruct-prompt")
+    public ResponseEntity<PromptReconstructApiResponse> reconstructPrompt(
+            @PathVariable Integer analysisId,
+            @RequestBody ReconstructPromptRequest request
+    ) {
+        return ResponseEntity.ok(analysisService.reconstructPrompt(analysisId, request.originalPrompt()));
     }
 }
