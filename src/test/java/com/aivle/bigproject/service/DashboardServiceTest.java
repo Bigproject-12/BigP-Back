@@ -18,6 +18,7 @@ import com.aivle.bigproject.repository.AnalysisRepository;
 import com.aivle.bigproject.repository.FindingRepository;
 import com.aivle.bigproject.repository.GithubPullRequestRepository;
 import com.aivle.bigproject.repository.UserRepository;
+import com.aivle.bigproject.repository.UserRepoRepository;
 import java.util.List;
 import java.util.Optional;
 import java.time.LocalDate;
@@ -35,6 +36,7 @@ class DashboardServiceTest {
     @Mock FindingRepository findingRepository;
     @Mock UserRepository userRepository;
     @Mock GithubPullRequestRepository githubPullRequestRepository;
+    @Mock UserRepoRepository userRepoRepository;
     @InjectMocks DashboardService dashboardService;
 
     @Test
@@ -71,7 +73,7 @@ class DashboardServiceTest {
         FindingRepository.RiskRepositorySummary riskRepository =
                 mock(FindingRepository.RiskRepositorySummary.class);
 
-        when(analysisRepository.countDistinctRepoByCompanyId(100)).thenReturn(2L);
+        when(userRepoRepository.countDistinctRepoByCompanyId(100)).thenReturn(2L);
         when(analysisRepository.countByCompanyIdAndPeriod(
                 anyInt(), org.mockito.ArgumentMatchers.any(), org.mockito.ArgumentMatchers.any()))
                 .thenReturn(3L, 2L);
