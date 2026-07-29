@@ -11,10 +11,12 @@ import com.aivle.bigproject.entity.Analysis;
 import com.aivle.bigproject.entity.Company;
 import com.aivle.bigproject.entity.Finding;
 import com.aivle.bigproject.entity.GithubRepo;
+import com.aivle.bigproject.entity.GithubPullRequest;
 import com.aivle.bigproject.entity.User;
 import com.aivle.bigproject.exception.CustomException;
 import com.aivle.bigproject.repository.AnalysisRepository;
 import com.aivle.bigproject.repository.FindingRepository;
+import com.aivle.bigproject.repository.GithubPullRequestRepository;
 import com.aivle.bigproject.repository.UserRepository;
 import java.util.List;
 import java.util.Optional;
@@ -32,6 +34,7 @@ class DashboardServiceTest {
     @Mock AnalysisRepository analysisRepository;
     @Mock FindingRepository findingRepository;
     @Mock UserRepository userRepository;
+    @Mock GithubPullRequestRepository githubPullRequestRepository;
     @InjectMocks DashboardService dashboardService;
 
     @Test
@@ -48,6 +51,17 @@ class DashboardServiceTest {
                 .status("COMPLETED")
                 .build();
         Finding finding = Finding.builder().totalIssues(4).build();
+        GithubPullRequest pullRequest = GithubPullRequest.builder()
+                .id(30)
+                .githubRepo(repo)
+                .githubPrNumber(42)
+                .title("AI 코드 개선")
+                .status("OPEN")
+                .prUrl("https://github.com/aivle/BigP-Back/pull/42")
+                .headBranch("feature/fix")
+                .baseBranch("main")
+                .createdAt(LocalDateTime.of(2026, 7, 24, 11, 0))
+                .build();
         FindingRepository.IssueCountSummary issueCounts =
                 mock(FindingRepository.IssueCountSummary.class);
         FindingRepository.IssueCountSummary previousIssueCounts =
@@ -96,6 +110,21 @@ class DashboardServiceTest {
                 anyInt(), org.mockito.ArgumentMatchers.any(), org.mockito.ArgumentMatchers.any()))
                 .thenReturn(List.of(analysis));
         when(findingRepository.findByAnalysisId(20)).thenReturn(Optional.of(finding));
+        when(githubPullRequestRepository.countByCompanyIdAndPeriod(
+                anyInt(), org.mockito.ArgumentMatchers.any(), org.mockito.ArgumentMatchers.any()))
+                .thenReturn(4L, 2L);
+        when(githubPullRequestRepository.countByCompanyIdAndStatusAndPeriod(
+                anyInt(), anyString(),
+                org.mockito.ArgumentMatchers.any(), org.mockito.ArgumentMatchers.any()))
+                .thenAnswer(invocation -> switch ((String) invocation.getArgument(1)) {
+                    case "OPEN" -> 2L;
+                    case "MERGED", "CLOSED" -> 1L;
+                    default -> 0L;
+                });
+        when(githubPullRequestRepository
+                .findTop10ByUser_Company_IdAndCreatedAtGreaterThanEqualAndCreatedAtLessThanOrderByCreatedAtDesc(
+                        anyInt(), org.mockito.ArgumentMatchers.any(), org.mockito.ArgumentMatchers.any()))
+                .thenReturn(List.of(pullRequest));
 
         var response = dashboardService.getDashboard(
                 1, LocalDate.of(2026, 7, 18), LocalDate.of(2026, 7, 24));
@@ -107,6 +136,11 @@ class DashboardServiceTest {
         assertEquals(50.0, response.comparison().analysisChangeRate());
         assertEquals(-30.0, response.comparison().issueChangeRate());
         assertEquals(10.0, response.comparison().qualityScoreChange());
+        assertEquals(4, response.totalPullRequestCount());
+        assertEquals(2, response.openPullRequestCount());
+        assertEquals(1, response.mergedPullRequestCount());
+        assertEquals(1, response.closedPullRequestCount());
+        assertEquals(100.0, response.comparison().pullRequestChangeRate());
         assertEquals(7, response.qualityScoreTrend().size());
         assertEquals(80.0, response.qualityScoreTrend().get(6).averageScore());
         assertEquals(3, response.issueDistribution().size());
@@ -119,6 +153,9 @@ class DashboardServiceTest {
         assertEquals(2, response.riskRepositories().get(0).otherIssueCount());
         assertEquals("BigP-Back", response.recentAnalyses().get(0).repoName());
         assertEquals(4, response.recentAnalyses().get(0).totalIssueCount());
+        assertEquals(42, response.recentPullRequests().get(0).githubPrNumber());
+        assertEquals("https://github.com/aivle/BigP-Back/pull/42",
+                response.recentPullRequests().get(0).prUrl());
     }
 
     @Test

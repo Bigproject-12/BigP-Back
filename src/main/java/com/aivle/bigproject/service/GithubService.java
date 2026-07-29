@@ -16,6 +16,7 @@ import com.aivle.bigproject.repository.UserRepoRepository;
 import com.aivle.bigproject.dto.repo.RepoResponse;
 import com.aivle.bigproject.repository.RepoEmbeddingRepository; 
 import com.aivle.bigproject.dto.repo.BranchResponse;
+import com.aivle.bigproject.dto.repo.GithubPullRequestResult;
 
 import org.springframework.http.HttpEntity;
 import org.springframework.http.HttpHeaders;
@@ -38,6 +39,7 @@ import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
 import java.util.Set;
 import java.util.Collections;
+import java.util.Locale;
 
 @Slf4j
 @Service
@@ -391,8 +393,8 @@ public class GithubService {
         }
     }    
 
-    public String createPullRequest(Integer userId, String orgName, String repoName, 
-                                    String head, String base, String title, String body) {
+    public GithubPullRequestResult createPullRequest(Integer userId, String orgName, String repoName,
+                                                     String head, String base, String title, String body) {
         User user = userRepository.findById(userId)
                 .orElseThrow(() -> new CustomException(ErrorCode.USER_NOT_FOUND));
         String token = githubTokenCrypto.decrypt(user.getGithubAccessToken());
@@ -415,7 +417,15 @@ public class GithubService {
 
         try {
             ResponseEntity<Map> response = restTemplate.postForEntity(url, entity, Map.class);
-            return (String) response.getBody().get("html_url");
+            Map responseBody = response.getBody();
+            Map headInfo = (Map) responseBody.get("head");
+            return new GithubPullRequestResult(
+                    ((Number) responseBody.get("number")).intValue(),
+                    (String) responseBody.get("html_url"),
+                    ((String) responseBody.get("state")).toUpperCase(Locale.ROOT),
+                    Boolean.TRUE.equals(responseBody.get("draft")),
+                    (String) headInfo.get("sha")
+            );
         } catch (Exception e) {
             throw new CustomException(ErrorCode.GITHUB_PR_CREATE_FAILED);
         }

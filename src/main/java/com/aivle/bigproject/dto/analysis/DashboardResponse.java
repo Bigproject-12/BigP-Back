@@ -18,16 +18,22 @@ public record DashboardResponse(
         long securityIssueCount,
         long inefficiencyIssueCount,
         double averageQualityScore,
+        long totalPullRequestCount,
+        long openPullRequestCount,
+        long mergedPullRequestCount,
+        long closedPullRequestCount,
         Comparison comparison,
         List<QualityTrend> qualityScoreTrend,
         List<IssueDistribution> issueDistribution,
         List<RiskRepository> riskRepositories,
-        List<RecentAnalysis> recentAnalyses
+        List<RecentAnalysis> recentAnalyses,
+        List<RecentPullRequest> recentPullRequests
 ){
     public record Comparison(
             double analysisChangeRate,
             double issueChangeRate,
-            double qualityScoreChange
+            double qualityScoreChange,
+            double pullRequestChangeRate
     ) {}
 
     public record QualityTrend(
@@ -60,5 +66,18 @@ public record DashboardResponse(
             String language,
             String status,
             long totalIssueCount
+    ) {}
+
+    public record RecentPullRequest(
+            Integer pullRequestId,
+            Integer githubPrNumber,
+            Integer repoId,
+            String repoName,
+            String title,
+            String status,
+            String prUrl,
+            String headBranch,
+            String baseBranch,
+            LocalDateTime createdAt
     ) {}
 }

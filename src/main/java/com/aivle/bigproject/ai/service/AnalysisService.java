@@ -5,6 +5,7 @@ import com.aivle.bigproject.ai.dto.DetectRequest;
 import com.aivle.bigproject.ai.dto.DetectResponse;
 import com.aivle.bigproject.ai.dto.DuplicateSnippet;
 import com.aivle.bigproject.ai.dto.AnalysisResultResponse;
+import com.aivle.bigproject.dto.repo.GithubPullRequestResult;
 
 // Entity
 import com.aivle.bigproject.entity.Analysis;
@@ -12,6 +13,8 @@ import com.aivle.bigproject.entity.Company;
 import com.aivle.bigproject.entity.GithubRepo;
 import com.aivle.bigproject.entity.User;
 import com.aivle.bigproject.entity.Finding;
+import com.aivle.bigproject.entity.GithubPullRequest;
+import com.aivle.bigproject.entity.PullRequestAnalysis;
 
 // Repository
 import com.aivle.bigproject.repository.AnalysisRepository;
@@ -19,6 +22,8 @@ import com.aivle.bigproject.repository.CompanyRepository;
 import com.aivle.bigproject.repository.GithubRepoRepository;
 import com.aivle.bigproject.repository.UserRepository;
 import com.aivle.bigproject.repository.FindingRepository;
+import com.aivle.bigproject.repository.GithubPullRequestRepository;
+import com.aivle.bigproject.repository.PullRequestAnalysisRepository;
 
 // Exception
 import com.aivle.bigproject.exception.CustomException;
@@ -37,6 +42,7 @@ import org.springframework.http.MediaType;
 import org.springframework.stereotype.Service;
 import org.springframework.web.client.RestTemplate;
 import org.springframework.scheduling.annotation.Async;
+import org.springframework.transaction.annotation.Transactional;
 
 import tools.jackson.databind.json.JsonMapper;
 import tools.jackson.databind.JsonNode;
@@ -65,6 +71,8 @@ public class AnalysisService {
     private final JsonMapper jsonMapper;
     private final EmbeddingService embeddingService;
     private final GithubService githubService;
+    private final GithubPullRequestRepository githubPullRequestRepository;
+    private final PullRequestAnalysisRepository pullRequestAnalysisRepository;
 
     public AnalysisService(AnalysisRepository analysisRepository, 
                            GithubRepoRepository githubRepoRepository, 
@@ -74,7 +82,9 @@ public class AnalysisService {
                            NotificationService notificationService,
                            EmbeddingService embeddingService,
                            JsonMapper jsonMapper,
-                           GithubService githubService) {
+                           GithubService githubService,
+                           GithubPullRequestRepository githubPullRequestRepository,
+                           PullRequestAnalysisRepository pullRequestAnalysisRepository) {
         this.analysisRepository = analysisRepository;
         this.githubRepoRepository = githubRepoRepository;
         this.companyRepository = companyRepository;
@@ -84,6 +94,8 @@ public class AnalysisService {
         this.embeddingService = embeddingService;
         this.jsonMapper = jsonMapper;
         this.githubService = githubService;
+        this.githubPullRequestRepository = githubPullRequestRepository;
+        this.pullRequestAnalysisRepository = pullRequestAnalysisRepository;
     }
 
     public Integer createInitialAnalysis(DetectRequest requestDto, Integer userId) {
@@ -255,7 +267,8 @@ public class AnalysisService {
                 codeTocommit, sha, "GuardrAil: AI 코드 개선 반영 (분석 ID: " + analysisId + ")");
     }
 
-        public String createPullRequest(Integer analysisId, Integer userId) {
+    @Transactional
+    public String createPullRequest(Integer analysisId, Integer userId) {
         Analysis analysis = analysisRepository.findById(analysisId)
                 .orElseThrow(() -> new CustomException(ErrorCode.ANALYSIS_NOT_FOUND));
 
@@ -267,6 +280,9 @@ public class AnalysisService {
         }
         if (analysis.getBranch() == null) {
             throw new CustomException(ErrorCode.ANALYSIS_BRANCH_INFO_MISSING);
+        }
+        if (pullRequestAnalysisRepository.existsByAnalysis_Id(analysisId)) {
+            throw new CustomException(ErrorCode.GITHUB_PR_ALREADY_CREATED);
         }
 
         Finding finding = findingRepository.findByAnalysisId(analysisId)
@@ -290,8 +306,32 @@ public class AnalysisService {
                 + "- 비효율 이슈: " + finding.getInefficiencyCount() + "건\n\n"
                 + "분석 세부 내용은 분석 ID: " + analysisId + "에서 확인 가능.";
 
-        return githubService.createPullRequest(
+        GithubPullRequestResult result = githubService.createPullRequest(
                 userId, repo.getOrganization(), repo.getName(), analysis.getBranch(), defaultBranch, title, body);
+
+        GithubPullRequest pullRequest = githubPullRequestRepository.save(
+                GithubPullRequest.builder()
+                        .user(analysis.getUser())
+                        .githubRepo(repo)
+                        .githubPrNumber(result.number())
+                        .title(title)
+                        .description(body)
+                        .headBranch(analysis.getBranch())
+                        .baseBranch(defaultBranch)
+                        .status(result.status())
+                        .draft(result.draft())
+                        .prUrl(result.url())
+                        .headCommitSha(result.headCommitSha())
+                        .build()
+        );
+        pullRequestAnalysisRepository.save(
+                PullRequestAnalysis.builder()
+                        .pullRequest(pullRequest)
+                        .analysis(analysis)
+                        .build()
+        );
+
+        return result.url();
     }
     // 개선 가능률 계산  = (원본에서 바뀌거나 사라진 줄 수 / 원본 전체 줄 수) * 100
     private BigDecimal calculateImprovableRatio(String originCode, String modifiedCode) {

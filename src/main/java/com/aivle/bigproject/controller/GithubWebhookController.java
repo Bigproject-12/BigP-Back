@@ -1,6 +1,7 @@
 package com.aivle.bigproject.controller;
 
 import com.aivle.bigproject.service.GithubService;
+import com.aivle.bigproject.service.GithubPullRequestService;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
@@ -12,6 +13,9 @@ import javax.crypto.spec.SecretKeySpec;
 import java.nio.charset.StandardCharsets;
 import java.security.MessageDigest;
 import java.util.HexFormat;
+import java.time.LocalDateTime;
+import java.time.OffsetDateTime;
+import java.time.ZoneId;
 
 import lombok.extern.slf4j.Slf4j;
 
@@ -22,13 +26,19 @@ public class GithubWebhookController {
 
     private final GithubService githubService;
     private final JsonMapper jsonMapper;
+    private final GithubPullRequestService githubPullRequestService;
 
     @Value("${github.webhook-secret}")
     private String webhookSecret;
 
-    public GithubWebhookController(GithubService githubService, JsonMapper jsonMapper) {
+    public GithubWebhookController(
+            GithubService githubService,
+            JsonMapper jsonMapper,
+            GithubPullRequestService githubPullRequestService
+    ) {
         this.githubService = githubService;
         this.jsonMapper = jsonMapper;
+        this.githubPullRequestService = githubPullRequestService;
     }
 
     @PostMapping("/github")
@@ -57,7 +67,51 @@ public class GithubWebhookController {
             return ResponseEntity.ok("received");
         }
 
+        if ("pull_request".equals(eventType)) {
+            handlePullRequestEvent(rawPayload);
+            return ResponseEntity.ok("received");
+        }
+
         return ResponseEntity.ok("ignored");
+    }
+
+    private void handlePullRequestEvent(String rawPayload) {
+        JsonNode json = jsonMapper.readTree(rawPayload);
+        String action = json.get("action").asText();
+        if (!"opened".equals(action) && !"reopened".equals(action) && !"closed".equals(action)) {
+            return;
+        }
+
+        JsonNode pullRequest = json.get("pull_request");
+        String status;
+        LocalDateTime mergedAt = null;
+        if ("closed".equals(action) && pullRequest.get("merged").asBoolean()) {
+            status = "MERGED";
+            JsonNode mergedAtNode = pullRequest.get("merged_at");
+            if (mergedAtNode != null && !mergedAtNode.isNull()) {
+                mergedAt = OffsetDateTime.parse(mergedAtNode.asText())
+                        .atZoneSameInstant(ZoneId.systemDefault())
+                        .toLocalDateTime();
+            }
+        } else if ("closed".equals(action)) {
+            status = "CLOSED";
+        } else {
+            status = "OPEN";
+        }
+
+        boolean updated = githubPullRequestService.synchronizeStatus(
+                json.get("repository").get("owner").get("login").asText(),
+                json.get("repository").get("name").asText(),
+                pullRequest.get("number").asInt(),
+                status,
+                mergedAt
+        );
+        if (!updated) {
+            log.info("저장되지 않은 PR Webhook은 무시합니다: {}/{} #{}",
+                    json.get("repository").get("owner").get("login").asText(),
+                    json.get("repository").get("name").asText(),
+                    pullRequest.get("number").asInt());
+        }
     }
 
     private void handleOrganizationEvent(String rawPayload) {
