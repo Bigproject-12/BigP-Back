@@ -35,6 +35,41 @@ public interface FindingRepository extends JpaRepository<Finding, Integer> {
             """)
     IssueCountSummary sumIssueCountsByUserId(@Param("userId") Integer userId);
 
+
+    // 특정 레포지토리의 기간별 이슈 수를 조회
+    @Query(value = """
+            SELECT COALESCE(SUM(f.total_issues), 0) AS totalIssueCount,
+                   COALESCE(SUM(f.security_count), 0) AS securityIssueCount,
+                   COALESCE(SUM(f.inefficiency_count), 0) AS inefficiencyIssueCount
+            FROM FINDING f
+            JOIN ANALYSIS a ON a.analysis_id = f.analysis_id
+            WHERE a.repo_id = :repoId
+              AND a.created_at >= :from
+              AND a.created_at < :toExclusive
+            """, nativeQuery = true)
+    IssueCountSummary sumIssueCountsByRepoIdAndPeriod(
+            @Param("repoId") Integer repoId,
+            @Param("from") LocalDateTime from,
+            @Param("toExclusive") LocalDateTime toExclusive);
+
+    // 특정 레포지토리의 기간별 평균 품질 점수를 조회
+    @Query(value = """
+            SELECT COALESCE(ROUND(AVG(GREATEST(0,
+                       100 - f.security_count * 10
+                           - f.inefficiency_count * 5
+                           - GREATEST(f.total_issues - f.security_count - f.inefficiency_count, 0) * 3
+                   )), 1), 0) AS averageScore
+            FROM FINDING f
+            JOIN ANALYSIS a ON a.analysis_id = f.analysis_id
+            WHERE a.repo_id = :repoId
+              AND a.created_at >= :from
+              AND a.created_at < :toExclusive
+            """, nativeQuery = true)
+    double averageQualityScoreByRepoIdAndPeriod(
+            @Param("repoId") Integer repoId,
+            @Param("from") LocalDateTime from,
+            @Param("toExclusive") LocalDateTime toExclusive);
+
     // 회사별 기간별 이슈 수를 조회
     @Query(value = """
             SELECT COALESCE(SUM(f.total_issues), 0) AS totalIssueCount,
