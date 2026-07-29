@@ -54,10 +54,6 @@ public interface AnalysisRepository extends JpaRepository<Analysis, Integer> {
             @Param("from") LocalDateTime from,
             @Param("toExclusive") LocalDateTime toExclusive);
 
-    // 조직에 딸려 들어온 레포 전체가 아니라, 실제로 이 회사가 분석에 사용한 레포 수만 센다.
-    @Query(value = "SELECT COUNT(DISTINCT repo_id) FROM ANALYSIS WHERE company_id = :companyId", nativeQuery = true)
-    long countDistinctRepoByCompanyId(@Param("companyId") Integer companyId);
-
     @Modifying
     @Query(value = "DELETE FROM ANALYSIS WHERE user_id = :userId", nativeQuery = true)
     void deleteByOwner(@Param("userId") Integer userId);
