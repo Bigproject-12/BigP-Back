@@ -2,10 +2,12 @@ package com.aivle.bigproject.service;
 
 import com.aivle.bigproject.dto.analysis.DashboardResponse;
 import com.aivle.bigproject.entity.Analysis;
+import com.aivle.bigproject.entity.GithubPullRequest;
 import com.aivle.bigproject.exception.CustomException;
 import com.aivle.bigproject.exception.ErrorCode;
 import com.aivle.bigproject.repository.AnalysisRepository;
 import com.aivle.bigproject.repository.FindingRepository;
+import com.aivle.bigproject.repository.GithubPullRequestRepository;
 import com.aivle.bigproject.repository.UserRepository;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
@@ -25,15 +27,18 @@ public class DashboardService {
     private final AnalysisRepository analysisRepository;
     private final FindingRepository findingRepository;
     private final UserRepository userRepository;
+    private final GithubPullRequestRepository githubPullRequestRepository;
 
     public DashboardService(
             AnalysisRepository analysisRepository,
             FindingRepository findingRepository,
-            UserRepository userRepository
+            UserRepository userRepository,
+            GithubPullRequestRepository githubPullRequestRepository
     ) {
         this.analysisRepository = analysisRepository;
         this.findingRepository = findingRepository;
         this.userRepository = userRepository;
+        this.githubPullRequestRepository = githubPullRequestRepository;
     }
 
     // 필요한 데이터를 조회하여 DashboardResponse 객체를 생성하고 반환
@@ -78,6 +83,10 @@ public class DashboardService {
         // 이전 기간의 평균 품질 점수를 조회
         double previousQualityScore = findingRepository.averageQualityScoreByCompanyIdAndPeriod(
                 companyId, previousFrom, previousToExclusive);
+        long pullRequestCount = githubPullRequestRepository.countByCompanyIdAndPeriod(
+                companyId, fromDateTime, toExclusive);
+        long previousPullRequestCount = githubPullRequestRepository.countByCompanyIdAndPeriod(
+                companyId, previousFrom, previousToExclusive);
 
         // 최신 분석 데이터를 조회
         List<DashboardResponse.RecentAnalysis> recentAnalyses = analysisRepository
@@ -114,6 +123,12 @@ public class DashboardService {
                 .range(0, riskSummaries.size())
                 .mapToObj(index -> toRiskRepository(index + 1, riskSummaries.get(index)))
                 .toList();
+        List<DashboardResponse.RecentPullRequest> recentPullRequests = githubPullRequestRepository
+                .findTop10ByUser_Company_IdAndCreatedAtGreaterThanEqualAndCreatedAtLessThanOrderByCreatedAtDesc(
+                        companyId, fromDateTime, toExclusive)
+                .stream()
+                .map(this::toRecentPullRequest)
+                .toList();
 
         // 대시보드 응답 데이터를 생성하여, 반환
         return new DashboardResponse(
@@ -131,15 +146,39 @@ public class DashboardService {
                 issueCounts.getSecurityIssueCount(),
                 issueCounts.getInefficiencyIssueCount(),
                 averageQualityScore,
+                pullRequestCount,
+                githubPullRequestRepository.countByCompanyIdAndStatusAndPeriod(
+                        companyId, "OPEN", fromDateTime, toExclusive),
+                githubPullRequestRepository.countByCompanyIdAndStatusAndPeriod(
+                        companyId, "MERGED", fromDateTime, toExclusive),
+                githubPullRequestRepository.countByCompanyIdAndStatusAndPeriod(
+                        companyId, "CLOSED", fromDateTime, toExclusive),
                 new DashboardResponse.Comparison(
                         changeRate(analysisCount, previousAnalysisCount),
                         changeRate(issueCounts.getTotalIssueCount(), previousIssueCounts.getTotalIssueCount()),
-                        roundOneDecimal(averageQualityScore - previousQualityScore)
+                        roundOneDecimal(averageQualityScore - previousQualityScore),
+                        changeRate(pullRequestCount, previousPullRequestCount)
                 ),
                 qualityTrend,
                 issueDistribution,
                 riskRepositories,
-                recentAnalyses
+                recentAnalyses,
+                recentPullRequests
+        );
+    }
+
+    private DashboardResponse.RecentPullRequest toRecentPullRequest(GithubPullRequest pullRequest) {
+        return new DashboardResponse.RecentPullRequest(
+                pullRequest.getId(),
+                pullRequest.getGithubPrNumber(),
+                pullRequest.getGithubRepo().getId(),
+                pullRequest.getGithubRepo().getName(),
+                pullRequest.getTitle(),
+                pullRequest.getStatus(),
+                pullRequest.getPrUrl(),
+                pullRequest.getHeadBranch(),
+                pullRequest.getBaseBranch(),
+                pullRequest.getCreatedAt()
         );
     }
 
