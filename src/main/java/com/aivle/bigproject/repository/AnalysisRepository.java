@@ -73,7 +73,7 @@ public interface AnalysisRepository extends JpaRepository<Analysis, Integer> {
                     WHEN a.status = 'COMPLETED' THEN 0
                     ELSE NULL
                 END,
-                NULL,
+                a.improvableRatio,
                 a.status
             )
             FROM Analysis a

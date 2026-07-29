@@ -2,6 +2,8 @@ package com.aivle.bigproject.dto.analysis;
 
 import com.aivle.bigproject.entity.Analysis;
 import com.aivle.bigproject.entity.Finding;
+
+import java.math.BigDecimal;
 import java.time.LocalDateTime;
 
 //레포 상세 - 히스토리 목록 조회용
@@ -11,7 +13,7 @@ public record AnalysisHistoryResponse (
     String filePath,
     LocalDateTime analyzedAt,
     Integer issueCount,
-    Integer improvementRate, // 개선율은 추가 설계 필요
+    BigDecimal improvableRatio, // 개선가능률
     String status
 
 ){
@@ -21,7 +23,7 @@ public record AnalysisHistoryResponse (
                 analysis.getFilePath(),
                 analysis.getCreatedAt(),
                 resolveIssueCount(analysis,finding),// 진행중 / 실패 / 취소에는 finding이 없으므로
-                null, // 개선율
+                analysis.getImprovableRatio(),
                 analysis.getStatus()
         );
     }
