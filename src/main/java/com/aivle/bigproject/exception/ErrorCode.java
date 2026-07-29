@@ -40,6 +40,7 @@ public enum ErrorCode {
     GITHUB_PR_CREATE_FAILED(HttpStatus.CONFLICT, "Pull Request 생성에 실패했습니다."),
     GITHUB_PR_ALREADY_CREATED(HttpStatus.CONFLICT, "해당 분석 결과로 이미 Pull Request가 생성되었습니다."),
     GITHUB_PR_SAME_BRANCH(HttpStatus.BAD_REQUEST, "분석 브랜치가 기본 브랜치와 동일하여 PR을 생성할 수 없습니다."),
+    INVALID_PR_QUERY(HttpStatus.BAD_REQUEST, "PR 조회 조건이 올바르지 않습니다."),
 
     // 분석
     ANALYSIS_NOT_FOUND(HttpStatus.NOT_FOUND, "해당 분석 내용을 찾을 수 없습니다."),
