@@ -57,7 +57,7 @@ public class AnalysisController {
             @PathVariable("analysis_id") Integer analysisId,
             @AuthenticationPrincipal Jwt jwt
     ) { analysisService.pushImprovedCode(analysisId, Integer.valueOf(jwt.getSubject()));
-        return ResponseEntity.ok().build();
+        return ResponseEntity.noContent().build();
     }
 
     @PostMapping("/{analysis_id}/pr")
