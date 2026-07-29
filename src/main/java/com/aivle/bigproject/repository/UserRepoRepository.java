@@ -17,6 +17,13 @@ public interface UserRepoRepository extends JpaRepository<UserRepo, Integer> {
 
     long countByUserId(Integer userId);
 
+    @Query("""
+            SELECT COUNT(DISTINCT ur.githubRepo.id)
+            FROM UserRepo ur
+            WHERE ur.user.company.id = :companyId
+            """)
+    long countDistinctRepoByCompanyId(@Param("companyId") Integer companyId);
+
     Optional<UserRepo> findByUser_IdAndGithubRepo_Id(Integer userId, Integer repoId);
 
     @Modifying

@@ -9,6 +9,7 @@ import com.aivle.bigproject.repository.AnalysisRepository;
 import com.aivle.bigproject.repository.FindingRepository;
 import com.aivle.bigproject.repository.GithubPullRequestRepository;
 import com.aivle.bigproject.repository.UserRepository;
+import com.aivle.bigproject.repository.UserRepoRepository;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.util.Map;
@@ -28,17 +29,20 @@ public class DashboardService {
     private final FindingRepository findingRepository;
     private final UserRepository userRepository;
     private final GithubPullRequestRepository githubPullRequestRepository;
+    private final UserRepoRepository userRepoRepository;
 
     public DashboardService(
             AnalysisRepository analysisRepository,
             FindingRepository findingRepository,
             UserRepository userRepository,
-            GithubPullRequestRepository githubPullRequestRepository
+            GithubPullRequestRepository githubPullRequestRepository,
+            UserRepoRepository userRepoRepository
     ) {
         this.analysisRepository = analysisRepository;
         this.findingRepository = findingRepository;
         this.userRepository = userRepository;
         this.githubPullRequestRepository = githubPullRequestRepository;
+        this.userRepoRepository = userRepoRepository;
     }
 
     // 필요한 데이터를 조회하여 DashboardResponse 객체를 생성하고 반환
@@ -132,7 +136,7 @@ public class DashboardService {
 
         // 대시보드 응답 데이터를 생성하여, 반환
         return new DashboardResponse(
-                analysisRepository.countDistinctRepoByCompanyId(companyId),
+                userRepoRepository.countDistinctRepoByCompanyId(companyId),
                 analysisCount,
                 analysisRepository.countByCompanyIdAndStatusAndPeriod(
                         companyId, "ANALYZING", fromDateTime, toExclusive),

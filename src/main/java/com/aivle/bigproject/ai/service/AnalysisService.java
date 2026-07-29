@@ -52,6 +52,9 @@ import java.math.RoundingMode;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Set;
+import java.util.ArrayList;
+import java.util.HashMap;
+import java.util.Map;
 
 
 @Service
@@ -190,7 +193,7 @@ public class AnalysisService {
             // 개선 가능률 계산
             try {
                 BigDecimal improvableRatio = calculateImprovableRatio(
-                        currentAnalysis.getOriginCode(), secuResultStr, inefficiencyResultStr);
+                        currentAnalysis.getOriginCode(),modifiedCode );
                 currentAnalysis.setImprovableRatio(improvableRatio);
             } catch (Exception e) {
                 System.out.println("[improvableRatio] 계산 실패, null로 유지: " + e.getMessage());
@@ -331,71 +334,68 @@ public class AnalysisService {
 
         return result.url();
     }
-    // 개선 가능률 계산  = (이슈가 지적한 고유 라인 수 / 전체 라인 수) * 100
-    private BigDecimal calculateImprovableRatio(String sourceCode, String... issueJsons) {
+    // 개선 가능률 계산  = (원본에서 바뀌거나 사라진 줄 수 / 원본 전체 줄 수) * 100
+    private BigDecimal calculateImprovableRatio(String originCode, String modifiedCode) {
 
         BigDecimal zero = BigDecimal.ZERO.setScale(1, RoundingMode.HALF_UP);  // 0.0
 
         // 코드가 비면 계산 불가
-        if (sourceCode == null || sourceCode.isBlank()) {
+        if (originCode == null || originCode.isBlank()){
             return zero;
         }
 
-        // 전체 라인 수 (\r\n, \n 둘 다 대응 / -1 = 끝의 빈 줄도 세도록)
-        int totalLines = sourceCode.split("\r?\n", -1).length;
+        if (modifiedCode == null || modifiedCode.isBlank()) {
+            return null;
+        }
+
+        // 분모 : 원본 전체 줄 수
+        int totalLines = originCode.split("\r?\n", -1).length;
         if (totalLines == 0) {
             return zero;
         }
 
-        // 핵심: Set으로 중복 제거
-        // 같은 15번 줄에 이슈가 3개 걸려도 "고쳐야 할 줄"은 1줄이다
-        Set<Integer> issueLines = new HashSet<>();
-        for (String json : issueJsons) {
-            issueLines.addAll(extractLineNumbers(json));
+        // 분자는 유효 줄만 사용 -> 빈 줄 매칭 노이즈 방지
+        List<String> originLines = toEffectiveLines(originCode);
+
+        Map<String, Integer> modifiedCounts = new HashMap<>();
+        for (String line : toEffectiveLines(modifiedCode)) {
+            modifiedCounts.merge(line, 1, Integer::sum);
         }
 
-        if (issueLines.isEmpty()) {
+        int changedLines = 0;
+        for (String line : originLines) {
+            Integer remaining = modifiedCounts.get(line);
+            if (remaining != null && remaining > 0) {
+                modifiedCounts.put(line, remaining - 1);
+            } else {
+                changedLines++;
+            }
+        }
+
+        if (changedLines == 0) {
             return zero;
         }
 
-        BigDecimal ratio = BigDecimal.valueOf(issueLines.size())
-                .divide(BigDecimal.valueOf(totalLines), 4, RoundingMode.HALF_UP) // 중간 계산은 4자리로 넉넉히
+        BigDecimal ratio = BigDecimal.valueOf(changedLines)
+                .divide(BigDecimal.valueOf(totalLines), 4, RoundingMode.HALF_UP)
                 .multiply(BigDecimal.valueOf(100))
-                .setScale(1, RoundingMode.HALF_UP);                              // 최종 1자리 (@Column scale=1)
+                .setScale(1, RoundingMode.HALF_UP);
 
-        // 100% 초과 방어
         return ratio.min(BigDecimal.valueOf(100).setScale(1, RoundingMode.HALF_UP));
     }
 
     /**
-     * 이슈 JSON 배열에서 라인 번호("line")만 뽑아낸다.
-     * AI 서버(FastAPI)가 보안·비효율 이슈 모두 "line" 키로 통일해서 보냄.
+     * 비교 대상이 되는 유효 줄만 추린다.
+     * 빈 줄과 중괄호만 있는 줄은 어느 코드에나 흔해서 비교를 왜곡시킨다.
      */
-    private Set<Integer> extractLineNumbers(String json) {
-        Set<Integer> lines = new HashSet<>();
-
-        if (json == null || json.isBlank() || "[]".equals(json)) {
-            return lines;
+    private List<String> toEffectiveLines(String code) {
+        List<String> lines = new ArrayList<>();
+        for (String raw : code.split("\r?\n")) {
+            String line = raw.trim();
+            if (line.isEmpty()) continue;
+            if (line.equals("}") || line.equals("{")) continue;
+            lines.add(line);
         }
-
-        try {
-            JsonNode root = jsonMapper.readTree(json);   // 문자열 → JSON 트리
-
-            if (!root.isArray()) {                      // 배열이 아니면 처리 대상 아님
-                return lines;
-            }
-
-            for (JsonNode item : root) {                // 이슈 하나씩 순회
-                JsonNode line = item.get("line");       // 키 없으면 null 반환
-                if (line != null && line.isNumber() && line.intValue() > 0) {
-                    lines.add(line.intValue());
-                }
-            }
-        } catch (Exception e) {
-            // 파싱 실패해도 분석 자체는 성공 처리돼야 함 → 빈 값 반환
-            System.out.println("[improvableRatio] 라인 번호 파싱 실패: " + e.getMessage());
-        }
-
         return lines;
     }
 }
