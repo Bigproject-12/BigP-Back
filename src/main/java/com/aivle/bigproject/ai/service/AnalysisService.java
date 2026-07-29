@@ -6,6 +6,7 @@ import com.aivle.bigproject.ai.dto.DetectResponse;
 import com.aivle.bigproject.ai.dto.DuplicateSnippet;
 import com.aivle.bigproject.ai.dto.AnalysisResultResponse;
 import com.aivle.bigproject.dto.repo.GithubPullRequestResult;
+import com.aivle.bigproject.dto.repo.PullRequestSummaryResponse;
 
 // Entity
 import com.aivle.bigproject.entity.Analysis;

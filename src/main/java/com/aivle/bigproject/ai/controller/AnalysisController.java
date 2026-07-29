@@ -2,6 +2,7 @@ package com.aivle.bigproject.ai.controller;
 
 import com.aivle.bigproject.ai.dto.DetectRequest;
 import com.aivle.bigproject.ai.dto.AnalysisResultResponse;
+import com.aivle.bigproject.dto.repo.PullRequestSummaryResponse;
 import com.aivle.bigproject.ai.service.AnalysisService;
 
 import org.springframework.http.ResponseEntity;
@@ -10,6 +11,7 @@ import org.springframework.security.core.annotation.AuthenticationPrincipal;
 
 import org.springframework.security.oauth2.jwt.Jwt;
 import java.util.Map;
+import java.util.List;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 
