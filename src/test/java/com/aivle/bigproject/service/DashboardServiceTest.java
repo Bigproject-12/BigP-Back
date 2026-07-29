@@ -124,8 +124,11 @@ class DashboardServiceTest {
                     default -> 0L;
                 });
         when(githubPullRequestRepository
-                .findTop10ByUser_Company_IdAndCreatedAtGreaterThanEqualAndCreatedAtLessThanOrderByCreatedAtDesc(
-                        anyInt(), org.mockito.ArgumentMatchers.any(), org.mockito.ArgumentMatchers.any()))
+                .findRecentByCompanyIdAndPeriod(
+                        anyInt(),
+                        org.mockito.ArgumentMatchers.any(),
+                        org.mockito.ArgumentMatchers.any(),
+                        org.mockito.ArgumentMatchers.any()))
                 .thenReturn(List.of(pullRequest));
 
         var response = dashboardService.getDashboard(

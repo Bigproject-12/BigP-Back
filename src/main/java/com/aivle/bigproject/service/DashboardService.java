@@ -19,6 +19,7 @@ import java.util.stream.IntStream;
 import java.util.List;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.data.domain.PageRequest;
 
 // 대시보드 출력하고자하는 데이터를 조회하는 서비스
 @Service
@@ -128,8 +129,8 @@ public class DashboardService {
                 .mapToObj(index -> toRiskRepository(index + 1, riskSummaries.get(index)))
                 .toList();
         List<DashboardResponse.RecentPullRequest> recentPullRequests = githubPullRequestRepository
-                .findTop10ByUser_Company_IdAndCreatedAtGreaterThanEqualAndCreatedAtLessThanOrderByCreatedAtDesc(
-                        companyId, fromDateTime, toExclusive)
+                .findRecentByCompanyIdAndPeriod(
+                        companyId, fromDateTime, toExclusive, PageRequest.of(0, 10))
                 .stream()
                 .map(this::toRecentPullRequest)
                 .toList();
