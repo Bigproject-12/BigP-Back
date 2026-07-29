@@ -9,6 +9,7 @@ import com.aivle.bigproject.repository.RepoEmbeddingRepository;
 import org.springframework.http.HttpEntity;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.MediaType;
+import org.springframework.http.client.SimpleClientHttpRequestFactory;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.client.RestTemplate;
@@ -96,7 +97,12 @@ public class EmbeddingService {
         HttpHeaders headers = new HttpHeaders();
         headers.setContentType(MediaType.APPLICATION_JSON);
         HttpEntity<SearchDuplicateRequest> requestEntity = new HttpEntity<>(requestDto, headers);
-        RestTemplate restTemplate = new RestTemplate();
+        // ponytail: 타임아웃 없으면 AI 서버가 무응답일 때 분석 요청 전체가 무한 대기함 (AnalysisService 참고).
+        // detect 호출 타임아웃과 합친 총합을 프론트 폴링 타임아웃(120초)보다 일부러 길게 유지 (AnalysisService 주석 참고).
+        SimpleClientHttpRequestFactory factory = new SimpleClientHttpRequestFactory();
+        factory.setConnectTimeout(5_000);
+        factory.setReadTimeout(15_000);
+        RestTemplate restTemplate = new RestTemplate(factory);
 
         List<DuplicateSnippet> results = new ArrayList<>();
 

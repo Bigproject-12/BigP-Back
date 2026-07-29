@@ -39,6 +39,7 @@ import org.springframework.beans.propertyeditors.CustomNumberEditor;
 import org.springframework.http.HttpEntity;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.MediaType;
+import org.springframework.http.client.SimpleClientHttpRequestFactory;
 import org.springframework.stereotype.Service;
 import org.springframework.web.client.RestTemplate;
 import org.springframework.scheduling.annotation.Async;
@@ -133,27 +134,35 @@ public class AnalysisService {
 
     @Async
     public void sendToAiServerAsync(Integer analysisId, DetectRequest requestDto) {
-        List<DuplicateSnippet> duplicates = requestDto.repoId() != null
-                ? embeddingService.searchDuplicates(requestDto.repoId(), requestDto.codeContent())
-                : List.of();
-
-
-        DetectRequest enrichedRequest = new DetectRequest(
-                requestDto.codeContent(),
-                requestDto.repoId(),
-                requestDto.language(),
-                requestDto.prompt(),
-                requestDto.filePath(),
-                requestDto.branch(),
-                duplicates
-        );
-        RestTemplate restTemplate = new RestTemplate();
-        HttpHeaders headers = new HttpHeaders();
-        headers.setContentType(MediaType.APPLICATION_JSON);
-        
-        HttpEntity<DetectRequest> requestEntity = new HttpEntity<>(enrichedRequest, headers);
-
         try {
+            // ponytail: 중복 검색 호출도 실패/무한대기 가능 → try 밖에 있으면 FAILED 처리가 안 됨. try 안으로 통합.
+            List<DuplicateSnippet> duplicates = requestDto.repoId() != null
+                    ? embeddingService.searchDuplicates(requestDto.repoId(), requestDto.codeContent())
+                    : List.of();
+
+            DetectRequest enrichedRequest = new DetectRequest(
+                    requestDto.codeContent(),
+                    requestDto.repoId(),
+                    requestDto.language(),
+                    requestDto.prompt(),
+                    requestDto.filePath(),
+                    requestDto.branch(),
+                    duplicates
+            );
+            // ponytail: AI 서버가 응답 없이 멈추면 무한 대기 → 상태가 영원히 ANALYZING으로 남음.
+            // 타임아웃을 걸어 실패 시 아래 catch가 FAILED로 정리하도록 함.
+            // searchDuplicates 타임아웃과 합친 총합이 프론트 폴링 타임아웃(120초)보다 "일부러" 길게 잡음:
+            // 그래야 진짜 멈추는 경우 프론트가 항상 먼저 포기해서 "오래 걸립니다" 메시지를 보여주고,
+            // 그 직후 DB도 FAILED로 정리됨. AI 서버 응답 시간이 늘어나면 값 조정.
+            SimpleClientHttpRequestFactory factory = new SimpleClientHttpRequestFactory();
+            factory.setConnectTimeout(5_000);
+            factory.setReadTimeout(115_000);
+            RestTemplate restTemplate = new RestTemplate(factory);
+            HttpHeaders headers = new HttpHeaders();
+            headers.setContentType(MediaType.APPLICATION_JSON);
+
+            HttpEntity<DetectRequest> requestEntity = new HttpEntity<>(enrichedRequest, headers);
+
             DetectResponse response = restTemplate.postForObject(AI_DETECT_URL, requestEntity, DetectResponse.class);
             
             Analysis currentAnalysis = analysisRepository.findById(analysisId).orElseThrow();
