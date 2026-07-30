@@ -213,12 +213,13 @@ public class GithubService {
         }
 
         GithubRepo repo = userRepo.getGithubRepo();
+        String defaultBranch = getDefaultBranch(userId, repo.getOrganization(), repo.getName());
+
         HttpHeaders headers = new HttpHeaders();
         headers.setBearerAuth(githubTokenCrypto.decrypt(user.getGithubAccessToken()));
         headers.set("Accept", "application/vnd.github+json");
         headers.set("X-GitHub-Api-Version", "2026-03-10");
-        String url = "https://api.github.com/repos/" + repo.getOrganization()
-                + "/" + repo.getName() + "/branches?per_page=100";
+        String url = "https://api.github.com/repos/" + repo.getOrganization() + "/" + repo.getName() + "/branches?per_page=100";
 
         try {
             ResponseEntity<List<Map<String, Object>>> response = new RestTemplate().exchange(
@@ -234,10 +235,12 @@ public class GithubService {
             return branches.stream()
                     .map(branch -> {
                         Map<String, Object> commit = (Map<String, Object>) branch.get("commit");
+                        String name = (String) branch.get("name");
                         return new BranchResponse(
-                                (String) branch.get("name"),
+                                name,
                                 commit == null ? null : (String) commit.get("sha"),
-                                Boolean.TRUE.equals(branch.get("protected"))
+                                Boolean.TRUE.equals(branch.get("protected")),
+                                name.equals(defaultBranch)
                         );
                     })
                     .toList();
@@ -250,7 +253,6 @@ public class GithubService {
             throw new CustomException(ErrorCode.GITHUB_API_ERROR);
         }
     }
-
     public List<GithubPullRequestResponse> getRepositoryPullRequests(
             Integer userId,
             Integer repoId,

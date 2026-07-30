@@ -2,6 +2,7 @@ package com.aivle.bigproject.ai.controller;
 
 import com.aivle.bigproject.ai.dto.DetectRequest;
 import com.aivle.bigproject.ai.dto.AnalysisResultResponse;
+import com.aivle.bigproject.dto.repo.PullRequestCreate;
 import com.aivle.bigproject.ai.service.AnalysisService;
 
 import org.springframework.http.ResponseEntity;
@@ -10,6 +11,7 @@ import org.springframework.security.core.annotation.AuthenticationPrincipal;
 
 import org.springframework.security.oauth2.jwt.Jwt;
 import java.util.Map;
+import java.util.List;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 
@@ -70,8 +72,10 @@ public class AnalysisController {
     @PostMapping("/{analysis_id}/pr")
     public ResponseEntity<Map<String,String>> createPullRequest(
             @PathVariable("analysis_id") Integer analysisId,
+            @RequestBody(required = false) PullRequestCreate request,
             @AuthenticationPrincipal Jwt jwt
-    ) { String prUrl = analysisService.createPullRequest(analysisId, Integer.valueOf(jwt.getSubject()));
+    ) { String baseBranch = request != null ? request.baseBranch() : null;
+        String prUrl = analysisService.createPullRequest(analysisId, Integer.valueOf(jwt.getSubject()), baseBranch);
         return ResponseEntity.ok(Map.of("prUrl", prUrl));
     }
 }
