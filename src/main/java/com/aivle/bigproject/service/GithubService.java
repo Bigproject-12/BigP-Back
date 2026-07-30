@@ -19,6 +19,7 @@ import com.aivle.bigproject.dto.repo.BranchResponse;
 import com.aivle.bigproject.dto.repo.GithubPullRequestResult;
 import com.aivle.bigproject.dto.repo.GithubPullRequestResponse;
 import com.aivle.bigproject.dto.repo.RepoTreeResponse;
+import com.aivle.bigproject.dto.repo.GithubFileContent;
 import com.aivle.bigproject.repository.GithubPullRequestRepository;
 
 import org.springframework.http.HttpEntity;
@@ -47,6 +48,7 @@ import java.util.Locale;
 import java.time.OffsetDateTime;
 import java.util.stream.Collectors;
 import org.springframework.web.util.UriComponentsBuilder;
+import org.springframework.web.util.UriUtils;
 
 @Slf4j
 @Service
@@ -219,6 +221,62 @@ public class GithubService {
             log.error("GitHub 파일 트리 조회 실패 (repoId={}, branch={}): {}",
                     repoId, branch, exception.getMessage());
             throw new CustomException(ErrorCode.GITHUB_API_ERROR);
+        }
+    }
+
+    public GithubFileContent getLatestFileContent(
+            Integer userId,
+            Integer repoId,
+            String filePath,
+            String branch
+    ) {
+        if (branch == null || branch.isBlank()) {
+            throw new CustomException(ErrorCode.INVALID_BRANCH);
+        }
+        if (filePath == null || filePath.isBlank()) {
+            throw new CustomException(ErrorCode.ANALYSIS_BRANCH_FILE_INFO_MISSING);
+        }
+        UserRepo userRepo = userRepoRepository.findByUser_IdAndGithubRepo_Id(userId, repoId)
+                .orElseThrow(() -> new CustomException(ErrorCode.REPO_NOT_FOUND));
+        User user = userRepo.getUser();
+        if (user.getGithubAccessToken() == null) {
+            throw new CustomException(ErrorCode.GITHUB_TOKEN_NOT_CONNECTED);
+        }
+        GithubRepo repo = userRepo.getGithubRepo();
+        HttpHeaders headers = new HttpHeaders();
+        headers.setBearerAuth(githubTokenCrypto.decrypt(user.getGithubAccessToken()));
+        headers.set("Accept", "application/vnd.github+json");
+        headers.set("X-GitHub-Api-Version", "2026-03-10");
+        String url = "https://api.github.com/repos/" + repo.getOrganization() + "/" + repo.getName()
+                + "/contents/" + UriUtils.encodePath(filePath, StandardCharsets.UTF_8)
+                + "?ref=" + UriUtils.encodeQueryParam(branch, StandardCharsets.UTF_8);
+
+        try {
+            ResponseEntity<Map<String, Object>> response = restTemplate().exchange(
+                    url,
+                    HttpMethod.GET,
+                    new HttpEntity<>(headers),
+                    new ParameterizedTypeReference<>() {}
+            );
+            Map<String, Object> body = response.getBody();
+            if (body == null || body.get("content") == null || body.get("sha") == null
+                    || !"base64".equals(body.get("encoding"))) {
+                throw new CustomException(ErrorCode.GITHUB_FILE_FETCH_FAILED);
+            }
+            String content = new String(
+                    Base64.getMimeDecoder().decode((String) body.get("content")),
+                    StandardCharsets.UTF_8);
+            return new GithubFileContent(content, (String) body.get("sha"));
+        } catch (CustomException exception) {
+            throw exception;
+        } catch (HttpClientErrorException.NotFound exception) {
+            throw new CustomException(ErrorCode.GITHUB_FILE_FETCH_FAILED);
+        } catch (HttpClientErrorException.Forbidden exception) {
+            throw new CustomException(ErrorCode.NO_PERMISSION);
+        } catch (RestClientException | IllegalArgumentException exception) {
+            log.error("GitHub 최신 파일 조회 실패 (repoId={}, path={}, branch={}): {}",
+                    repoId, filePath, branch, exception.getMessage());
+            throw new CustomException(ErrorCode.GITHUB_FILE_FETCH_FAILED);
         }
     }
 

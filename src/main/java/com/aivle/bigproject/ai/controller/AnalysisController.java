@@ -2,6 +2,8 @@ package com.aivle.bigproject.ai.controller;
 
 import com.aivle.bigproject.ai.dto.DetectRequest;
 import com.aivle.bigproject.ai.dto.AnalysisResultResponse;
+import com.aivle.bigproject.ai.dto.ReanalysisStart;
+import com.aivle.bigproject.ai.dto.ReanalysisResponse;
 import com.aivle.bigproject.dto.repo.PullRequestCreate;
 import com.aivle.bigproject.ai.service.AnalysisService;
 
@@ -67,6 +69,18 @@ public class AnalysisController {
             @AuthenticationPrincipal Jwt jwt
     ) { analysisService.pushImprovedCode(analysisId, Integer.valueOf(jwt.getSubject()));
         return ResponseEntity.noContent().build();
+    }
+
+    @PostMapping("/{analysis_id}/reanalyze")
+    public ResponseEntity<ReanalysisResponse> reanalyze(
+            @PathVariable("analysis_id") Integer analysisId,
+            @AuthenticationPrincipal Jwt jwt
+    ) {
+        ReanalysisStart reanalysis = analysisService.prepareReanalysis(
+                analysisId, Integer.valueOf(jwt.getSubject()));
+        analysisService.sendToAiServerAsync(reanalysis.analysisId(), reanalysis.request());
+        return ResponseEntity.accepted().body(
+                new ReanalysisResponse(reanalysis.analysisId(), "ANALYZING"));
     }
 
     @PostMapping("/{analysis_id}/pr")
