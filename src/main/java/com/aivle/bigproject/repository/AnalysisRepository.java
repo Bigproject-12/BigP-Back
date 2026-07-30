@@ -111,4 +111,19 @@ public interface AnalysisRepository extends JpaRepository<Analysis, Integer> {
             @Param("repoId") Integer repoId,
             @Param("branch") String branch,
             Pageable pageable);
+
+    @Query("""
+            SELECT CASE WHEN COUNT(a) > 0 THEN true ELSE false END
+            FROM Analysis a
+            WHERE a.user.id = :userId
+              AND a.githubRepo.id = :repoId
+              AND a.branch = :branch
+              AND a.filePath = :filePath
+              AND a.status = 'ANALYZING'
+            """)
+    boolean existsAnalyzingFile(
+            @Param("userId") Integer userId,
+            @Param("repoId") Integer repoId,
+            @Param("branch") String branch,
+            @Param("filePath") String filePath);
 }
