@@ -39,6 +39,7 @@ public enum ErrorCode {
     GITHUB_DEFAULT_BRANCH_FETCH_FAILED(HttpStatus.BAD_REQUEST, "레포지토리의 기본 브랜치 정보를 가져오는데 실패했습니다."),
     GITHUB_PR_CREATE_FAILED(HttpStatus.CONFLICT, "Pull Request 생성에 실패했습니다."),
     GITHUB_PR_ALREADY_CREATED(HttpStatus.CONFLICT, "해당 분석 결과로 이미 Pull Request가 생성되었습니다."),
+    GITHUB_PR_ALREADY_OPEN(HttpStatus.CONFLICT, "이미 같은 base와 compare 브랜치 대상으로 열려있는 PR이 있습니다."),
     GITHUB_PR_SAME_BRANCH(HttpStatus.BAD_REQUEST, "분석 브랜치가 기본 브랜치와 동일하여 PR을 생성할 수 없습니다."),
     INVALID_PR_QUERY(HttpStatus.BAD_REQUEST, "PR 조회 조건이 올바르지 않습니다."),
 
