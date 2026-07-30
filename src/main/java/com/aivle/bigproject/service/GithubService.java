@@ -23,6 +23,7 @@ import com.aivle.bigproject.repository.GithubPullRequestRepository;
 import org.springframework.http.HttpEntity;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpMethod;
+import org.springframework.http.HttpStatus;
 import org.springframework.core.ParameterizedTypeReference;
 import org.springframework.http.ResponseEntity;
 import org.springframework.stereotype.Service;
@@ -542,7 +543,14 @@ public class GithubService {
                     Boolean.TRUE.equals(responseBody.get("draft")),
                     (String) headInfo.get("sha")
             );
+        } catch (HttpClientErrorException e) {
+            log.error("PR 생성 실패 ({}/{}, head={}, base={}): {}", orgName, repoName, head, base, e.getResponseBodyAsString());
+            if (e.getStatusCode() == HttpStatus.UNPROCESSABLE_ENTITY && e.getResponseBodyAsString().contains("A pull request already exists")) {
+                throw new CustomException(ErrorCode.GITHUB_PR_ALREADY_OPEN);
+            }
+            throw new CustomException(ErrorCode.GITHUB_PR_CREATE_FAILED);
         } catch (Exception e) {
+            log.error("PR 생성 중 알 수 없는 오류 ({}/{}, head={}, base={}): {}", orgName, repoName, head, base, e.getMessage());
             throw new CustomException(ErrorCode.GITHUB_PR_CREATE_FAILED);
         }
     }
