@@ -41,14 +41,21 @@ public class AnalysisController {
     }
 
     @GetMapping("/{analysis_id}")
-    public ResponseEntity<AnalysisResultResponse> getAnalysisResult(@PathVariable("analysis_id") Integer analysisId) {
-        AnalysisResultResponse response = analysisService.getAnalysisResult(analysisId);
+    public ResponseEntity<AnalysisResultResponse> getAnalysisResult(
+            @PathVariable("analysis_id") Integer analysisId,
+            @AuthenticationPrincipal Jwt jwt
+    ) {
+        AnalysisResultResponse response = analysisService.getAnalysisResult(
+                analysisId, Integer.valueOf(jwt.getSubject()));
         return ResponseEntity.ok(response);
     }
 
     @PatchMapping("/{analysis_id}")
-    public ResponseEntity<String> stopAnalysis(@PathVariable("analysis_id") Integer analysisId) {
-        analysisService.stopAnalysis(analysisId);
+    public ResponseEntity<String> stopAnalysis(
+            @PathVariable("analysis_id") Integer analysisId,
+            @AuthenticationPrincipal Jwt jwt
+    ) {
+        analysisService.stopAnalysis(analysisId, Integer.valueOf(jwt.getSubject()));
         return ResponseEntity.ok("분석이 중지되었습니다.");
     }
 
