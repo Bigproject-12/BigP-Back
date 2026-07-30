@@ -10,6 +10,7 @@ import com.aivle.bigproject.service.GithubService;
 
 import com.aivle.bigproject.dto.repo.RepoResponse; 
 import com.aivle.bigproject.dto.repo.BranchResponse;
+import com.aivle.bigproject.dto.repo.GithubPullRequestResponse;
 import java.util.List;
 
 @RestController
@@ -74,6 +75,19 @@ public class GithubController {
     ) {
         return ResponseEntity.ok(githubService.getRepositoryBranches(
                 Integer.valueOf(jwt.getSubject()), repoId));
+    }
+
+    @GetMapping("/{repoId}/pull-requests")
+    public ResponseEntity<List<GithubPullRequestResponse>> getRepositoryPullRequests(
+            @AuthenticationPrincipal Jwt jwt,
+            @PathVariable Integer repoId,
+            @RequestParam(defaultValue = "mine") String scope,
+            @RequestParam(defaultValue = "all") String state,
+            @RequestParam(defaultValue = "1") int page,
+            @RequestParam(defaultValue = "10") int size
+    ) {
+        return ResponseEntity.ok(githubService.getRepositoryPullRequests(
+                Integer.valueOf(jwt.getSubject()), repoId, scope, state, page, size));
     }
 
     @PostMapping("/org-webhook")

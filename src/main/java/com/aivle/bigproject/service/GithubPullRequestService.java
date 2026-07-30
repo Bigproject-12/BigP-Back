@@ -23,7 +23,7 @@ public class GithubPullRequestService {
             LocalDateTime mergedAt
     ) {
         return githubPullRequestRepository
-                .findByGithubRepo_OrganizationAndGithubRepo_NameAndGithubPrNumber(
+                .findTrackedPullRequest(
                         organization, repoName, githubPrNumber)
                 .map(pullRequest -> {
                     pullRequest.updateStatus(status, mergedAt);
