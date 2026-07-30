@@ -6,6 +6,7 @@ import com.aivle.bigproject.ai.dto.DetectResponse;
 import com.aivle.bigproject.ai.dto.DuplicateSnippet;
 import com.aivle.bigproject.ai.dto.AnalysisResultResponse;
 import com.aivle.bigproject.dto.repo.GithubPullRequestResult;
+import com.aivle.bigproject.dto.repo.PullRequestCreate;
 import com.aivle.bigproject.dto.repo.PullRequestSummaryResponse;
 
 // Entity
@@ -278,7 +279,7 @@ public class AnalysisService {
     }
 
     @Transactional
-    public String createPullRequest(Integer analysisId, Integer userId) {
+    public String createPullRequest(Integer analysisId, Integer userId, String baseBranch) {
         Analysis analysis = analysisRepository.findById(analysisId)
                 .orElseThrow(() -> new CustomException(ErrorCode.ANALYSIS_NOT_FOUND));
 
@@ -299,9 +300,11 @@ public class AnalysisService {
                 .orElseThrow(() -> new CustomException(ErrorCode.FINDING_NOT_FOUND));
 
         GithubRepo repo = analysis.getGithubRepo();
-        String defaultBranch = githubService.getDefaultBranch(userId, repo.getOrganization(), repo.getName());
+        String targetBranch = (baseBranch != null && !baseBranch.isBlank())
+                ? baseBranch
+                : githubService.getDefaultBranch(userId, repo.getOrganization(), repo.getName());
 
-        if (analysis.getBranch().equals(defaultBranch)) {
+        if (analysis.getBranch().equals(targetBranch)) {
             throw new CustomException(ErrorCode.GITHUB_PR_SAME_BRANCH);
         }
 
@@ -317,7 +320,7 @@ public class AnalysisService {
                 + "분석 세부 내용은 분석 ID: " + analysisId + "에서 확인 가능.";
 
         GithubPullRequestResult result = githubService.createPullRequest(
-                userId, repo.getOrganization(), repo.getName(), analysis.getBranch(), defaultBranch, title, body);
+                userId, repo.getOrganization(), repo.getName(), analysis.getBranch(), targetBranch, title, body);
 
         GithubPullRequest pullRequest = githubPullRequestRepository.save(
                 GithubPullRequest.builder()
@@ -327,7 +330,7 @@ public class AnalysisService {
                         .title(title)
                         .description(body)
                         .headBranch(analysis.getBranch())
-                        .baseBranch(defaultBranch)
+                        .baseBranch(targetBranch)
                         .status(result.status())
                         .draft(result.draft())
                         .prUrl(result.url())
