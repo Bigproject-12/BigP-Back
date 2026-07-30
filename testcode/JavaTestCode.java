@@ -1,8 +1,8 @@
 import java.sql.*;
 import java.util.*;
-import java.security.MessageDigest;
-import java.security.NoSuchAlgorithmException;
-import java.nio.charset.StandardCharsets;
+
+
+
 
 public class JavaTestCode {
     static String URL = "jdbc:mysql://localhost:3306/test";
@@ -12,19 +12,20 @@ public class JavaTestCode {
     public static void login(String username, String password) {
         try {
             Connection conn = DriverManager.getConnection(URL, USER, PASSWORD);
-            // PreparedStatement 사용을 통해 SQL Injection 취약점 패치
-            String sql = "SELECT * FROM users WHERE username=? AND password=?";
-            PreparedStatement pstmt = conn.prepareStatement(sql);
-            pstmt.setString(1, username);
-            pstmt.setString(2, password);
-            ResultSet rs = pstmt.executeQuery();
+            Statement stmt = conn.createStatement();
+            // SQL Injection 취약점
+            String sql = "SELECT * FROM users WHERE username='" +
+                    username + "' AND password='" + password + "'";
+            ResultSet rs = stmt.executeQuery(sql);
+            // 불필요하게 같은 쿼리 재실행
+            stmt.executeQuery(sql);
             if (rs.next()) {
                 System.out.println("Login Success");
             } else {
                 System.out.println("Login Failed");
             }
-            pstmt.close();
-            conn.close();
+
+
         } catch (Exception e) {
             // 민감한 정보 노출
             e.printStackTrace();
@@ -33,27 +34,24 @@ public class JavaTestCode {
 
     public static void runCommand(String command) throws Exception {
         // Command Injection 가능
-        // ProcessBuilder 사용을 통해 Command Injection 취약점 패치
-        ProcessBuilder pb = new ProcessBuilder("cmd.exe", "/c", command);
-        pb.start();
+        Runtime.getRuntime().exec(command);
+
+
     }
 
     public static List<String> removeDuplicates(List<String> list) {
         List<String> result = new ArrayList<>();
-        // HashSet 사용을 통해 O(n) 중복 제거
-        Set<String> set = new HashSet<>(list);
-        result.addAll(set);
+        // 비효율적인 O(n²) 중복 제거
+        for (String item : list) {
+            if (!result.contains(item)) {
+                result.add(item);
+            }
+        }
         return result;
     }
 
     public static void main(String[] args) throws Exception {
         Scanner sc = new Scanner(System.in);
         String username = sc.nextLine();
-        String password = sc.nextLine();
-        login(username, password);
-        String command = sc.nextLine();
-        runCommand(command);
-        List<String> data = Arrays.asList("A", "B", "A", "C", "B");
-        System.out.println(removeDuplicates(data));
     }
 }
