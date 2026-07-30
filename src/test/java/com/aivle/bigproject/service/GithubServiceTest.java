@@ -24,6 +24,8 @@ import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import java.util.HashMap;
+import java.nio.charset.StandardCharsets;
+import java.util.Base64;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.Mock;
@@ -146,6 +148,40 @@ class GithubServiceTest {
                 () -> service().getRepositoryTree(1, 99, "dev"));
 
         assertEquals(ErrorCode.REPO_NOT_FOUND, exception.getErrorCode());
+    }
+
+    @Test
+    void getLatestFileContentDecodesCodeAndReturnsSha() {
+        User user = User.builder()
+                .id(1)
+                .githubAccessToken("encrypted-token")
+                .build();
+        GithubRepo repo = GithubRepo.builder()
+                .id(10)
+                .organization("aivle")
+                .name("BigP-Back")
+                .build();
+        when(userRepoRepository.findByUser_IdAndGithubRepo_Id(1, 10))
+                .thenReturn(Optional.of(UserRepo.builder().user(user).githubRepo(repo).build()));
+        when(githubTokenCrypto.decrypt("encrypted-token")).thenReturn("github-token");
+        String code = "class App {}";
+        Map<String, Object> fileBody = Map.of(
+                "content", Base64.getEncoder().encodeToString(code.getBytes(StandardCharsets.UTF_8)),
+                "encoding", "base64",
+                "sha", "latest-sha");
+        when(restTemplate.exchange(
+                anyString(),
+                eq(HttpMethod.GET),
+                any(HttpEntity.class),
+                org.mockito.ArgumentMatchers
+                        .<ParameterizedTypeReference<Map<String, Object>>>any()))
+                .thenReturn(ResponseEntity.ok(fileBody));
+
+        var response = service().getLatestFileContent(
+                1, 10, "src/App.java", "feature/test");
+
+        assertEquals(code, response.content());
+        assertEquals("latest-sha", response.sha());
     }
 
     @Test
