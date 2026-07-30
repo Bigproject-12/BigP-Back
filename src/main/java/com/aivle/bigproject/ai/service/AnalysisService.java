@@ -223,9 +223,11 @@ public class AnalysisService {
     }
 
  
-    public void stopAnalysis(Integer analysisId) {
+    public void stopAnalysis(Integer analysisId, Integer userId) {
         Analysis analysis = analysisRepository.findById(analysisId)
                 .orElseThrow(() -> new CustomException(ErrorCode.ANALYSIS_NOT_FOUND));
+
+        validateOwner(analysis, userId);
 
         if ("COMPLETED".equals(analysis.getStatus()) || "FAILED".equals(analysis.getStatus())) {
             throw new CustomException(ErrorCode.ANALYSIS_ALREADY_FINISHED);
@@ -238,13 +240,21 @@ public class AnalysisService {
     /**
      * 분석 결과 반환
      */
-    public AnalysisResultResponse getAnalysisResult(Integer analysisId) {
+    public AnalysisResultResponse getAnalysisResult(Integer analysisId, Integer userId) {
         Analysis analysis = analysisRepository.findById(analysisId)
                 .orElseThrow(() -> new CustomException((ErrorCode.ANALYSIS_NOT_FOUND)));
+
+        validateOwner(analysis, userId);
 
         Finding finding = findingRepository.findByAnalysisId(analysisId).orElse(null);
 
         return AnalysisResultResponse.of(analysis, finding);
+    }
+
+    private void validateOwner(Analysis analysis, Integer userId) {
+        if (!analysis.getUser().getId().equals(userId)) {
+            throw new CustomException(ErrorCode.NO_PERMISSION);
+        }
     }
 
     public void pushImprovedCode(Integer analysisId, Integer userId) {

@@ -25,6 +25,8 @@ public interface FindingRepository extends JpaRepository<Finding, Integer> {
     //유저별 대시보드 정보를 조회
     Optional<Finding> findByAnalysisId(Integer analysisId);
 
+    List<Finding> findAllByAnalysisIdIn(List<Integer> analysisIds);
+
     // 유저별 대시보드 통계 정보를 조회
     @Query("""
             SELECT COALESCE(SUM(f.totalIssues), 0) AS totalIssueCount,

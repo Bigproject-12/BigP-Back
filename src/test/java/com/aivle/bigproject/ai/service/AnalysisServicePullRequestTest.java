@@ -84,7 +84,7 @@ class AnalysisServicePullRequestTest {
         when(githubPullRequestRepository.save(any(GithubPullRequest.class)))
                 .thenAnswer(invocation -> invocation.getArgument(0));
 
-        String url = analysisService.createPullRequest(20, 1);
+        String url = analysisService.createPullRequest(20, 1, null);
 
         assertEquals(result.url(), url);
         ArgumentCaptor<GithubPullRequest> prCaptor =
