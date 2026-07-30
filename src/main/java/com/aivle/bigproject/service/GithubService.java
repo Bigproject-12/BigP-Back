@@ -18,6 +18,7 @@ import com.aivle.bigproject.repository.RepoEmbeddingRepository;
 import com.aivle.bigproject.dto.repo.BranchResponse;
 import com.aivle.bigproject.dto.repo.GithubPullRequestResult;
 import com.aivle.bigproject.dto.repo.GithubPullRequestResponse;
+import com.aivle.bigproject.dto.repo.RepoTreeResponse;
 import com.aivle.bigproject.repository.GithubPullRequestRepository;
 
 import org.springframework.http.HttpEntity;
@@ -45,6 +46,7 @@ import java.util.Collections;
 import java.util.Locale;
 import java.time.OffsetDateTime;
 import java.util.stream.Collectors;
+import org.springframework.web.util.UriComponentsBuilder;
 
 @Slf4j
 @Service
@@ -155,37 +157,68 @@ public class GithubService {
         }
     }
 
-    public Object getRepositoryTree(Integer userId, String orgName, String repoName, String branch) {
-        User user = userRepository.findById(userId)
-                .orElseThrow(() -> new CustomException(ErrorCode.USER_NOT_FOUND));
-
-        String encryptedToken = user.getGithubAccessToken();
-        if (encryptedToken == null) {
-            throw new IllegalArgumentException("연동된 GitHub 토큰이 없습니다.");
+    public RepoTreeResponse getRepositoryTree(Integer userId, Integer repoId, String branch) {
+        if (branch == null || branch.isBlank()) {
+            throw new CustomException(ErrorCode.INVALID_BRANCH);
         }
-
-        String decryptedToken = githubTokenCrypto.decrypt(encryptedToken);
-
-        RestTemplate restTemplate = new RestTemplate();
+        UserRepo userRepo = userRepoRepository.findByUser_IdAndGithubRepo_Id(userId, repoId)
+                .orElseThrow(() -> new CustomException(ErrorCode.REPO_NOT_FOUND));
+        User user = userRepo.getUser();
+        if (user.getGithubAccessToken() == null) {
+            throw new CustomException(ErrorCode.GITHUB_TOKEN_NOT_CONNECTED);
+        }
+        GithubRepo repo = userRepo.getGithubRepo();
         HttpHeaders headers = new HttpHeaders();
-        headers.setBearerAuth(decryptedToken);
+        headers.setBearerAuth(githubTokenCrypto.decrypt(user.getGithubAccessToken()));
         headers.set("Accept", "application/vnd.github+json");
+        headers.set("X-GitHub-Api-Version", "2026-03-10");
 
-        HttpEntity<String> entity = new HttpEntity<>(headers);
-        String url = "https://api.github.com/repos/" + orgName + "/" + repoName + "/git/trees/" + branch + "?recursive=1";
+        String url = UriComponentsBuilder.fromUriString("https://api.github.com")
+                .pathSegment("repos", repo.getOrganization(), repo.getName(), "git", "trees", branch)
+                .queryParam("recursive", 1)
+                .build()
+                .encode()
+                .toUriString();
 
         try {
-            ResponseEntity<Map> response = restTemplate.exchange(url, HttpMethod.GET, entity, Map.class); 
+            ResponseEntity<Map<String, Object>> response = restTemplate().exchange(
+                    url,
+                    HttpMethod.GET,
+                    new HttpEntity<>(headers),
+                    new ParameterizedTypeReference<>() {}
+            );
             Map<String, Object> body = response.getBody();
-
-            Boolean truncated = (Boolean) body.get("truncated");
-            if (Boolean.TRUE.equals(truncated)) {
-                log.warn("{}/{} 레포의 {} 브랜치 파일 트리가 잘렸습니다(truncated). 일부 파일이 누락될 수 있습니다.", orgName, repoName, branch);
+            if (body == null) {
+                throw new CustomException(ErrorCode.GITHUB_API_ERROR);
             }
-
-            return body;
-        } catch (Exception e) {
-            throw new IllegalArgumentException("트리 정보를 가져오는데 실패했습니다.");
+            boolean truncated = Boolean.TRUE.equals(body.get("truncated"));
+            if (truncated) {
+                log.warn("{}/{} 레포의 {} 브랜치 파일 트리가 잘렸습니다.",
+                        repo.getOrganization(), repo.getName(), branch);
+            }
+            Object rawTree = body.get("tree");
+            List<Map<String, Object>> tree = rawTree instanceof List<?> values
+                    ? values.stream()
+                            .filter(Map.class::isInstance)
+                            .map(value -> (Map<String, Object>) value)
+                            .toList()
+                    : Collections.emptyList();
+            List<RepoTreeResponse.Item> items = tree.stream()
+                    .map(item -> new RepoTreeResponse.Item(
+                            (String) item.get("path"),
+                            (String) item.get("type"),
+                            (String) item.get("sha"),
+                            item.get("size") instanceof Number size ? size.longValue() : null))
+                    .toList();
+            return new RepoTreeResponse(repoId, branch, truncated, items);
+        } catch (HttpClientErrorException.NotFound exception) {
+            throw new CustomException(ErrorCode.REPO_NOT_FOUND);
+        } catch (HttpClientErrorException.Forbidden exception) {
+            throw new CustomException(ErrorCode.NO_PERMISSION);
+        } catch (RestClientException exception) {
+            log.error("GitHub 파일 트리 조회 실패 (repoId={}, branch={}): {}",
+                    repoId, branch, exception.getMessage());
+            throw new CustomException(ErrorCode.GITHUB_API_ERROR);
         }
     }
 

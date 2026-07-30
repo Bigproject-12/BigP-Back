@@ -11,6 +11,7 @@ import com.aivle.bigproject.service.GithubService;
 import com.aivle.bigproject.dto.repo.RepoResponse; 
 import com.aivle.bigproject.dto.repo.BranchResponse;
 import com.aivle.bigproject.dto.repo.GithubPullRequestResponse;
+import com.aivle.bigproject.dto.repo.RepoTreeResponse;
 import java.util.List;
 
 @RestController
@@ -75,6 +76,16 @@ public class GithubController {
     ) {
         return ResponseEntity.ok(githubService.getRepositoryBranches(
                 Integer.valueOf(jwt.getSubject()), repoId));
+    }
+
+    @GetMapping("/{repoId}/tree")
+    public ResponseEntity<RepoTreeResponse> getRepositoryTree(
+            @AuthenticationPrincipal Jwt jwt,
+            @PathVariable Integer repoId,
+            @RequestParam String branch
+    ) {
+        return ResponseEntity.ok(githubService.getRepositoryTree(
+                Integer.valueOf(jwt.getSubject()), repoId, branch));
     }
 
     @GetMapping("/{repoId}/pull-requests")
