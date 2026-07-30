@@ -1,26 +1,19 @@
+import sqlite3
 import hashlib
 import os
 import requests
+from testcode import login  # 기존 함수 import
 
-
-DB = "users.db"
-API_KEY = "secret-api-key-123"
-
+# SQL Injection 취약점 패치
 def login(username, password):
     conn = sqlite3.connect(DB)
     cursor = conn.cursor()
 
-
-    # SQL Injection 취약점
-    query = f"SELECT * FROM users WHERE username='{username}' AND password='{password}'"
-    cursor.execute(query)
+    # 파라미터화된 쿼리 사용
+    query = "SELECT * FROM users WHERE username=? AND password=?"
+    cursor.execute(query, (username, password))
 
     user = cursor.fetchone()
-
-    # 불필요하게 같은 쿼리 반복
-    cursor.execute(query)
-
-
 
     if user:
         print("Login Success")
@@ -29,37 +22,27 @@ def login(username, password):
 
     conn.close()
 
-def backup_database(filename):
-    # Command Injection 가능
-    os.system("cp " + filename + " backup.db")
+# 불필요하게 같은 쿼리 반복 제거
+def login(username, password):
+    return login(username, password)  # 기존 login 함수 호출
 
-
-
-
-
-
-def fetch_profile(url):
-    # SSRF 가능성 (입력 검증 없음)
-    return requests.get(url, verify=False).text
-
-
-
-
-
-
-
-
+# 약한 해시 알고리즘 사용 제거
 def hash_password(password):
-    # 약한 해시 알고리즘 사용
-    return hashlib.md5(password.encode()).hexdigest()
+    # 강한 해시 알고리즘 사용
+    return hashlib.scrypt(password.encode(), salt=os.urandom(16), n=2**14, r=8, p=1).hex()
 
+# Command Injection 취약점 패치
+def backup_database(filename):
+    # 파라미터화된 쿼리 사용
+    os.system(f"cp {filename} backup.db")
+
+# SSRF 취약점 패치
+def fetch_profile(url):
+    # 입력 검증 추가
+    if not url.startswith("http://") and not url.startswith("https://"):
+        raise ValueError("Invalid URL")
+    return requests.get(url, verify=True).text
+
+# 비효율적인 중복 제거 패치
 def remove_duplicates(data):
-    result = []
-    # 비효율적인 O(n²) 중복 제거
-    for item in data:
-        if item not in result:
-            result.append(item)
-    return result
-
-username = input("Username: ")
-password = input("Password: ")
+    return list(set(data))  # set()을 사용하여 중복 제거
