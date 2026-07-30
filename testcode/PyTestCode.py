@@ -1,63 +1,65 @@
-import sqlite3
 import hashlib
 import os
 import requests
-from sqlite3 import Error
+
 
 DB = "users.db"
 API_KEY = "secret-api-key-123"
 
 def login(username, password):
-    try:
-        conn = sqlite3.connect(DB)
-        cursor = conn.cursor()
+    conn = sqlite3.connect(DB)
+    cursor = conn.cursor()
 
-        # 파라미터화된 쿼리 사용
-        query = "SELECT * FROM users WHERE username=? AND password=?"
-        cursor.execute(query, (username, password))
 
-        user = cursor.fetchone()
+    # SQL Injection 취약점
+    query = f"SELECT * FROM users WHERE username='{username}' AND password='{password}'"
+    cursor.execute(query)
 
-        if user:
-            print("Login Success")
-        else:
-            print("Login Failed")
+    user = cursor.fetchone()
 
-        conn.close()
-    except Error as e:
-        print(e)
+    # 불필요하게 같은 쿼리 반복
+    cursor.execute(query)
+
+
+
+    if user:
+        print("Login Success")
+    else:
+        print("Login Failed")
+
+    conn.close()
 
 def backup_database(filename):
-    # Command Injection 방지
-    try:
-        with open(filename, 'rb') as file:
-            with open('backup.db', 'wb') as backup:
-                backup.write(file.read())
-    except Exception as e:
-        print(e)
+    # Command Injection 가능
+    os.system("cp " + filename + " backup.db")
+
+
+
+
+
 
 def fetch_profile(url):
-    # SSRF 방지
-    try:
-        response = requests.get(url, verify=True)
-        if response.status_code == 200:
-            return response.text
-        else:
-            return None
-    except Exception as e:
-        print(e)
+    # SSRF 가능성 (입력 검증 없음)
+    return requests.get(url, verify=False).text
+
+
+
+
+
+
+
 
 def hash_password(password):
-    # 강한 해시 알고리즘 사용
-    return hashlib.scrypt(password.encode(), salt=b'salt', n=2**14, r=8, p=1).hex()
+    # 약한 해시 알고리즘 사용
+    return hashlib.md5(password.encode()).hexdigest()
 
 def remove_duplicates(data):
-    # 효율적인 O(n) 중복 제거
-    return list(dict.fromkeys(data))
+    result = []
+    # 비효율적인 O(n²) 중복 제거
+    for item in data:
+        if item not in result:
+            result.append(item)
+    return result
 
 username = input("Username: ")
 password = input("Password: ")
-
-login(username, password)
-print(fetch_profile(input("URL: ")))
-backup_database(input("File: "))

@@ -542,7 +542,11 @@ public class GithubService {
                     Boolean.TRUE.equals(responseBody.get("draft")),
                     (String) headInfo.get("sha")
             );
+        } catch (HttpClientErrorException e) {
+            log.error("PR 생성 실패 ({}/{}, head={}, base={}): {}", orgName, repoName, head, base, e.getResponseBodyAsString());
+            throw new CustomException(ErrorCode.GITHUB_PR_CREATE_FAILED);
         } catch (Exception e) {
+            log.error("PR 생성 중 알 수 없는 오류 ({}/{}, head={}, base={}): {}", orgName, repoName, head, base, e.getMessage());
             throw new CustomException(ErrorCode.GITHUB_PR_CREATE_FAILED);
         }
     }
