@@ -10,8 +10,6 @@ import com.aivle.bigproject.ai.dto.AnalysisResultResponse;
 import com.aivle.bigproject.ai.dto.ReanalysisStart;
 import com.aivle.bigproject.dto.repo.GithubPullRequestResult;
 import com.aivle.bigproject.dto.repo.GithubFileContent;
-import com.aivle.bigproject.dto.repo.PullRequestCreate;
-import com.aivle.bigproject.dto.repo.PullRequestSummaryResponse;
 
 // Entity
 import com.aivle.bigproject.entity.Analysis;
@@ -38,10 +36,9 @@ import com.aivle.bigproject.exception.ErrorCode;
 // Service
 import com.aivle.bigproject.service.NotificationService;
 import tools.jackson.core.type.TypeReference;
-import com.aivle.bigproject.ai.service.EmbeddingService;
 import com.aivle.bigproject.service.GithubService;
+import com.aivle.bigproject.ai.service.EmbeddingService;
 
-import org.springframework.beans.propertyeditors.CustomNumberEditor;
 // Spring Web
 import org.springframework.http.HttpEntity;
 import org.springframework.http.HttpHeaders;
@@ -53,12 +50,9 @@ import org.springframework.scheduling.annotation.Async;
 import org.springframework.transaction.annotation.Transactional;
 
 import tools.jackson.databind.json.JsonMapper;
-import tools.jackson.databind.JsonNode;
 import java.math.BigDecimal;
 import java.math.RoundingMode;
-import java.util.HashSet;
 import java.util.List;
-import java.util.Set;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.Map;
@@ -107,6 +101,7 @@ public class AnalysisService {
     }
 
     public Integer createInitialAnalysis(DetectRequest requestDto, Integer userId) {
+        System.out.println("[TRACE] createInitialAnalysis 진입, requestDto.repoId()=" + requestDto.repoId());
         User user = userRepository.findById(userId)
                 .orElseThrow(() -> new CustomException(ErrorCode.USER_NOT_FOUND));
 
@@ -141,12 +136,21 @@ public class AnalysisService {
 
     @Async
     public void sendToAiServerAsync(Integer analysisId, DetectRequest requestDto) {
+        System.out.println("[TRACE][" + Thread.currentThread().getName() + "] sendToAiServerAsync 진입, repoId=" + requestDto.repoId());
         try {
-            // ponytail: 중복 검색 호출도 실패/무한대기 가능 → try 밖에 있으면 FAILED 처리가 안 됨. try 안으로 통합.
-            List<DuplicateSnippet> duplicates = requestDto.repoId() != null
-                    ? embeddingService.searchDuplicates(requestDto.repoId(), requestDto.codeContent())
-                    : List.of();
+            System.out.println("[TRACE] 2. try 블록 진입");
+            System.out.println("[TRACE] 2-1. repoId null 체크 직전: " + requestDto.repoId());
 
+            List<DuplicateSnippet> duplicates;
+            if (requestDto.repoId() != null) {
+                System.out.println("[TRACE] 2-2. if 블록 진입 (repoId not null)");
+                duplicates = embeddingService.searchDuplicates(requestDto.repoId(), requestDto.codeContent(), requestDto.language());
+                System.out.println("[TRACE] 2-3. searchDuplicates 리턴됨");
+            } else {
+                System.out.println("[TRACE] 2-2-B. else 블록 진입 (repoId is null)");
+                duplicates = List.of();
+            }
+            System.out.println("[TRACE] duplicates 검색 결과 개수: " + duplicates.size());
             DetectRequest enrichedRequest = new DetectRequest(
                     requestDto.codeContent(),
                     requestDto.repoId(),
@@ -181,7 +185,12 @@ public class AnalysisService {
             
             int securityCount = response.vulnerabilities() != null ? response.vulnerabilities().size() : 0;
             int inefficiencyCount = response.complexityDetails() != null ? response.complexityDetails().size() : 0;
+            int duplicateCount = response.duplicateSnippets() != null ? response.duplicateSnippets().size() : 0;
             
+            String duplicateResultStr = jsonMapper.writeValueAsString(
+                response.duplicateSnippets() != null ? response.duplicateSnippets() : List.of()
+            );
+
             // 조건 없이 항상 Finding 저장 (null 방어 포함)
             String secuResultStr = jsonMapper.writeValueAsString(
                     response.vulnerabilities() != null ? response.vulnerabilities() : List.of()
@@ -196,10 +205,10 @@ public class AnalysisService {
                     .inefficiencyResult(inefficiencyResultStr)
                     .modifiedCode(modifiedCode)
                     .secuResult(secuResultStr)
-                    .duplicateResult("[]") 
+                    .duplicateResult(duplicateResultStr) 
                     .isAiGenerated(response.isAiGenerated() != null && response.isAiGenerated())
                     .aiProbability(response.aiProbability())
-                    .totalIssues(securityCount + inefficiencyCount)
+                    .totalIssues(securityCount + inefficiencyCount + duplicateCount)
                     .securityCount(securityCount)
                     .inefficiencyCount(inefficiencyCount)
                     .build();
