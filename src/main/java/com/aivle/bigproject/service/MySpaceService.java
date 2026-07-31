@@ -3,6 +3,7 @@ package com.aivle.bigproject.service;
 import com.aivle.bigproject.dto.myspace.MySpaceAnalysisResponse;
 import com.aivle.bigproject.dto.myspace.MySpaceAnalysisDetailResponse;
 import com.aivle.bigproject.dto.myspace.MySpaceSummaryResponse;
+import com.aivle.bigproject.dto.repo.GithubPullRequestResponse;
 import com.aivle.bigproject.entity.Analysis;
 import com.aivle.bigproject.entity.Finding;
 import com.aivle.bigproject.entity.GithubRepo;
@@ -18,6 +19,7 @@ import java.util.Collections;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Locale;
 import java.util.function.Function;
 import java.util.stream.Collectors;
 import org.springframework.data.domain.PageRequest;
@@ -34,17 +36,20 @@ public class MySpaceService {
     private final AnalysisRepository analysisRepository;
     private final FindingRepository findingRepository;
     private final JsonMapper jsonMapper;
+    private final GithubService githubService;
 
     public MySpaceService(
             UserRepoRepository userRepoRepository,
             AnalysisRepository analysisRepository,
             FindingRepository findingRepository,
-            JsonMapper jsonMapper
+            JsonMapper jsonMapper,
+            GithubService githubService
     ) {
         this.userRepoRepository = userRepoRepository;
         this.analysisRepository = analysisRepository;
         this.findingRepository = findingRepository;
         this.jsonMapper = jsonMapper;
+        this.githubService = githubService;
     }
 
     public MySpaceSummaryResponse getSummary(Integer userId, Integer repoId, String branch) {
@@ -163,6 +168,34 @@ public class MySpaceService {
         Analysis analysis = analysisRepository.findOwnedAnalysis(analysisId, userId)
                 .orElseThrow(() -> new CustomException(ErrorCode.ANALYSIS_NOT_FOUND));
         return detail(analysis);
+    }
+
+    public List<GithubPullRequestResponse> getMyPullRequests(
+            Integer userId,
+            Integer repoId,
+            String branch,
+            String status,
+            int limit
+    ) {
+        String normalizedStatus = status == null ? "ALL" : status.toUpperCase(Locale.ROOT);
+        if (!List.of("ALL", "OPEN", "MERGED", "CLOSED").contains(normalizedStatus)
+                || limit < 1 || limit > 50) {
+            throw new CustomException(ErrorCode.INVALID_PR_QUERY);
+        }
+        String githubState = switch (normalizedStatus) {
+            case "OPEN" -> "open";
+            case "MERGED", "CLOSED" -> "closed";
+            default -> "all";
+        };
+        return githubService.getRepositoryPullRequests(
+                        userId, repoId, "mine", githubState, 1, 50)
+                .stream()
+                .filter(pr -> "ALL".equals(normalizedStatus)
+                        || normalizedStatus.equals(pr.status()))
+                .filter(pr -> branch == null || branch.isBlank()
+                        || branch.equals(pr.headBranch()))
+                .limit(limit)
+                .toList();
     }
 
     private MySpaceAnalysisDetailResponse detail(Analysis analysis) {
