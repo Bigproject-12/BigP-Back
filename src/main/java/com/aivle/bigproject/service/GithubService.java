@@ -21,6 +21,7 @@ import com.aivle.bigproject.dto.repo.GithubPullRequestResponse;
 import com.aivle.bigproject.dto.repo.RepoTreeResponse;
 import com.aivle.bigproject.dto.repo.GithubFileContent;
 import com.aivle.bigproject.repository.GithubPullRequestRepository;
+import com.aivle.bigproject.repository.AnalysisRepository;
 
 import org.springframework.http.HttpEntity;
 import org.springframework.http.HttpHeaders;
@@ -65,12 +66,13 @@ public class GithubService {
     private final EmbeddingService embeddingService;
     private final RepoEmbeddingRepository repoEmbeddingRepository;
     private final GithubPullRequestRepository githubPullRequestRepository;
+    private final AnalysisRepository analysisRepository;
 
     private static final Set<String> EMBEDDABLE_EXTENSIONS = Set.of(
             ".java", ".py", ".js", ".jsx", ".ts", ".tsx"
     );
 
-    public GithubService(UserRepository userRepository, GithubTokenCrypto githubTokenCrypto, GithubRepoRepository githubRepoRepository, EmbeddingService embeddingService, UserRepoRepository userRepoRepository, RepoEmbeddingRepository repoEmbeddingRepository, GithubPullRequestRepository githubPullRequestRepository, @Value("${github.webhook-callback-url}") String webhookCallbackUrl,
+    public GithubService(UserRepository userRepository, GithubTokenCrypto githubTokenCrypto, GithubRepoRepository githubRepoRepository, EmbeddingService embeddingService, UserRepoRepository userRepoRepository, RepoEmbeddingRepository repoEmbeddingRepository, GithubPullRequestRepository githubPullRequestRepository, AnalysisRepository analysisRepository, @Value("${github.webhook-callback-url}") String webhookCallbackUrl,
         @Value("${github.webhook-secret}") String webhookSecret) {
         this.userRepository = userRepository;
         this.githubTokenCrypto = githubTokenCrypto;
@@ -79,6 +81,7 @@ public class GithubService {
         this.embeddingService = embeddingService;
         this.repoEmbeddingRepository = repoEmbeddingRepository;
         this.githubPullRequestRepository = githubPullRequestRepository;
+        this.analysisRepository = analysisRepository;
         this.webhookCallbackUrl = webhookCallbackUrl;
         this.webhookSecret = webhookSecret;
     }
@@ -206,12 +209,21 @@ public class GithubService {
                             .map(value -> (Map<String, Object>) value)
                             .toList()
                     : Collections.emptyList();
+            Map<String, IssueBadge> issueBadges = issueBadges(userId, repoId, branch);
             List<RepoTreeResponse.Item> items = tree.stream()
-                    .map(item -> new RepoTreeResponse.Item(
-                            (String) item.get("path"),
-                            (String) item.get("type"),
-                            (String) item.get("sha"),
-                            item.get("size") instanceof Number size ? size.longValue() : null))
+                    .map(item -> {
+                        String path = (String) item.get("path");
+                        IssueBadge issues = issueBadges.getOrDefault(path, IssueBadge.EMPTY);
+                        return new RepoTreeResponse.Item(
+                                path,
+                                (String) item.get("type"),
+                                (String) item.get("sha"),
+                                item.get("size") instanceof Number size ? size.longValue() : null,
+                                issues.total(),
+                                issues.security(),
+                                issues.inefficiency(),
+                                issues.other());
+                    })
                     .toList();
             return new RepoTreeResponse(repoId, branch, truncated, items);
         } catch (HttpClientErrorException.NotFound exception) {
@@ -222,6 +234,38 @@ public class GithubService {
             log.error("GitHub 파일 트리 조회 실패 (repoId={}, branch={}): {}",
                     repoId, branch, exception.getMessage());
             throw new CustomException(ErrorCode.GITHUB_API_ERROR);
+        }
+    }
+
+    private Map<String, IssueBadge> issueBadges(Integer userId, Integer repoId, String branch) {
+        Map<String, IssueBadge> badges = new java.util.HashMap<>();
+        for (AnalysisRepository.FileIssueSummary summary
+                : analysisRepository.findLatestFileIssues(userId, repoId, branch)) {
+            IssueBadge badge = new IssueBadge(
+                    summary.getTotalIssueCount(),
+                    summary.getSecurityIssueCount(),
+                    summary.getInefficiencyIssueCount());
+            String path = summary.getFilePath();
+            badges.merge(path, badge, IssueBadge::add);
+            for (int slash = path.indexOf('/'); slash >= 0; slash = path.indexOf('/', slash + 1)) {
+                badges.merge(path.substring(0, slash), badge, IssueBadge::add);
+            }
+        }
+        return badges;
+    }
+
+    private record IssueBadge(int total, int security, int inefficiency) {
+        private static final IssueBadge EMPTY = new IssueBadge(0, 0, 0);
+
+        private IssueBadge add(IssueBadge other) {
+            return new IssueBadge(
+                    total + other.total,
+                    security + other.security,
+                    inefficiency + other.inefficiency);
+        }
+
+        private int other() {
+            return Math.max(0, total - security - inefficiency);
         }
     }
 

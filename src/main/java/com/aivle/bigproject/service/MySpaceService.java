@@ -14,6 +14,7 @@ import com.aivle.bigproject.repository.UserRepoRepository;
 import java.math.BigDecimal;
 import java.math.RoundingMode;
 import java.util.Collections;
+import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.function.Function;
@@ -44,45 +45,47 @@ public class MySpaceService {
         validateBranch(branch);
         UserRepo userRepo = getConnectedRepo(userId, repoId);
         GithubRepo repo = userRepo.getGithubRepo();
-        List<Analysis> analyses = analysisRepository.findRecentCompletedForMySpace(
-                userId, repoId, branch, PageRequest.of(0, 2));
+        List<Analysis> analyses = analysisRepository.findLatestTwoPerFile(userId, repoId, branch);
         if (analyses.isEmpty()) {
             return emptySummary(repo, branch);
         }
 
-        Analysis current = analyses.get(0);
-        Finding currentFinding = findingRepository.findByAnalysisId(current.getId()).orElse(null);
-        Analysis previous = analyses.size() > 1 ? analyses.get(1) : null;
-        Finding previousFinding = previous == null
-                ? null
-                : findingRepository.findByAnalysisId(previous.getId()).orElse(null);
-
-        double currentQualityScore = qualityScore(currentFinding);
-        double previousQualityScore = qualityScore(previousFinding);
-        BigDecimal currentRatio = ratio(current);
-        BigDecimal previousRatio = ratio(previous);
+        Map<String, List<Analysis>> analysesByFile = analyses.stream()
+                .collect(Collectors.groupingBy(
+                        Analysis::getFilePath,
+                        LinkedHashMap::new,
+                        Collectors.toList()));
+        List<Analysis> currentAnalyses = analysesByFile.values().stream()
+                .map(fileAnalyses -> fileAnalyses.get(0))
+                .toList();
+        List<Analysis> previousAnalyses = analysesByFile.values().stream()
+                .filter(fileAnalyses -> fileAnalyses.size() > 1)
+                .map(fileAnalyses -> fileAnalyses.get(1))
+                .toList();
+        Map<Integer, Finding> findings = findingsByAnalysisId(analyses);
+        Aggregate currentAggregate = aggregate(currentAnalyses, findings);
+        Aggregate previousAggregate = aggregate(previousAnalyses, findings);
+        Analysis latest = currentAnalyses.get(0);
+        Finding latestFinding = findings.get(latest.getId());
 
         return new MySpaceSummaryResponse(
                 repo.getId(),
                 repo.getName(),
                 branch,
-                current.getId(),
-                current.getCreatedAt(),
-                current.getFilePath(),
-                totalIssues(currentFinding),
-                securityIssues(currentFinding),
-                inefficiencyIssues(currentFinding),
-                otherIssues(currentFinding),
-                current.getImprovableRatio(),
-                currentQualityScore,
-                comparison(
-                        currentFinding, previous, previousFinding,
-                        currentRatio, previousRatio,
-                        currentQualityScore, previousQualityScore),
-                currentFinding == null ? null : currentFinding.getSecuResult(),
-                currentFinding == null ? null : currentFinding.getInefficiencyResult(),
-                current.getOriginCode(),
-                currentFinding == null ? null : currentFinding.getModifiedCode()
+                latest.getId(),
+                latest.getCreatedAt(),
+                latest.getFilePath(),
+                currentAggregate.totalIssues(),
+                currentAggregate.securityIssues(),
+                currentAggregate.inefficiencyIssues(),
+                currentAggregate.otherIssues(),
+                currentAggregate.improvableRatio(),
+                currentAggregate.qualityScore(),
+                comparison(currentAggregate, previousAggregate, previousAnalyses.isEmpty()),
+                latestFinding == null ? null : latestFinding.getSecuResult(),
+                latestFinding == null ? null : latestFinding.getInefficiencyResult(),
+                latest.getOriginCode(),
+                latestFinding == null ? null : latestFinding.getModifiedCode()
         );
     }
 
@@ -152,24 +155,56 @@ public class MySpaceService {
                 null, null, null, null);
     }
 
+    private Map<Integer, Finding> findingsByAnalysisId(List<Analysis> analyses) {
+        return findingRepository.findAllByAnalysisIdIn(
+                        analyses.stream().map(Analysis::getId).toList())
+                .stream()
+                .collect(Collectors.toMap(
+                        finding -> finding.getAnalysis().getId(),
+                        Function.identity(),
+                        (first, ignored) -> first));
+    }
+
+    private Aggregate aggregate(List<Analysis> analyses, Map<Integer, Finding> findings) {
+        List<Finding> availableFindings = analyses.stream()
+                .map(analysis -> findings.get(analysis.getId()))
+                .filter(java.util.Objects::nonNull)
+                .toList();
+        int total = availableFindings.stream().mapToInt(this::totalIssues).sum();
+        int security = availableFindings.stream().mapToInt(this::securityIssues).sum();
+        int inefficiency = availableFindings.stream().mapToInt(this::inefficiencyIssues).sum();
+        int other = availableFindings.stream().mapToInt(this::otherIssues).sum();
+        double quality = availableFindings.stream()
+                .mapToDouble(this::qualityScore)
+                .average()
+                .orElse(0);
+        List<BigDecimal> ratios = analyses.stream()
+                .map(Analysis::getImprovableRatio)
+                .filter(java.util.Objects::nonNull)
+                .toList();
+        BigDecimal averageRatio = ratios.isEmpty() ? null : ratios.stream()
+                .reduce(BigDecimal.ZERO, BigDecimal::add)
+                .divide(BigDecimal.valueOf(ratios.size()), 1, RoundingMode.HALF_UP);
+        return new Aggregate(total, security, inefficiency, other,
+                averageRatio, roundOneDecimal(quality));
+    }
+
     private MySpaceSummaryResponse.Comparison comparison(
-            Finding currentFinding,
-            Analysis previous,
-            Finding previousFinding,
-            BigDecimal currentRatio,
-            BigDecimal previousRatio,
-            double currentQualityScore,
-            double previousQualityScore
+            Aggregate current,
+            Aggregate previous,
+            boolean noPreviousAnalysis
     ) {
-        if (previous == null) {
+        if (noPreviousAnalysis) {
             return new MySpaceSummaryResponse.Comparison(null, null, null, null, null);
         }
         return new MySpaceSummaryResponse.Comparison(
-                totalIssues(currentFinding) - totalIssues(previousFinding),
-                securityIssues(currentFinding) - securityIssues(previousFinding),
-                inefficiencyIssues(currentFinding) - inefficiencyIssues(previousFinding),
-                currentRatio.subtract(previousRatio),
-                roundOneDecimal(currentQualityScore - previousQualityScore));
+                current.totalIssues() - previous.totalIssues(),
+                current.securityIssues() - previous.securityIssues(),
+                current.inefficiencyIssues() - previous.inefficiencyIssues(),
+                current.improvableRatio() == null || previous.improvableRatio() == null
+                        ? null
+                        : current.improvableRatio().subtract(previous.improvableRatio()),
+                roundOneDecimal(current.qualityScore() - previous.qualityScore()));
     }
 
     private int totalIssues(Finding finding) {
@@ -189,12 +224,6 @@ public class MySpaceService {
         return Math.max(0, totalIssues(finding) - securityIssues(finding) - inefficiencyIssues(finding));
     }
 
-    private BigDecimal ratio(Analysis analysis) {
-        return analysis == null || analysis.getImprovableRatio() == null
-                ? BigDecimal.ZERO.setScale(1)
-                : analysis.getImprovableRatio();
-    }
-
     private double qualityScore(Finding finding) {
         if (finding == null) {
             return 0;
@@ -208,5 +237,15 @@ public class MySpaceService {
 
     private double roundOneDecimal(double value) {
         return BigDecimal.valueOf(value).setScale(1, RoundingMode.HALF_UP).doubleValue();
+    }
+
+    private record Aggregate(
+            int totalIssues,
+            int securityIssues,
+            int inefficiencyIssues,
+            int otherIssues,
+            BigDecimal improvableRatio,
+            double qualityScore
+    ) {
     }
 }
