@@ -4,6 +4,8 @@ import com.aivle.bigproject.dto.analysis.AnalysisHistoryResponse;
 import com.aivle.bigproject.service.AnalysisHistoryService;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
+import org.springframework.security.core.annotation.AuthenticationPrincipal;
+import org.springframework.security.oauth2.jwt.Jwt;
 
 import java.util.List;
 
@@ -19,7 +21,11 @@ public class AnalysisHistoryController {
 
     // GET /api/repos/{repoId}/history
     @GetMapping("/{repoId}/history")
-    public ResponseEntity<List<AnalysisHistoryResponse>> getHistory(@PathVariable Integer repoId) {
-        return ResponseEntity.ok(analysisHistoryService.getHistory(repoId));
+    public ResponseEntity<List<AnalysisHistoryResponse>> getHistory(
+            @AuthenticationPrincipal Jwt jwt,
+            @PathVariable Integer repoId
+    ) {
+        return ResponseEntity.ok(analysisHistoryService.getHistory(
+                Integer.valueOf(jwt.getSubject()), repoId));
     }
 }

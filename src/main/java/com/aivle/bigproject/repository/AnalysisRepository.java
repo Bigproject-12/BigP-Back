@@ -8,6 +8,7 @@ import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 import java.util.List;
 import java.time.LocalDateTime;
+import org.springframework.data.domain.Pageable;
 
 public interface AnalysisRepository extends JpaRepository<Analysis, Integer> {
 
@@ -58,7 +59,7 @@ public interface AnalysisRepository extends JpaRepository<Analysis, Integer> {
     @Query(value = "DELETE FROM ANALYSIS WHERE user_id = :userId", nativeQuery = true)
     void deleteByOwner(@Param("userId") Integer userId);
 
-    // 레포 단위 히스토리 목록 조회
+    // 로그인 사용자의 레포 단위 히스토리 목록 조회
     @Query("""
             SELECT new com.aivle.bigproject.dto.analysis.AnalysisHistoryResponse(
                 a.id,
@@ -74,8 +75,55 @@ public interface AnalysisRepository extends JpaRepository<Analysis, Integer> {
             )
             FROM Analysis a
             LEFT JOIN Finding f ON f.analysis = a
-            WHERE a.githubRepo.id = :repoId
+            WHERE a.user.id = :userId
+              AND a.githubRepo.id = :repoId
             ORDER BY a.createdAt DESC, a.id DESC
             """)
-    List<AnalysisHistoryResponse> findHistoryByRepoId(@Param("repoId") Integer repoId);
+    List<AnalysisHistoryResponse> findHistoryByUserIdAndRepoId(
+            @Param("userId") Integer userId,
+            @Param("repoId") Integer repoId);
+
+    @Query("""
+            SELECT a
+            FROM Analysis a
+            WHERE a.user.id = :userId
+              AND a.githubRepo.id = :repoId
+              AND a.branch = :branch
+              AND a.status = 'COMPLETED'
+            ORDER BY a.createdAt DESC, a.id DESC
+            """)
+    List<Analysis> findRecentCompletedForMySpace(
+            @Param("userId") Integer userId,
+            @Param("repoId") Integer repoId,
+            @Param("branch") String branch,
+            Pageable pageable);
+
+    @Query("""
+            SELECT a
+            FROM Analysis a
+            WHERE a.user.id = :userId
+              AND a.githubRepo.id = :repoId
+              AND a.branch = :branch
+            ORDER BY a.createdAt DESC, a.id DESC
+            """)
+    List<Analysis> findMySpaceHistory(
+            @Param("userId") Integer userId,
+            @Param("repoId") Integer repoId,
+            @Param("branch") String branch,
+            Pageable pageable);
+
+    @Query("""
+            SELECT CASE WHEN COUNT(a) > 0 THEN true ELSE false END
+            FROM Analysis a
+            WHERE a.user.id = :userId
+              AND a.githubRepo.id = :repoId
+              AND a.branch = :branch
+              AND a.filePath = :filePath
+              AND a.status = 'ANALYZING'
+            """)
+    boolean existsAnalyzingFile(
+            @Param("userId") Integer userId,
+            @Param("repoId") Integer repoId,
+            @Param("branch") String branch,
+            @Param("filePath") String filePath);
 }

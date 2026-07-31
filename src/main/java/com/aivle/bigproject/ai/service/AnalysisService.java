@@ -7,7 +7,11 @@ import com.aivle.bigproject.ai.dto.DuplicateSnippet;
 import com.aivle.bigproject.ai.dto.PromptReconstructApiRequest;
 import com.aivle.bigproject.ai.dto.PromptReconstructApiResponse;
 import com.aivle.bigproject.ai.dto.AnalysisResultResponse;
+import com.aivle.bigproject.ai.dto.ReanalysisStart;
 import com.aivle.bigproject.dto.repo.GithubPullRequestResult;
+import com.aivle.bigproject.dto.repo.GithubFileContent;
+import com.aivle.bigproject.dto.repo.PullRequestCreate;
+import com.aivle.bigproject.dto.repo.PullRequestSummaryResponse;
 
 // Entity
 import com.aivle.bigproject.entity.Analysis;
@@ -224,9 +228,11 @@ public class AnalysisService {
     }
 
  
-    public void stopAnalysis(Integer analysisId) {
+    public void stopAnalysis(Integer analysisId, Integer userId) {
         Analysis analysis = analysisRepository.findById(analysisId)
                 .orElseThrow(() -> new CustomException(ErrorCode.ANALYSIS_NOT_FOUND));
+
+        validateOwner(analysis, userId);
 
         if ("COMPLETED".equals(analysis.getStatus()) || "FAILED".equals(analysis.getStatus())) {
             throw new CustomException(ErrorCode.ANALYSIS_ALREADY_FINISHED);
@@ -239,13 +245,72 @@ public class AnalysisService {
     /**
      * 분석 결과 반환
      */
-    public AnalysisResultResponse getAnalysisResult(Integer analysisId) {
+    public AnalysisResultResponse getAnalysisResult(Integer analysisId, Integer userId) {
         Analysis analysis = analysisRepository.findById(analysisId)
                 .orElseThrow(() -> new CustomException((ErrorCode.ANALYSIS_NOT_FOUND)));
+
+        validateOwner(analysis, userId);
 
         Finding finding = findingRepository.findByAnalysisId(analysisId).orElse(null);
 
         return AnalysisResultResponse.of(analysis, finding);
+    }
+
+    @Transactional
+    public ReanalysisStart prepareReanalysis(Integer analysisId, Integer userId) {
+        Analysis previous = analysisRepository.findById(analysisId)
+                .orElseThrow(() -> new CustomException(ErrorCode.ANALYSIS_NOT_FOUND));
+        validateOwner(previous, userId);
+        if (!"COMPLETED".equals(previous.getStatus())) {
+            throw new CustomException(ErrorCode.ANALYSIS_NOT_COMPLETED);
+        }
+        if (previous.getBranch() == null || previous.getBranch().isBlank()
+                || previous.getFilePath() == null || previous.getFilePath().isBlank()) {
+            throw new CustomException(ErrorCode.ANALYSIS_BRANCH_FILE_INFO_MISSING);
+        }
+        Integer repoId = previous.getGithubRepo().getId();
+        if (analysisRepository.existsAnalyzingFile(
+                userId, repoId, previous.getBranch(), previous.getFilePath())) {
+            throw new CustomException(ErrorCode.ANALYSIS_ALREADY_RUNNING);
+        }
+
+        GithubFileContent latestFile = githubService.getLatestFileContent(
+                userId, repoId, previous.getFilePath(), previous.getBranch());
+        boolean sameSha = previous.getSourceBlobSha() != null
+                && previous.getSourceBlobSha().equals(latestFile.sha());
+        boolean sameContent = previous.getOriginCode().equals(latestFile.content());
+        if (sameSha || sameContent) {
+            throw new CustomException(ErrorCode.SOURCE_NOT_CHANGED);
+        }
+        Analysis reanalysis = Analysis.builder()
+                .githubRepo(previous.getGithubRepo())
+                .company(previous.getCompany())
+                .user(previous.getUser())
+                .originCode(latestFile.content())
+                .language(previous.getLanguage())
+                .filePath(previous.getFilePath())
+                .branch(previous.getBranch())
+                .sourceBlobSha(latestFile.sha())
+                .prompt(previous.getPrompt())
+                .status("ANALYZING")
+                .build();
+        analysisRepository.save(reanalysis);
+
+        DetectRequest request = new DetectRequest(
+                latestFile.content(),
+                repoId,
+                previous.getLanguage(),
+                previous.getPrompt(),
+                previous.getFilePath(),
+                previous.getBranch(),
+                List.of());
+        return new ReanalysisStart(reanalysis.getId(), request);
+    }
+
+    private void validateOwner(Analysis analysis, Integer userId) {
+        if (!analysis.getUser().getId().equals(userId)) {
+            throw new CustomException(ErrorCode.NO_PERMISSION);
+        }
     }
 
     public void pushImprovedCode(Integer analysisId, Integer userId) {
@@ -280,7 +345,7 @@ public class AnalysisService {
     }
 
     @Transactional
-    public String createPullRequest(Integer analysisId, Integer userId) {
+    public String createPullRequest(Integer analysisId, Integer userId, String baseBranch) {
         Analysis analysis = analysisRepository.findById(analysisId)
                 .orElseThrow(() -> new CustomException(ErrorCode.ANALYSIS_NOT_FOUND));
 
@@ -301,9 +366,11 @@ public class AnalysisService {
                 .orElseThrow(() -> new CustomException(ErrorCode.FINDING_NOT_FOUND));
 
         GithubRepo repo = analysis.getGithubRepo();
-        String defaultBranch = githubService.getDefaultBranch(userId, repo.getOrganization(), repo.getName());
+        String targetBranch = (baseBranch != null && !baseBranch.isBlank())
+                ? baseBranch
+                : githubService.getDefaultBranch(userId, repo.getOrganization(), repo.getName());
 
-        if (analysis.getBranch().equals(defaultBranch)) {
+        if (analysis.getBranch().equals(targetBranch)) {
             throw new CustomException(ErrorCode.GITHUB_PR_SAME_BRANCH);
         }
 
@@ -319,7 +386,7 @@ public class AnalysisService {
                 + "분석 세부 내용은 분석 ID: " + analysisId + "에서 확인 가능.";
 
         GithubPullRequestResult result = githubService.createPullRequest(
-                userId, repo.getOrganization(), repo.getName(), analysis.getBranch(), defaultBranch, title, body);
+                userId, repo.getOrganization(), repo.getName(), analysis.getBranch(), targetBranch, title, body);
 
         GithubPullRequest pullRequest = githubPullRequestRepository.save(
                 GithubPullRequest.builder()
@@ -329,7 +396,7 @@ public class AnalysisService {
                         .title(title)
                         .description(body)
                         .headBranch(analysis.getBranch())
-                        .baseBranch(defaultBranch)
+                        .baseBranch(targetBranch)
                         .status(result.status())
                         .draft(result.draft())
                         .prUrl(result.url())
