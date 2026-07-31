@@ -501,12 +501,15 @@ public class AnalysisService {
                     finding.getSecuResult(), new TypeReference<List<Map<String, Object>>>() {});
             List<Map<String, Object>> complexityDetails = jsonMapper.readValue(
                     finding.getInefficiencyResult(), new TypeReference<List<Map<String, Object>>>() {});
-
+            List<Map<String, Object>> duplicateSnippets = jsonMapper.readValue(
+                finding.getDuplicateResult(), new TypeReference<List<Map<String, Object>>>() {});
+                
             PromptReconstructApiRequest requestDto = new PromptReconstructApiRequest(
                     originalPrompt,
                     analysis.getOriginCode(),
                     vulnerabilities,
-                    complexityDetails
+                    complexityDetails,
+                    duplicateSnippets   
             );
 
             RestTemplate restTemplate = new RestTemplate();
