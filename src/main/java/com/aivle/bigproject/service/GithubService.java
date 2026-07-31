@@ -720,6 +720,7 @@ public class GithubService {
     }
 
     @Async
+    @Transactional(readOnly = false)
     public void processPushEmbedding(String orgName, String repoName, String branch,
                                     Set<String> addedPaths, Set<String> modifiedPaths, Set<String> removedPaths) {
 
@@ -738,17 +739,14 @@ public class GithubService {
         }
         String token = githubTokenCrypto.decrypt(anyUser.getGithubAccessToken());
 
-        // 1. removed: 벡터만 삭제 (내용 조회 불필요)
         for (String path : removedPaths) {
             embeddingService.removeFileEmbeddings(repo.getId(), path);
         }
 
-        // 2. modified: 예전 벡터 삭제 후 재삽입
         for (String path : modifiedPaths) {
             embeddingService.removeFileEmbeddings(repo.getId(), path);
         }
 
-        // 3. added + modified 둘 다 "새로 내용 가져와서 임베딩" 대상
         Set<String> pathsToEmbed = new HashSet<>();
         pathsToEmbed.addAll(addedPaths);
         pathsToEmbed.addAll(modifiedPaths);
