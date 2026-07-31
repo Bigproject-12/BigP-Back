@@ -15,4 +15,6 @@ public interface RepoEmbeddingRepository extends JpaRepository<RepoEmbedding, In
     void deleteByGithubRepoId(Integer repoId);
     
     boolean existsByGithubRepo_Id(Integer repoId);
+
+    List<RepoEmbedding> findByGithubRepo_IdAndFilePath(Integer repoId, String filePath);
 }

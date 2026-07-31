@@ -21,18 +21,12 @@ import org.springframework.web.bind.annotation.*;
 import org.springframework.web.multipart.MultipartFile;
 import org.springframework.web.util.UriUtils;
 import org.springframework.http.MediaType;
-import org.springframework.web.multipart.MultipartFile;
 
 import org.springframework.core.io.Resource;
 import org.springframework.http.HttpHeaders;
-import org.springframework.http.MediaType;
 import java.nio.charset.StandardCharsets;
-import org.springframework.web.util.UriUtils;
-import com.aivle.bigproject.entity.AnnouncementFile;
-import com.aivle.bigproject.service.FileService;
 import com.aivle.bigproject.entity.AnnouncementFile;
 
-import java.nio.charset.StandardCharsets;
 import java.util.List;
 
 @RestController
