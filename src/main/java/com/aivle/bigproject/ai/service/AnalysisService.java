@@ -4,6 +4,8 @@ package com.aivle.bigproject.ai.service;
 import com.aivle.bigproject.ai.dto.DetectRequest;
 import com.aivle.bigproject.ai.dto.DetectResponse;
 import com.aivle.bigproject.ai.dto.DuplicateSnippet;
+import com.aivle.bigproject.ai.dto.PromptReconstructApiRequest;
+import com.aivle.bigproject.ai.dto.PromptReconstructApiResponse;
 import com.aivle.bigproject.ai.dto.AnalysisResultResponse;
 import com.aivle.bigproject.ai.dto.ReanalysisStart;
 import com.aivle.bigproject.dto.repo.GithubPullRequestResult;
@@ -35,6 +37,7 @@ import com.aivle.bigproject.exception.ErrorCode;
 
 // Service
 import com.aivle.bigproject.service.NotificationService;
+import tools.jackson.core.type.TypeReference;
 import com.aivle.bigproject.ai.service.EmbeddingService;
 import com.aivle.bigproject.service.GithubService;
 
@@ -472,5 +475,43 @@ public class AnalysisService {
             lines.add(line);
         }
         return lines;
+    }
+
+    public PromptReconstructApiResponse reconstructPrompt(Integer analysisId, String originalPrompt) {
+        Analysis analysis = analysisRepository.findById(analysisId)
+                .orElseThrow(() -> new IllegalArgumentException("분석 결과를 찾을 수 없습니다."));
+
+        Finding finding = findingRepository.findByAnalysisId(analysisId)
+                .orElseThrow(() -> new IllegalArgumentException("이 분석에 대한 발견 결과가 없습니다."));
+        
+        analysis.setPrompt(originalPrompt);
+        analysisRepository.save(analysis);
+        
+        try {
+            List<Map<String, Object>> vulnerabilities = jsonMapper.readValue(
+                    finding.getSecuResult(), new TypeReference<List<Map<String, Object>>>() {});
+            List<Map<String, Object>> complexityDetails = jsonMapper.readValue(
+                    finding.getInefficiencyResult(), new TypeReference<List<Map<String, Object>>>() {});
+
+            PromptReconstructApiRequest requestDto = new PromptReconstructApiRequest(
+                    originalPrompt,
+                    analysis.getOriginCode(),
+                    vulnerabilities,
+                    complexityDetails
+            );
+
+            RestTemplate restTemplate = new RestTemplate();
+            HttpHeaders headers = new HttpHeaders();
+            headers.setContentType(MediaType.APPLICATION_JSON);
+            HttpEntity<PromptReconstructApiRequest> entity = new HttpEntity<>(requestDto, headers);
+
+            return restTemplate.postForObject(
+                    "http://localhost:8000/api/ai/reconstruct-prompt",
+                    entity,
+                    PromptReconstructApiResponse.class
+            );
+        } catch (Exception e) {
+            throw new RuntimeException("프롬프트 재구성에 실패했습니다: " + e.getMessage());
+        }
     }
 }
