@@ -15,10 +15,14 @@ import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.client.RestTemplate;
 
 import tools.jackson.databind.json.JsonMapper;
+import tools.jackson.core.type.TypeReference;
 
 import java.util.List;
 import java.util.ArrayList;
 
+import lombok.extern.slf4j.Slf4j;
+
+@Slf4j
 @Service
 public class EmbeddingService {
 
@@ -115,8 +119,11 @@ public class EmbeddingService {
                             .ifPresent(embedding -> {
                                 List<String> parameters;
                                 try {
-                                    parameters = jsonMapper.readValue(embedding.getParameters(), List.class);
-                                } catch (Exception ex) {
+                                    parameters = jsonMapper.readValue(
+                                            embedding.getParameters(), 
+                                            new TypeReference<List<String>>() {}   // List.class → TypeReference로 변경
+                                    );
+                                }catch (Exception ex) {
                                     parameters = List.of();
                                 }
                                 results.add(new DuplicateSnippet(
@@ -136,5 +143,36 @@ public class EmbeddingService {
         }
 
         return results;
+    }
+
+    // 신규 추가: 특정 파일이 차지하고 있던 벡터들을 FAISS + DB에서 제거
+public void removeFileEmbeddings(Integer repoId, String filePath) {
+        List<RepoEmbedding> existing = repoEmbeddingRepository.findByGithubRepo_IdAndFilePath(repoId, filePath);
+        if (existing.isEmpty()) {
+            return;   // 예전에 임베딩된 적 없는 파일이면 지울 것도 없음
+        }
+
+        List<Integer> vectorIds = existing.stream()
+                .map(RepoEmbedding::getFaissVectorId)
+                .toList();
+
+        RemoveVectorsRequest requestDto = new RemoveVectorsRequest(repoId, vectorIds);
+
+        HttpHeaders headers = new HttpHeaders();
+        headers.setContentType(MediaType.APPLICATION_JSON);
+        HttpEntity<RemoveVectorsRequest> entity = new HttpEntity<>(requestDto, headers);
+        RestTemplate restTemplate = new RestTemplate();
+
+        try {
+            restTemplate.postForObject(
+                    "http://localhost:8000/api/embedding/remove",
+                    entity,
+                    RemoveVectorsResponse.class
+            );
+            repoEmbeddingRepository.deleteAll(existing);
+            log.info("{} 파일의 임베딩 {}개 제거 완료", filePath, vectorIds.size());
+        } catch (Exception e) {
+            log.error("{} 파일 임베딩 제거 중 오류: {}", filePath, e.getMessage());
+        }
     }
 }

@@ -12,12 +12,15 @@ import javax.crypto.Mac;
 import javax.crypto.spec.SecretKeySpec;
 import java.nio.charset.StandardCharsets;
 import java.security.MessageDigest;
+import java.util.HashSet;
 import java.util.HexFormat;
 import java.time.LocalDateTime;
 import java.time.OffsetDateTime;
 import java.time.ZoneId;
 
 import lombok.extern.slf4j.Slf4j;
+
+import java.util.Set;
 
 @Slf4j
 @RestController
@@ -59,6 +62,7 @@ public class GithubWebhookController {
 
         if ("push".equals(eventType)) {
             log.info("Push 이벤트 발생");
+            handlePushEvent(rawPayload);
             return ResponseEntity.ok("received");
         }
 
@@ -77,7 +81,7 @@ public class GithubWebhookController {
 
     private void handlePullRequestEvent(String rawPayload) {
         JsonNode json = jsonMapper.readTree(rawPayload);
-        String action = json.get("action").asText();
+        String action = json.get("action").asString();
         if (!"opened".equals(action) && !"reopened".equals(action) && !"closed".equals(action)) {
             return;
         }
@@ -89,7 +93,7 @@ public class GithubWebhookController {
             status = "MERGED";
             JsonNode mergedAtNode = pullRequest.get("merged_at");
             if (mergedAtNode != null && !mergedAtNode.isNull()) {
-                mergedAt = OffsetDateTime.parse(mergedAtNode.asText())
+                mergedAt = OffsetDateTime.parse(mergedAtNode.asString())
                         .atZoneSameInstant(ZoneId.systemDefault())
                         .toLocalDateTime();
             }
@@ -100,28 +104,28 @@ public class GithubWebhookController {
         }
 
         boolean updated = githubPullRequestService.synchronizeStatus(
-                json.get("repository").get("owner").get("login").asText(),
-                json.get("repository").get("name").asText(),
+                json.get("repository").get("owner").get("login").asString(),
+                json.get("repository").get("name").asString(),
                 pullRequest.get("number").asInt(),
                 status,
                 mergedAt
         );
         if (!updated) {
             log.info("저장되지 않은 PR Webhook은 무시합니다: {}/{} #{}",
-                    json.get("repository").get("owner").get("login").asText(),
-                    json.get("repository").get("name").asText(),
+                    json.get("repository").get("owner").get("login").asString(),
+                    json.get("repository").get("name").asString(),
                     pullRequest.get("number").asInt());
         }
     }
 
     private void handleOrganizationEvent(String rawPayload) {
         JsonNode json = jsonMapper.readTree(rawPayload);
-        String action = json.get("action").asText();
+        String action = json.get("action").asString();
 
         if ("member_removed".equals(action)) {
-            String orgName = json.get("organization").get("login").asText();
-            String removedGitId = json.get("membership").get("user").get("id").asText();
-            String removedGitLogin = json.get("membership").get("user").get("login").asText();
+            String orgName = json.get("organization").get("login").asString();
+            String removedGitId = json.get("membership").get("user").get("id").asString();
+            String removedGitLogin = json.get("membership").get("user").get("login").asString();
 
             log.info("{} 조직에서 {} 님(id={})이 추방됨을 감지했습니다.", orgName, removedGitLogin, removedGitId);
             githubService.revokeOrgAccess(orgName, removedGitId);
@@ -141,5 +145,37 @@ public class GithubWebhookController {
         } catch (Exception e) {
             return false;
         }
+    }
+
+    private void handlePushEvent(String rawPayload) {
+        JsonNode json = jsonMapper.readTree(rawPayload);
+        String ref = json.get("ref").asString();
+        String repoName = json.get("repository").get("name").asString();
+        String defaultBranch = json.get("repository").get("default_branch").asString();
+
+        JsonNode orgNode = json.get("organization");
+        String orgName = orgNode != null
+                ? orgNode.get("login").asString()
+                : json.get("repository").get("owner").get("login").asString();
+
+        if (!ref.equals("refs/heads/" + defaultBranch)) {
+            log.info("기본 브랜치({})가 아닌 {}로의 push라 재임베딩 스킵", defaultBranch, ref);
+            return;
+        }
+
+        Set<String> addedPaths = new HashSet<>();
+        Set<String> modifiedPaths = new HashSet<>();
+        Set<String> removedPaths = new HashSet<>();
+
+        for (JsonNode commit : json.get("commits")) {
+            commit.get("added").forEach(f -> addedPaths.add(f.asString()));
+            commit.get("modified").forEach(f -> modifiedPaths.add(f.asString()));
+            commit.get("removed").forEach(f -> removedPaths.add(f.asString()));
+        }
+
+        log.info("{}/{} {} 브랜치 push 감지 — added:{}, modified:{}, removed:{}",
+                orgName, repoName, defaultBranch, addedPaths.size(), modifiedPaths.size(), removedPaths.size());
+
+        githubService.processPushEmbedding(orgName, repoName, defaultBranch, addedPaths, modifiedPaths, removedPaths);
     }
 }
