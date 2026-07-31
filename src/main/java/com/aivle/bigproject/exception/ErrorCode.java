@@ -39,12 +39,17 @@ public enum ErrorCode {
     GITHUB_DEFAULT_BRANCH_FETCH_FAILED(HttpStatus.BAD_REQUEST, "레포지토리의 기본 브랜치 정보를 가져오는데 실패했습니다."),
     GITHUB_PR_CREATE_FAILED(HttpStatus.CONFLICT, "Pull Request 생성에 실패했습니다."),
     GITHUB_PR_ALREADY_CREATED(HttpStatus.CONFLICT, "해당 분석 결과로 이미 Pull Request가 생성되었습니다."),
+    GITHUB_PR_ALREADY_OPEN(HttpStatus.CONFLICT, "이미 같은 base와 compare 브랜치 대상으로 열려있는 PR이 있습니다."),
     GITHUB_PR_SAME_BRANCH(HttpStatus.BAD_REQUEST, "분석 브랜치가 기본 브랜치와 동일하여 PR을 생성할 수 없습니다."),
     INVALID_PR_QUERY(HttpStatus.BAD_REQUEST, "PR 조회 조건이 올바르지 않습니다."),
+    INVALID_BRANCH(HttpStatus.BAD_REQUEST, "브랜치 정보가 올바르지 않습니다."),
+    INVALID_PAGE_REQUEST(HttpStatus.BAD_REQUEST, "페이지 조회 조건이 올바르지 않습니다."),
 
     // 분석
     ANALYSIS_NOT_FOUND(HttpStatus.NOT_FOUND, "해당 분석 내용을 찾을 수 없습니다."),
     ANALYSIS_ALREADY_FINISHED(HttpStatus.CONFLICT, "이미 완료된 분석입니다."),
+    ANALYSIS_ALREADY_RUNNING(HttpStatus.CONFLICT, "동일한 파일의 분석이 이미 진행 중입니다."),
+    SOURCE_NOT_CHANGED(HttpStatus.CONFLICT, "이전 분석 이후 코드가 변경되지 않았습니다."),
     ANALYSIS_NOT_COMPLETED(HttpStatus.BAD_REQUEST, "완료된 분석만 처리할 수 있습니다."),
     ANALYSIS_BRANCH_FILE_INFO_MISSING(HttpStatus.BAD_REQUEST, "브랜치 또는 파일 경로 정보가 없어 push할 수 없습니다."),
     ANALYSIS_BRANCH_INFO_MISSING(HttpStatus.BAD_REQUEST, "브랜치 정보가 없어 PR을 생성할 수 없습니다."),

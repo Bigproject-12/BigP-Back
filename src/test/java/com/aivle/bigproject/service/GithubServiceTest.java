@@ -24,6 +24,8 @@ import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import java.util.HashMap;
+import java.nio.charset.StandardCharsets;
+import java.util.Base64;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.Mock;
@@ -93,6 +95,93 @@ class GithubServiceTest {
                 () -> service().getRepositoryBranches(1, 10));
 
         assertEquals(ErrorCode.GITHUB_TOKEN_NOT_CONNECTED, exception.getErrorCode());
+    }
+
+    @Test
+    void getRepositoryTreeReturnsConnectedRepositoryFiles() {
+        User user = User.builder()
+                .id(1)
+                .githubAccessToken("encrypted-token")
+                .build();
+        GithubRepo repo = GithubRepo.builder()
+                .id(10)
+                .organization("aivle")
+                .name("BigP-Back")
+                .build();
+        when(userRepoRepository.findByUser_IdAndGithubRepo_Id(1, 10))
+                .thenReturn(Optional.of(UserRepo.builder().user(user).githubRepo(repo).build()));
+        when(githubTokenCrypto.decrypt("encrypted-token")).thenReturn("github-token");
+        Map<String, Object> treeBody = Map.of(
+                "truncated", false,
+                "tree", List.of(
+                        Map.of("path", "src", "type", "tree", "sha", "tree-sha"),
+                        Map.of(
+                                "path", "src/App.java",
+                                "type", "blob",
+                                "sha", "blob-sha",
+                                "size", 120L))
+        );
+        when(restTemplate.exchange(
+                anyString(),
+                eq(HttpMethod.GET),
+                any(HttpEntity.class),
+                org.mockito.ArgumentMatchers
+                        .<ParameterizedTypeReference<Map<String, Object>>>any()))
+                .thenReturn(ResponseEntity.ok(treeBody));
+
+        var response = service().getRepositoryTree(1, 10, "feature/test");
+
+        assertEquals(10, response.repoId());
+        assertEquals("feature/test", response.branch());
+        assertEquals(2, response.items().size());
+        assertEquals("src/App.java", response.items().get(1).path());
+        assertEquals(120L, response.items().get(1).size());
+    }
+
+    @Test
+    void getRepositoryTreeRejectsUnconnectedRepository() {
+        when(userRepoRepository.findByUser_IdAndGithubRepo_Id(1, 99))
+                .thenReturn(Optional.empty());
+
+        CustomException exception = assertThrows(
+                CustomException.class,
+                () -> service().getRepositoryTree(1, 99, "dev"));
+
+        assertEquals(ErrorCode.REPO_NOT_FOUND, exception.getErrorCode());
+    }
+
+    @Test
+    void getLatestFileContentDecodesCodeAndReturnsSha() {
+        User user = User.builder()
+                .id(1)
+                .githubAccessToken("encrypted-token")
+                .build();
+        GithubRepo repo = GithubRepo.builder()
+                .id(10)
+                .organization("aivle")
+                .name("BigP-Back")
+                .build();
+        when(userRepoRepository.findByUser_IdAndGithubRepo_Id(1, 10))
+                .thenReturn(Optional.of(UserRepo.builder().user(user).githubRepo(repo).build()));
+        when(githubTokenCrypto.decrypt("encrypted-token")).thenReturn("github-token");
+        String code = "class App {}";
+        Map<String, Object> fileBody = Map.of(
+                "content", Base64.getEncoder().encodeToString(code.getBytes(StandardCharsets.UTF_8)),
+                "encoding", "base64",
+                "sha", "latest-sha");
+        when(restTemplate.exchange(
+                anyString(),
+                eq(HttpMethod.GET),
+                any(HttpEntity.class),
+                org.mockito.ArgumentMatchers
+                        .<ParameterizedTypeReference<Map<String, Object>>>any()))
+                .thenReturn(ResponseEntity.ok(fileBody));
+
+        var response = service().getLatestFileContent(
+                1, 10, "src/App.java", "feature/test");
+
+        assertEquals(code, response.content());
+        assertEquals("latest-sha", response.sha());
     }
 
     @Test

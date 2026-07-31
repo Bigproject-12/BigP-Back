@@ -1,9 +1,14 @@
 import java.sql.*;
 import java.util.*;
+
+
+
+
 public class JavaTestCode {
     static String URL = "jdbc:mysql://localhost:3306/test";
     static String USER = "root";
     static String PASSWORD = "1234";
+
     public static void login(String username, String password) {
         try {
             Connection conn = DriverManager.getConnection(URL, USER, PASSWORD);
@@ -19,15 +24,21 @@ public class JavaTestCode {
             } else {
                 System.out.println("Login Failed");
             }
+
+
         } catch (Exception e) {
             // 민감한 정보 노출
             e.printStackTrace();
         }
     }
+
     public static void runCommand(String command) throws Exception {
         // Command Injection 가능
         Runtime.getRuntime().exec(command);
+
+
     }
+
     public static List<String> removeDuplicates(List<String> list) {
         List<String> result = new ArrayList<>();
         // 비효율적인 O(n²) 중복 제거
@@ -38,14 +49,9 @@ public class JavaTestCode {
         }
         return result;
     }
+
     public static void main(String[] args) throws Exception {
         Scanner sc = new Scanner(System.in);
         String username = sc.nextLine();
-        String password = sc.nextLine();
-        login(username, password);
-        String command = sc.nextLine();
-        runCommand(command);
-        List<String> data = Arrays.asList("A", "B", "A", "C", "B");
-        System.out.println(removeDuplicates(data));
     }
 }
