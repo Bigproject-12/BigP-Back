@@ -2,7 +2,6 @@ package com.aivle.bigproject.service;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertThrows;
-import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.when;
 
 import com.aivle.bigproject.entity.Analysis;
@@ -23,7 +22,6 @@ import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
-import org.springframework.data.domain.Pageable;
 
 @ExtendWith(MockitoExtension.class)
 class MySpaceServiceTest {
@@ -34,32 +32,41 @@ class MySpaceServiceTest {
     @InjectMocks MySpaceService mySpaceService;
 
     @Test
-    void returnsLatestPersonalAnalysisSummaryAndComparison() {
+    void aggregatesLatestAnalysisForEachFileAndComparesWithPreviousSet() {
         GithubRepo repo = GithubRepo.builder().id(10).name("BigP-Back").build();
         when(userRepoRepository.findByUser_IdAndGithubRepo_Id(1, 10))
                 .thenReturn(Optional.of(UserRepo.builder().githubRepo(repo).build()));
-        Analysis current = analysis(20, "40.0", LocalDateTime.of(2026, 7, 30, 10, 0));
-        Analysis previous = analysis(19, "30.0", LocalDateTime.of(2026, 7, 29, 10, 0));
-        when(analysisRepository.findRecentCompletedForMySpace(
-                org.mockito.ArgumentMatchers.eq(1),
-                org.mockito.ArgumentMatchers.eq(10),
-                org.mockito.ArgumentMatchers.eq("dev"),
-                any(Pageable.class)))
-                .thenReturn(List.of(current, previous));
-        when(findingRepository.findByAnalysisId(20)).thenReturn(Optional.of(
-                finding(current, 10, 2, 3)));
-        when(findingRepository.findByAnalysisId(19)).thenReturn(Optional.of(
-                finding(previous, 12, 3, 3)));
+        Analysis fileACurrent = analysis(20, "src/UserService.java", "40.0",
+                LocalDateTime.of(2026, 7, 30, 10, 0));
+        Analysis fileBCurrent = analysis(19, "src/UserController.java", "20.0",
+                LocalDateTime.of(2026, 7, 30, 9, 0));
+        Analysis fileAPrevious = analysis(18, "src/UserService.java", "30.0",
+                LocalDateTime.of(2026, 7, 29, 10, 0));
+        Analysis fileBPrevious = analysis(17, "src/UserController.java", "10.0",
+                LocalDateTime.of(2026, 7, 29, 9, 0));
+        List<Analysis> analyses = List.of(
+                fileACurrent, fileBCurrent, fileAPrevious, fileBPrevious);
+        when(analysisRepository.findLatestTwoPerFile(1, 10, "dev"))
+                .thenReturn(analyses);
+        when(findingRepository.findAllByAnalysisIdIn(List.of(20, 19, 18, 17)))
+                .thenReturn(List.of(
+                        finding(fileACurrent, 10, 2, 3),
+                        finding(fileBCurrent, 4, 1, 1),
+                        finding(fileAPrevious, 12, 3, 3),
+                        finding(fileBPrevious, 6, 1, 2)));
 
         var response = mySpaceService.getSummary(1, 10, "dev");
 
         assertEquals(20, response.analysisId());
-        assertEquals(10, response.totalIssueCount());
-        assertEquals(5, response.otherIssueCount());
-        assertEquals(50.0, response.qualityScore());
-        assertEquals(-2, response.comparison().totalIssueChange());
+        assertEquals(14, response.totalIssueCount());
+        assertEquals(3, response.securityIssueCount());
+        assertEquals(4, response.inefficiencyIssueCount());
+        assertEquals(7, response.otherIssueCount());
+        assertEquals(new BigDecimal("30.0"), response.improvableRatio());
+        assertEquals(64.5, response.qualityScore());
+        assertEquals(-4, response.comparison().totalIssueChange());
         assertEquals(new BigDecimal("10.0"), response.comparison().improvableRatioChange());
-        assertEquals(13.0, response.comparison().qualityScoreChange());
+        assertEquals(10.5, response.comparison().qualityScoreChange());
     }
 
     @Test
@@ -74,11 +81,11 @@ class MySpaceServiceTest {
         assertEquals(ErrorCode.REPO_NOT_FOUND, exception.getErrorCode());
     }
 
-    private Analysis analysis(int id, String ratio, LocalDateTime createdAt) {
+    private Analysis analysis(int id, String filePath, String ratio, LocalDateTime createdAt) {
         return Analysis.builder()
                 .id(id)
                 .branch("dev")
-                .filePath("src/UserService.java")
+                .filePath(filePath)
                 .status("COMPLETED")
                 .originCode("class UserService {}")
                 .improvableRatio(new BigDecimal(ratio))

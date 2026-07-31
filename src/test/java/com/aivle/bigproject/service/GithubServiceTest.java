@@ -15,6 +15,7 @@ import com.aivle.bigproject.exception.CustomException;
 import com.aivle.bigproject.exception.ErrorCode;
 import com.aivle.bigproject.repository.GithubRepoRepository;
 import com.aivle.bigproject.repository.GithubPullRequestRepository;
+import com.aivle.bigproject.repository.AnalysisRepository;
 import com.aivle.bigproject.repository.RepoEmbeddingRepository;
 import com.aivle.bigproject.repository.UserRepoRepository;
 import com.aivle.bigproject.repository.UserRepository;
@@ -45,6 +46,7 @@ class GithubServiceTest {
     @Mock UserRepoRepository userRepoRepository;
     @Mock RepoEmbeddingRepository repoEmbeddingRepository;
     @Mock GithubPullRequestRepository githubPullRequestRepository;
+    @Mock AnalysisRepository analysisRepository;
     @Mock RestTemplate restTemplate;
 
     @Test
@@ -111,6 +113,14 @@ class GithubServiceTest {
         when(userRepoRepository.findByUser_IdAndGithubRepo_Id(1, 10))
                 .thenReturn(Optional.of(UserRepo.builder().user(user).githubRepo(repo).build()));
         when(githubTokenCrypto.decrypt("encrypted-token")).thenReturn("github-token");
+        AnalysisRepository.FileIssueSummary fileIssues =
+                org.mockito.Mockito.mock(AnalysisRepository.FileIssueSummary.class);
+        when(fileIssues.getFilePath()).thenReturn("src/App.java");
+        when(fileIssues.getTotalIssueCount()).thenReturn(6);
+        when(fileIssues.getSecurityIssueCount()).thenReturn(2);
+        when(fileIssues.getInefficiencyIssueCount()).thenReturn(1);
+        when(analysisRepository.findLatestFileIssues(1, 10, "feature/test"))
+                .thenReturn(List.of(fileIssues));
         Map<String, Object> treeBody = Map.of(
                 "truncated", false,
                 "tree", List.of(
@@ -136,6 +146,11 @@ class GithubServiceTest {
         assertEquals(2, response.items().size());
         assertEquals("src/App.java", response.items().get(1).path());
         assertEquals(120L, response.items().get(1).size());
+        assertEquals(6, response.items().get(0).totalIssueCount());
+        assertEquals(6, response.items().get(1).totalIssueCount());
+        assertEquals(2, response.items().get(1).securityIssueCount());
+        assertEquals(1, response.items().get(1).inefficiencyIssueCount());
+        assertEquals(3, response.items().get(1).otherIssueCount());
     }
 
     @Test
@@ -289,6 +304,7 @@ class GithubServiceTest {
                 userRepoRepository,
                 repoEmbeddingRepository,
                 githubPullRequestRepository,
+                analysisRepository,
                 "https://example.com/webhook",
                 "test-secret"
         ) {

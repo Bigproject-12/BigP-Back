@@ -12,6 +12,10 @@ public record RepoTreeResponse(
             String path,
             String type,
             String sha,
-            Long size
+            Long size,
+            int totalIssueCount,
+            int securityIssueCount,
+            int inefficiencyIssueCount,
+            int otherIssueCount
     ) {}
 }

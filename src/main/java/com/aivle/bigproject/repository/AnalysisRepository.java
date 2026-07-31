@@ -83,20 +83,56 @@ public interface AnalysisRepository extends JpaRepository<Analysis, Integer> {
             @Param("userId") Integer userId,
             @Param("repoId") Integer repoId);
 
-    @Query("""
-            SELECT a
-            FROM Analysis a
-            WHERE a.user.id = :userId
-              AND a.githubRepo.id = :repoId
-              AND a.branch = :branch
-              AND a.status = 'COMPLETED'
-            ORDER BY a.createdAt DESC, a.id DESC
-            """)
-    List<Analysis> findRecentCompletedForMySpace(
+    @Query(value = """
+            SELECT a.*
+            FROM ANALYSIS a
+            JOIN (
+                SELECT analysis_id,
+                       ROW_NUMBER() OVER (
+                           PARTITION BY file_path
+                           ORDER BY created_at DESC, analysis_id DESC
+                       ) AS row_num
+                FROM ANALYSIS
+                WHERE user_id = :userId
+                  AND repo_id = :repoId
+                  AND branch = :branch
+                  AND status = 'COMPLETED'
+                  AND file_path IS NOT NULL
+            ) ranked ON ranked.analysis_id = a.analysis_id
+            WHERE ranked.row_num <= 2
+            ORDER BY a.created_at DESC, a.analysis_id DESC
+            """, nativeQuery = true)
+    List<Analysis> findLatestTwoPerFile(
             @Param("userId") Integer userId,
             @Param("repoId") Integer repoId,
-            @Param("branch") String branch,
-            Pageable pageable);
+            @Param("branch") String branch);
+
+    @Query(value = """
+            SELECT ranked.file_path AS filePath,
+                   COALESCE(f.total_issues, 0) AS totalIssueCount,
+                   COALESCE(f.security_count, 0) AS securityIssueCount,
+                   COALESCE(f.inefficiency_count, 0) AS inefficiencyIssueCount
+            FROM (
+                SELECT analysis_id,
+                       file_path,
+                       ROW_NUMBER() OVER (
+                           PARTITION BY file_path
+                           ORDER BY created_at DESC, analysis_id DESC
+                       ) AS row_num
+                FROM ANALYSIS
+                WHERE user_id = :userId
+                  AND repo_id = :repoId
+                  AND branch = :branch
+                  AND status = 'COMPLETED'
+                  AND file_path IS NOT NULL
+            ) ranked
+            LEFT JOIN FINDING f ON f.analysis_id = ranked.analysis_id
+            WHERE ranked.row_num = 1
+            """, nativeQuery = true)
+    List<FileIssueSummary> findLatestFileIssues(
+            @Param("userId") Integer userId,
+            @Param("repoId") Integer repoId,
+            @Param("branch") String branch);
 
     @Query("""
             SELECT a
@@ -126,4 +162,11 @@ public interface AnalysisRepository extends JpaRepository<Analysis, Integer> {
             @Param("repoId") Integer repoId,
             @Param("branch") String branch,
             @Param("filePath") String filePath);
+
+    interface FileIssueSummary {
+        String getFilePath();
+        int getTotalIssueCount();
+        int getSecurityIssueCount();
+        int getInefficiencyIssueCount();
+    }
 }
