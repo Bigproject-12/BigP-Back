@@ -95,28 +95,30 @@ public class EmbeddingService {
 
     private final String AI_SEARCH_URL = "http://localhost:8000/api/embedding/search";
 
-    public List<DuplicateSnippet> searchDuplicates(Integer repoId, String codeContent) {
-        SearchDuplicateRequest requestDto = new SearchDuplicateRequest(repoId, codeContent);
+    public List<DuplicateSnippet> searchDuplicates(Integer repoId, String codeContent, String language) {
+        
+        SearchDuplicateRequest requestDto = new SearchDuplicateRequest(repoId, codeContent, language);
 
         HttpHeaders headers = new HttpHeaders();
         headers.setContentType(MediaType.APPLICATION_JSON);
         HttpEntity<SearchDuplicateRequest> requestEntity = new HttpEntity<>(requestDto, headers);
-        // ponytail: 타임아웃 없으면 AI 서버가 무응답일 때 분석 요청 전체가 무한 대기함 (AnalysisService 참고).
-        // detect 호출 타임아웃과 합친 총합을 프론트 폴링 타임아웃(120초)보다 일부러 길게 유지 (AnalysisService 주석 참고).
+
         SimpleClientHttpRequestFactory factory = new SimpleClientHttpRequestFactory();
-        factory.setConnectTimeout(5_000);
-        factory.setReadTimeout(15_000);
+        factory.setConnectTimeout(5000);
+        factory.setReadTimeout(30000);
         RestTemplate restTemplate = new RestTemplate(factory);
 
         List<DuplicateSnippet> results = new ArrayList<>();
 
         try {
             SearchDuplicateResponse response = restTemplate.postForObject(AI_SEARCH_URL, requestEntity, SearchDuplicateResponse.class);
-
+            System.out.println("[TRACE-A] FastAPI 응답: " + response);
             if (response != null && response.duplicates() != null) {
+                System.out.println("[TRACE-B] duplicates 개수: " + response.duplicates().size());
                 for (VectorMatch match : response.duplicates()) {
                     repoEmbeddingRepository.findByGithubRepoIdAndFaissVectorId(repoId, match.faiss_vector_id())
-                            .ifPresent(embedding -> {
+                            .ifPresentOrElse(embedding -> {
+                                System.out.println("[TRACE-C] DB 매칭 성공: " + embedding.getFunctionName());
                                 List<String> parameters;
                                 try {
                                     parameters = jsonMapper.readValue(
@@ -135,11 +137,19 @@ public class EmbeddingService {
                                         embedding.getCodeSnippet(),
                                         match.similarity_score()
                                 ));
-                            });
+                            },
+                            () -> {
+                                System.out.println("[TRACE-D] DB 매칭 실패, vectorId=" + match.faiss_vector_id());
+                            }
+                        );
                 }
             }
+            else{
+                System.out.println("[TRACE-E] response 또는 duplicates가 null");
+            }
         } catch (Exception e) {
-            System.err.println("중복 코드 검색 중 오류 발생: " + e.getMessage());
+            System.out.println("[TRACE-F] 예외 발생: " + e.getMessage());
+            e.printStackTrace();
         }
 
         return results;

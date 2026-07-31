@@ -20,6 +20,7 @@ public class AnalysisResultResponse {
     private String filePath;
     private BigDecimal improvableRatio;
 
+    private String duplicateResult;
     private Integer totalIssues;
     private String secuResult;
     private String inefficiencyResult;
@@ -43,6 +44,7 @@ public class AnalysisResultResponse {
             builder.totalIssues(finding.getTotalIssues())
                    .secuResult(finding.getSecuResult())
                    .inefficiencyResult(finding.getInefficiencyResult())
+                   .duplicateResult(finding.getDuplicateResult())
                    .modifiedCode(finding.getModifiedCode())
                    .aiGenerated(finding.isAiGenerated())
                    .aiProbability(finding.getAiProbability());
