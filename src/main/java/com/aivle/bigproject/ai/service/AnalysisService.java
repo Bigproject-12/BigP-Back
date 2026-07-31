@@ -5,7 +5,9 @@ import com.aivle.bigproject.ai.dto.DetectRequest;
 import com.aivle.bigproject.ai.dto.DetectResponse;
 import com.aivle.bigproject.ai.dto.DuplicateSnippet;
 import com.aivle.bigproject.ai.dto.AnalysisResultResponse;
+import com.aivle.bigproject.ai.dto.ReanalysisStart;
 import com.aivle.bigproject.dto.repo.GithubPullRequestResult;
+import com.aivle.bigproject.dto.repo.GithubFileContent;
 import com.aivle.bigproject.dto.repo.PullRequestCreate;
 import com.aivle.bigproject.dto.repo.PullRequestSummaryResponse;
 
@@ -249,6 +251,57 @@ public class AnalysisService {
         Finding finding = findingRepository.findByAnalysisId(analysisId).orElse(null);
 
         return AnalysisResultResponse.of(analysis, finding);
+    }
+
+    @Transactional
+    public ReanalysisStart prepareReanalysis(Integer analysisId, Integer userId) {
+        Analysis previous = analysisRepository.findById(analysisId)
+                .orElseThrow(() -> new CustomException(ErrorCode.ANALYSIS_NOT_FOUND));
+        validateOwner(previous, userId);
+        if (!"COMPLETED".equals(previous.getStatus())) {
+            throw new CustomException(ErrorCode.ANALYSIS_NOT_COMPLETED);
+        }
+        if (previous.getBranch() == null || previous.getBranch().isBlank()
+                || previous.getFilePath() == null || previous.getFilePath().isBlank()) {
+            throw new CustomException(ErrorCode.ANALYSIS_BRANCH_FILE_INFO_MISSING);
+        }
+        Integer repoId = previous.getGithubRepo().getId();
+        if (analysisRepository.existsAnalyzingFile(
+                userId, repoId, previous.getBranch(), previous.getFilePath())) {
+            throw new CustomException(ErrorCode.ANALYSIS_ALREADY_RUNNING);
+        }
+
+        GithubFileContent latestFile = githubService.getLatestFileContent(
+                userId, repoId, previous.getFilePath(), previous.getBranch());
+        boolean sameSha = previous.getSourceBlobSha() != null
+                && previous.getSourceBlobSha().equals(latestFile.sha());
+        boolean sameContent = previous.getOriginCode().equals(latestFile.content());
+        if (sameSha || sameContent) {
+            throw new CustomException(ErrorCode.SOURCE_NOT_CHANGED);
+        }
+        Analysis reanalysis = Analysis.builder()
+                .githubRepo(previous.getGithubRepo())
+                .company(previous.getCompany())
+                .user(previous.getUser())
+                .originCode(latestFile.content())
+                .language(previous.getLanguage())
+                .filePath(previous.getFilePath())
+                .branch(previous.getBranch())
+                .sourceBlobSha(latestFile.sha())
+                .prompt(previous.getPrompt())
+                .status("ANALYZING")
+                .build();
+        analysisRepository.save(reanalysis);
+
+        DetectRequest request = new DetectRequest(
+                latestFile.content(),
+                repoId,
+                previous.getLanguage(),
+                previous.getPrompt(),
+                previous.getFilePath(),
+                previous.getBranch(),
+                List.of());
+        return new ReanalysisStart(reanalysis.getId(), request);
     }
 
     private void validateOwner(Analysis analysis, Integer userId) {

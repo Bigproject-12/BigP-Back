@@ -1,12 +1,18 @@
 package com.aivle.bigproject.ai.service;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
 import com.aivle.bigproject.dto.repo.GithubPullRequestResult;
+import com.aivle.bigproject.dto.repo.GithubFileContent;
+import com.aivle.bigproject.exception.CustomException;
+import com.aivle.bigproject.exception.ErrorCode;
 import com.aivle.bigproject.entity.Analysis;
+import com.aivle.bigproject.entity.Company;
 import com.aivle.bigproject.entity.Finding;
 import com.aivle.bigproject.entity.GithubPullRequest;
 import com.aivle.bigproject.entity.GithubRepo;
@@ -98,5 +104,69 @@ class AnalysisServicePullRequestTest {
         verify(pullRequestAnalysisRepository).save(linkCaptor.capture());
         assertEquals(analysis, linkCaptor.getValue().getAnalysis());
         assertEquals(prCaptor.getValue(), linkCaptor.getValue().getPullRequest());
+    }
+
+    @Test
+    void preparesReanalysisWithLatestGithubCodeAndNewAnalysis() {
+        User user = User.builder().id(1).build();
+        Company company = Company.builder().id(2).name("AIVLE").build();
+        GithubRepo repo = GithubRepo.builder().id(10).name("BigP-Back").build();
+        Analysis previous = Analysis.builder()
+                .id(20)
+                .user(user)
+                .company(company)
+                .githubRepo(repo)
+                .status("COMPLETED")
+                .branch("dev")
+                .filePath("src/App.java")
+                .language("Java")
+                .originCode("class App { /* old */ }")
+                .prompt("review")
+                .build();
+        when(analysisRepository.findById(20)).thenReturn(Optional.of(previous));
+        when(githubService.getLatestFileContent(1, 10, "src/App.java", "dev"))
+                .thenReturn(new GithubFileContent("class App { /* latest */ }", "latest-sha"));
+        when(analysisRepository.save(any(Analysis.class))).thenAnswer(invocation -> {
+            Analysis saved = invocation.getArgument(0);
+            saved.setId(21);
+            return saved;
+        });
+
+        var response = analysisService.prepareReanalysis(20, 1);
+
+        assertEquals(21, response.analysisId());
+        assertEquals("class App { /* latest */ }", response.request().codeContent());
+        ArgumentCaptor<Analysis> analysisCaptor = ArgumentCaptor.forClass(Analysis.class);
+        verify(analysisRepository).save(analysisCaptor.capture());
+        assertEquals("ANALYZING", analysisCaptor.getValue().getStatus());
+        assertEquals("latest-sha", analysisCaptor.getValue().getSourceBlobSha());
+        assertEquals(20, previous.getId());
+    }
+
+    @Test
+    void rejectsReanalysisWhenGithubCodeHasNotChanged() {
+        User user = User.builder().id(1).build();
+        GithubRepo repo = GithubRepo.builder().id(10).build();
+        Analysis previous = Analysis.builder()
+                .id(20)
+                .user(user)
+                .githubRepo(repo)
+                .status("COMPLETED")
+                .branch("dev")
+                .filePath("src/App.java")
+                .language("Java")
+                .originCode("class App {}")
+                .sourceBlobSha("same-sha")
+                .build();
+        when(analysisRepository.findById(20)).thenReturn(Optional.of(previous));
+        when(githubService.getLatestFileContent(1, 10, "src/App.java", "dev"))
+                .thenReturn(new GithubFileContent("class App {}", "same-sha"));
+
+        CustomException exception = assertThrows(
+                CustomException.class,
+                () -> analysisService.prepareReanalysis(20, 1));
+
+        assertEquals(ErrorCode.SOURCE_NOT_CHANGED, exception.getErrorCode());
+        verify(analysisRepository, never()).save(any(Analysis.class));
     }
 }
