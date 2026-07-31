@@ -1,6 +1,8 @@
 package com.aivle.bigproject.ai.controller;
 
 import com.aivle.bigproject.ai.dto.DetectRequest;
+import com.aivle.bigproject.ai.dto.PromptReconstructApiResponse;
+import com.aivle.bigproject.ai.dto.ReconstructPromptRequest;
 import com.aivle.bigproject.ai.dto.AnalysisResultResponse;
 import com.aivle.bigproject.ai.dto.ReanalysisStart;
 import com.aivle.bigproject.ai.dto.ReanalysisResponse;
@@ -91,5 +93,13 @@ public class AnalysisController {
     ) { String baseBranch = request != null ? request.baseBranch() : null;
         String prUrl = analysisService.createPullRequest(analysisId, Integer.valueOf(jwt.getSubject()), baseBranch);
         return ResponseEntity.ok(Map.of("prUrl", prUrl));
+    }
+
+    @PostMapping("/{analysisId}/reconstruct-prompt")
+    public ResponseEntity<PromptReconstructApiResponse> reconstructPrompt(
+            @PathVariable Integer analysisId,
+            @RequestBody ReconstructPromptRequest request
+    ) {
+        return ResponseEntity.ok(analysisService.reconstructPrompt(analysisId, request.originalPrompt()));
     }
 }
