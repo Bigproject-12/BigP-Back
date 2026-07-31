@@ -7,6 +7,7 @@ import org.springframework.data.jpa.repository.Modifying;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 import java.util.List;
+import java.util.Optional;
 import java.time.LocalDateTime;
 import org.springframework.data.domain.Pageable;
 
@@ -133,6 +134,33 @@ public interface AnalysisRepository extends JpaRepository<Analysis, Integer> {
             @Param("userId") Integer userId,
             @Param("repoId") Integer repoId,
             @Param("branch") String branch);
+
+    @Query("""
+            SELECT a
+            FROM Analysis a
+            WHERE a.user.id = :userId
+              AND a.githubRepo.id = :repoId
+              AND a.branch = :branch
+              AND a.filePath = :filePath
+              AND a.status = 'COMPLETED'
+            ORDER BY a.createdAt DESC, a.id DESC
+            """)
+    List<Analysis> findLatestCompletedFile(
+            @Param("userId") Integer userId,
+            @Param("repoId") Integer repoId,
+            @Param("branch") String branch,
+            @Param("filePath") String filePath,
+            Pageable pageable);
+
+    @Query("""
+            SELECT a
+            FROM Analysis a
+            WHERE a.id = :analysisId
+              AND a.user.id = :userId
+            """)
+    Optional<Analysis> findOwnedAnalysis(
+            @Param("analysisId") Integer analysisId,
+            @Param("userId") Integer userId);
 
     @Query("""
             SELECT a
