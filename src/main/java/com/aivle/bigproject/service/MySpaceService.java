@@ -1,6 +1,7 @@
 package com.aivle.bigproject.service;
 
 import com.aivle.bigproject.dto.myspace.MySpaceAnalysisResponse;
+import com.aivle.bigproject.dto.myspace.MySpaceAnalysisDetailResponse;
 import com.aivle.bigproject.dto.myspace.MySpaceSummaryResponse;
 import com.aivle.bigproject.entity.Analysis;
 import com.aivle.bigproject.entity.Finding;
@@ -22,6 +23,8 @@ import java.util.stream.Collectors;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import tools.jackson.databind.json.JsonMapper;
+import tools.jackson.core.type.TypeReference;
 
 @Service
 @Transactional(readOnly = true)
@@ -30,15 +33,18 @@ public class MySpaceService {
     private final UserRepoRepository userRepoRepository;
     private final AnalysisRepository analysisRepository;
     private final FindingRepository findingRepository;
+    private final JsonMapper jsonMapper;
 
     public MySpaceService(
             UserRepoRepository userRepoRepository,
             AnalysisRepository analysisRepository,
-            FindingRepository findingRepository
+            FindingRepository findingRepository,
+            JsonMapper jsonMapper
     ) {
         this.userRepoRepository = userRepoRepository;
         this.analysisRepository = analysisRepository;
         this.findingRepository = findingRepository;
+        this.jsonMapper = jsonMapper;
     }
 
     public MySpaceSummaryResponse getSummary(Integer userId, Integer repoId, String branch) {
@@ -132,6 +138,124 @@ public class MySpaceService {
                     );
                 })
                 .toList();
+    }
+
+    public MySpaceAnalysisDetailResponse getLatestFileAnalysis(
+            Integer userId,
+            Integer repoId,
+            String branch,
+            String filePath
+    ) {
+        validateBranch(branch);
+        if (filePath == null || filePath.isBlank()) {
+            throw new CustomException(ErrorCode.ANALYSIS_BRANCH_FILE_INFO_MISSING);
+        }
+        getConnectedRepo(userId, repoId);
+        Analysis analysis = analysisRepository.findLatestCompletedFile(
+                        userId, repoId, branch, filePath, PageRequest.of(0, 1))
+                .stream()
+                .findFirst()
+                .orElseThrow(() -> new CustomException(ErrorCode.ANALYSIS_NOT_FOUND));
+        return detail(analysis);
+    }
+
+    public MySpaceAnalysisDetailResponse getAnalysisDetail(Integer userId, Integer analysisId) {
+        Analysis analysis = analysisRepository.findOwnedAnalysis(analysisId, userId)
+                .orElseThrow(() -> new CustomException(ErrorCode.ANALYSIS_NOT_FOUND));
+        return detail(analysis);
+    }
+
+    private MySpaceAnalysisDetailResponse detail(Analysis analysis) {
+        Finding finding = findingRepository.findByAnalysisId(analysis.getId()).orElse(null);
+        List<MySpaceAnalysisDetailResponse.Issue> security = issues(
+                finding == null ? null : finding.getSecuResult(), "SECURITY");
+        List<MySpaceAnalysisDetailResponse.Issue> inefficiency = issues(
+                finding == null ? null : finding.getInefficiencyResult(), "INEFFICIENCY");
+        List<MySpaceAnalysisDetailResponse.Issue> other = issues(
+                finding == null ? null : finding.getDuplicateResult(), "OTHER");
+        return new MySpaceAnalysisDetailResponse(
+                analysis.getId(),
+                analysis.getGithubRepo().getId(),
+                analysis.getGithubRepo().getName(),
+                analysis.getBranch(),
+                analysis.getFilePath(),
+                analysis.getLanguage(),
+                analysis.getStatus(),
+                analysis.getCreatedAt(),
+                totalIssues(finding),
+                securityIssues(finding),
+                inefficiencyIssues(finding),
+                otherIssues(finding),
+                qualityScore(finding),
+                analysis.getImprovableRatio(),
+                security,
+                inefficiency,
+                other,
+                analysis.getOriginCode(),
+                finding == null ? null : finding.getModifiedCode(),
+                finding != null && finding.isAiGenerated(),
+                finding == null ? null : finding.getAiProbability());
+    }
+
+    private List<MySpaceAnalysisDetailResponse.Issue> issues(String json, String type) {
+        if (json == null || json.isBlank()) {
+            return List.of();
+        }
+        try {
+            List<Map<String, Object>> values = jsonMapper.readValue(
+                    json, new TypeReference<List<Map<String, Object>>>() {});
+            return values.stream().map(value -> issue(value, type)).toList();
+        } catch (Exception ignored) {
+            return List.of();
+        }
+    }
+
+    private MySpaceAnalysisDetailResponse.Issue issue(Map<String, Object> value, String type) {
+        Integer score = integer(value.get("complexity_score"));
+        String message = string(value.get("message"));
+        return new MySpaceAnalysisDetailResponse.Issue(
+                type,
+                severity(type, score),
+                integer(value.getOrDefault("line", value.get("start_line"))),
+                string(value.get("rule_id")),
+                string(value.get("function_name")),
+                message == null && "OTHER".equals(type) ? "유사 코드가 발견되었습니다." : message,
+                message == null && "OTHER".equals(type)
+                        ? "중복 로직을 공통 함수로 추출하세요."
+                        : message,
+                issueScore(score, value.get("similarity_score")));
+    }
+
+    private String severity(String type, Integer score) {
+        if ("SECURITY".equals(type)) {
+            return "HIGH";
+        }
+        if ("OTHER".equals(type)) {
+            return "MEDIUM";
+        }
+        if (score == null || score < 10) {
+            return "LOW";
+        }
+        if (score >= 25) {
+            return "CRITICAL";
+        }
+        return score >= 15 ? "HIGH" : "MEDIUM";
+    }
+
+    private Integer integer(Object value) {
+        return value instanceof Number number ? number.intValue() : null;
+    }
+
+    private Double number(Object value) {
+        return value instanceof Number number ? number.doubleValue() : null;
+    }
+
+    private Double issueScore(Integer complexityScore, Object similarityScore) {
+        return complexityScore == null ? number(similarityScore) : Double.valueOf(complexityScore);
+    }
+
+    private String string(Object value) {
+        return value == null ? null : value.toString();
     }
 
     private UserRepo getConnectedRepo(Integer userId, Integer repoId) {

@@ -21,7 +21,10 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
+import org.mockito.Spy;
 import org.mockito.junit.jupiter.MockitoExtension;
+import org.springframework.data.domain.Pageable;
+import tools.jackson.databind.json.JsonMapper;
 
 @ExtendWith(MockitoExtension.class)
 class MySpaceServiceTest {
@@ -29,6 +32,7 @@ class MySpaceServiceTest {
     @Mock UserRepoRepository userRepoRepository;
     @Mock AnalysisRepository analysisRepository;
     @Mock FindingRepository findingRepository;
+    @Spy JsonMapper jsonMapper = JsonMapper.builder().build();
     @InjectMocks MySpaceService mySpaceService;
 
     @Test
@@ -79,6 +83,49 @@ class MySpaceServiceTest {
                 () -> mySpaceService.getSummary(1, 99, "dev"));
 
         assertEquals(ErrorCode.REPO_NOT_FOUND, exception.getErrorCode());
+    }
+
+    @Test
+    void returnsLatestFileAnalysisWithStructuredIssues() {
+        GithubRepo repo = GithubRepo.builder().id(10).name("BigP-Back").build();
+        when(userRepoRepository.findByUser_IdAndGithubRepo_Id(1, 10))
+                .thenReturn(Optional.of(UserRepo.builder().githubRepo(repo).build()));
+        Analysis analysis = analysis(20, "src/UserService.java", "40.0",
+                LocalDateTime.of(2026, 7, 30, 10, 0));
+        analysis.setGithubRepo(repo);
+        when(analysisRepository.findLatestCompletedFile(
+                org.mockito.ArgumentMatchers.eq(1),
+                org.mockito.ArgumentMatchers.eq(10),
+                org.mockito.ArgumentMatchers.eq("dev"),
+                org.mockito.ArgumentMatchers.eq("src/UserService.java"),
+                org.mockito.ArgumentMatchers.any(Pageable.class)))
+                .thenReturn(List.of(analysis));
+        Finding finding = finding(analysis, 2, 1, 1);
+        finding.setSecuResult("[{\"rule_id\":\"java.sql\",\"message\":\"SQL 입력값을 검증하세요.\",\"line\":12}]");
+        finding.setInefficiencyResult("[{\"function_name\":\"login\",\"complexity_score\":18,\"line\":30,\"message\":\"조건문을 분리하세요.\"}]");
+        when(findingRepository.findByAnalysisId(20)).thenReturn(Optional.of(finding));
+
+        var response = mySpaceService.getLatestFileAnalysis(
+                1, 10, "dev", "src/UserService.java");
+
+        assertEquals(20, response.analysisId());
+        assertEquals(1, response.securityIssues().size());
+        assertEquals("HIGH", response.securityIssues().get(0).severity());
+        assertEquals(12, response.securityIssues().get(0).line());
+        assertEquals("login", response.inefficiencyIssues().get(0).functionName());
+        assertEquals("HIGH", response.inefficiencyIssues().get(0).severity());
+        assertEquals("class UserService {}", response.originCode());
+    }
+
+    @Test
+    void rejectsAnalysisHistoryOwnedByAnotherUser() {
+        when(analysisRepository.findOwnedAnalysis(20, 1)).thenReturn(Optional.empty());
+
+        CustomException exception = assertThrows(
+                CustomException.class,
+                () -> mySpaceService.getAnalysisDetail(1, 20));
+
+        assertEquals(ErrorCode.ANALYSIS_NOT_FOUND, exception.getErrorCode());
     }
 
     private Analysis analysis(int id, String filePath, String ratio, LocalDateTime createdAt) {
