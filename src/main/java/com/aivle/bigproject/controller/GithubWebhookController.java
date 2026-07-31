@@ -151,7 +151,7 @@ public class GithubWebhookController {
         JsonNode json = jsonMapper.readTree(rawPayload);
         String ref = json.get("ref").asString();
         String repoName = json.get("repository").get("name").asString();
-        String defaultBranch = json.get("repository").get("default_branch").asString();
+        String defaultBranch = "dev";
 
         JsonNode orgNode = json.get("organization");
         String orgName = orgNode != null
