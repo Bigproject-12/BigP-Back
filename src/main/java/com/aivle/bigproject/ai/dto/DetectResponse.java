@@ -26,7 +26,11 @@ public record DetectResponse(
     List<ComplexityDetail> complexityDetails,
 
     @JsonProperty("patched_code")
-    String patchedCode
+    String patchedCode,
+
+    @JsonProperty("duplicate_snippets")
+    List<DuplicateSnippet> duplicateSnippets
+    
 ) {
     // 취약점 상세 정보용 레코드
     public record Vulnerability(

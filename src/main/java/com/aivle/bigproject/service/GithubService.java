@@ -45,6 +45,7 @@ import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
 import java.util.Set;
 import java.util.Collections;
+import java.util.HashSet;
 import java.util.Locale;
 import java.time.OffsetDateTime;
 import java.util.stream.Collectors;
@@ -759,6 +760,70 @@ public class GithubService {
 
         } catch (Exception e) {
             log.error("{} 레포 임베딩 처리 중 오류: {}", repoName, e.getMessage());
+        }
+    }
+
+    @Async
+    @Transactional(readOnly = false)
+    public void processPushEmbedding(String orgName, String repoName, String branch,
+                                    Set<String> addedPaths, Set<String> modifiedPaths, Set<String> removedPaths) {
+
+        GithubRepo repo = githubRepoRepository.findByNameAndOrganization(repoName, orgName).orElse(null);
+        if (repo == null) {
+            log.warn("{}/{} 레포를 찾을 수 없어 재임베딩을 건너뜁니다.", orgName, repoName);
+            return;
+        }
+
+        // 이 레포에 연동된 아무 사용자의 토큰이나 사용
+        User anyUser = userRepoRepository.findAllByGithubRepo_Id(repo.getId()).stream()
+                .findFirst().map(UserRepo::getUser).orElse(null);
+        if (anyUser == null) {
+            log.warn("{} 레포에 연동된 사용자가 없어 재임베딩을 건너뜁니다.", repoName);
+            return;
+        }
+        String token = githubTokenCrypto.decrypt(anyUser.getGithubAccessToken());
+
+        for (String path : removedPaths) {
+            embeddingService.removeFileEmbeddings(repo.getId(), path);
+        }
+
+        for (String path : modifiedPaths) {
+            embeddingService.removeFileEmbeddings(repo.getId(), path);
+        }
+
+        Set<String> pathsToEmbed = new HashSet<>();
+        pathsToEmbed.addAll(addedPaths);
+        pathsToEmbed.addAll(modifiedPaths);
+
+        List<IndexFileItem> fileList = new ArrayList<>();
+        RestTemplate restTemplate = new RestTemplate();
+
+        for (String path : pathsToEmbed) {
+            if (EMBEDDABLE_EXTENSIONS.stream().noneMatch(path::endsWith)) continue;
+
+            try {
+                String contentUrl = "https://api.github.com/repos/" + orgName + "/" + repoName
+                        + "/contents/" + path + "?ref=" + branch;
+                HttpHeaders rawHeaders = new HttpHeaders();
+                rawHeaders.setBearerAuth(token);
+                rawHeaders.set("Accept", "application/vnd.github.raw+json");
+                HttpEntity<String> rawEntity = new HttpEntity<>(rawHeaders);
+
+                ResponseEntity<String> fileResponse = restTemplate.exchange(contentUrl, HttpMethod.GET, rawEntity, String.class);
+                String content = fileResponse.getBody();
+
+                if (content == null || content.isBlank()) continue;
+
+                fileList.add(new IndexFileItem(path, content));
+            } catch (Exception e) {
+                log.warn("{} 파일 내용 조회 실패, 건너뜀: {}", path, e.getMessage());
+            }
+        }
+
+        if (!fileList.isEmpty()) {
+            embeddingService.requestEmbedding(repo.getId(), fileList);
+            log.info("{} 레포 push 재임베딩 완료 (added+modified {}개, removed {}개)",
+                    repoName, fileList.size(), removedPaths.size());
         }
     }
 }

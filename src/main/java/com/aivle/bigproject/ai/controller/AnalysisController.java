@@ -1,6 +1,8 @@
 package com.aivle.bigproject.ai.controller;
 
 import com.aivle.bigproject.ai.dto.DetectRequest;
+import com.aivle.bigproject.ai.dto.PromptReconstructApiResponse;
+import com.aivle.bigproject.ai.dto.ReconstructPromptRequest;
 import com.aivle.bigproject.ai.dto.AnalysisResultResponse;
 import com.aivle.bigproject.ai.dto.ReanalysisStart;
 import com.aivle.bigproject.ai.dto.ReanalysisResponse;
@@ -14,8 +16,6 @@ import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.security.oauth2.jwt.Jwt;
 import java.util.Map;
 import java.util.List;
-import org.springframework.web.bind.annotation.PostMapping;
-import org.springframework.web.bind.annotation.RequestBody;
 
 
 @RestController
@@ -34,7 +34,7 @@ public class AnalysisController {
      */
     @PostMapping
     public ResponseEntity<Map<String, Integer>> requestAnalysis(@RequestBody DetectRequest request, @AuthenticationPrincipal Jwt jwt) {
-
+        System.out.println("[TRACE] 컨트롤러 진입, request.repoId()=" + request.repoId());
         Integer loggedInUserId = Integer.valueOf(jwt.getSubject());
 
         Integer analysisId = analysisService.createInitialAnalysis(request, loggedInUserId);
@@ -91,5 +91,13 @@ public class AnalysisController {
     ) { String baseBranch = request != null ? request.baseBranch() : null;
         String prUrl = analysisService.createPullRequest(analysisId, Integer.valueOf(jwt.getSubject()), baseBranch);
         return ResponseEntity.ok(Map.of("prUrl", prUrl));
+    }
+
+    @PostMapping("/{analysisId}/reconstruct-prompt")
+    public ResponseEntity<PromptReconstructApiResponse> reconstructPrompt(
+            @PathVariable Integer analysisId,
+            @RequestBody ReconstructPromptRequest request
+    ) {
+        return ResponseEntity.ok(analysisService.reconstructPrompt(analysisId, request.originalPrompt()));
     }
 }
