@@ -110,12 +110,16 @@ public interface AnalysisRepository extends JpaRepository<Analysis, Integer> {
 
     @Query(value = """
             SELECT ranked.file_path AS filePath,
+                   ranked.analysis_id AS analysisId,
+                   ranked.created_at AS analyzedAt,
                    COALESCE(f.total_issues, 0) AS totalIssueCount,
                    COALESCE(f.security_count, 0) AS securityIssueCount,
-                   COALESCE(f.inefficiency_count, 0) AS inefficiencyIssueCount
+                   COALESCE(f.inefficiency_count, 0) AS inefficiencyIssueCount,
+                   f.inefficiency_result AS inefficiencyResult
             FROM (
                 SELECT analysis_id,
                        file_path,
+                       created_at,
                        ROW_NUMBER() OVER (
                            PARTITION BY file_path
                            ORDER BY created_at DESC, analysis_id DESC
@@ -193,8 +197,11 @@ public interface AnalysisRepository extends JpaRepository<Analysis, Integer> {
 
     interface FileIssueSummary {
         String getFilePath();
+        Integer getAnalysisId();
+        LocalDateTime getAnalyzedAt();
         int getTotalIssueCount();
         int getSecurityIssueCount();
         int getInefficiencyIssueCount();
+        String getInefficiencyResult();
     }
 }
