@@ -3,6 +3,7 @@ package com.aivle.bigproject.controller;
 import com.aivle.bigproject.dto.myspace.MySpaceAnalysisResponse;
 import com.aivle.bigproject.dto.myspace.MySpaceAnalysisDetailResponse;
 import com.aivle.bigproject.dto.myspace.MySpaceSummaryResponse;
+import com.aivle.bigproject.dto.repo.GithubPullRequestResponse;
 import com.aivle.bigproject.service.MySpaceService;
 import java.util.List;
 import org.springframework.http.ResponseEntity;
@@ -64,5 +65,17 @@ public class MySpaceController {
     ) {
         return ResponseEntity.ok(mySpaceService.getAnalysisDetail(
                 Integer.valueOf(jwt.getSubject()), analysisId));
+    }
+
+    @GetMapping("/repos/{repoId}/pull-requests")
+    public ResponseEntity<List<GithubPullRequestResponse>> getMyPullRequests(
+            @AuthenticationPrincipal Jwt jwt,
+            @PathVariable Integer repoId,
+            @RequestParam(required = false) String branch,
+            @RequestParam(defaultValue = "ALL") String status,
+            @RequestParam(defaultValue = "10") int limit
+    ) {
+        return ResponseEntity.ok(mySpaceService.getMyPullRequests(
+                Integer.valueOf(jwt.getSubject()), repoId, branch, status, limit));
     }
 }
