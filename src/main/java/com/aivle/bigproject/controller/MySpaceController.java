@@ -1,7 +1,9 @@
 package com.aivle.bigproject.controller;
 
 import com.aivle.bigproject.dto.myspace.MySpaceAnalysisResponse;
+import com.aivle.bigproject.dto.myspace.MySpaceAnalysisDetailResponse;
 import com.aivle.bigproject.dto.myspace.MySpaceSummaryResponse;
+import com.aivle.bigproject.dto.repo.GithubPullRequestResponse;
 import com.aivle.bigproject.service.MySpaceService;
 import java.util.List;
 import org.springframework.http.ResponseEntity;
@@ -14,7 +16,7 @@ import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
 @RestController
-@RequestMapping("/api/my-space/repos")
+@RequestMapping("/api/my-space")
 public class MySpaceController {
 
     private final MySpaceService mySpaceService;
@@ -23,7 +25,7 @@ public class MySpaceController {
         this.mySpaceService = mySpaceService;
     }
 
-    @GetMapping("/{repoId}/summary")
+    @GetMapping("/repos/{repoId}/summary")
     public ResponseEntity<MySpaceSummaryResponse> getSummary(
             @AuthenticationPrincipal Jwt jwt,
             @PathVariable Integer repoId,
@@ -33,7 +35,7 @@ public class MySpaceController {
                 Integer.valueOf(jwt.getSubject()), repoId, branch));
     }
 
-    @GetMapping("/{repoId}/analyses")
+    @GetMapping("/repos/{repoId}/analyses")
     public ResponseEntity<List<MySpaceAnalysisResponse>> getAnalyses(
             @AuthenticationPrincipal Jwt jwt,
             @PathVariable Integer repoId,
@@ -43,5 +45,37 @@ public class MySpaceController {
     ) {
         return ResponseEntity.ok(mySpaceService.getAnalyses(
                 Integer.valueOf(jwt.getSubject()), repoId, branch, page, size));
+    }
+
+    @GetMapping("/repos/{repoId}/files/analysis")
+    public ResponseEntity<MySpaceAnalysisDetailResponse> getLatestFileAnalysis(
+            @AuthenticationPrincipal Jwt jwt,
+            @PathVariable Integer repoId,
+            @RequestParam String branch,
+            @RequestParam String path
+    ) {
+        return ResponseEntity.ok(mySpaceService.getLatestFileAnalysis(
+                Integer.valueOf(jwt.getSubject()), repoId, branch, path));
+    }
+
+    @GetMapping("/analyses/{analysisId}")
+    public ResponseEntity<MySpaceAnalysisDetailResponse> getAnalysisDetail(
+            @AuthenticationPrincipal Jwt jwt,
+            @PathVariable Integer analysisId
+    ) {
+        return ResponseEntity.ok(mySpaceService.getAnalysisDetail(
+                Integer.valueOf(jwt.getSubject()), analysisId));
+    }
+
+    @GetMapping("/repos/{repoId}/pull-requests")
+    public ResponseEntity<List<GithubPullRequestResponse>> getMyPullRequests(
+            @AuthenticationPrincipal Jwt jwt,
+            @PathVariable Integer repoId,
+            @RequestParam(required = false) String branch,
+            @RequestParam(defaultValue = "ALL") String status,
+            @RequestParam(defaultValue = "10") int limit
+    ) {
+        return ResponseEntity.ok(mySpaceService.getMyPullRequests(
+                Integer.valueOf(jwt.getSubject()), repoId, branch, status, limit));
     }
 }

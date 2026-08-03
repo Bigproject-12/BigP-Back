@@ -82,10 +82,11 @@ public class GithubController {
     public ResponseEntity<RepoTreeResponse> getRepositoryTree(
             @AuthenticationPrincipal Jwt jwt,
             @PathVariable Integer repoId,
-            @RequestParam String branch
+            @RequestParam String branch,
+            @RequestParam(defaultValue = "false") boolean issuesOnly
     ) {
         return ResponseEntity.ok(githubService.getRepositoryTree(
-                Integer.valueOf(jwt.getSubject()), repoId, branch));
+                Integer.valueOf(jwt.getSubject()), repoId, branch, issuesOnly));
     }
 
     @GetMapping("/{repoId}/pull-requests")

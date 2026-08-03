@@ -7,6 +7,7 @@ import org.springframework.data.jpa.repository.Modifying;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 import java.util.List;
+import java.util.Optional;
 import java.time.LocalDateTime;
 import org.springframework.data.domain.Pageable;
 
@@ -83,20 +84,87 @@ public interface AnalysisRepository extends JpaRepository<Analysis, Integer> {
             @Param("userId") Integer userId,
             @Param("repoId") Integer repoId);
 
+    @Query(value = """
+            SELECT a.*
+            FROM ANALYSIS a
+            JOIN (
+                SELECT analysis_id,
+                       ROW_NUMBER() OVER (
+                           PARTITION BY file_path
+                           ORDER BY created_at DESC, analysis_id DESC
+                       ) AS row_num
+                FROM ANALYSIS
+                WHERE user_id = :userId
+                  AND repo_id = :repoId
+                  AND branch = :branch
+                  AND status = 'COMPLETED'
+                  AND file_path IS NOT NULL
+            ) ranked ON ranked.analysis_id = a.analysis_id
+            WHERE ranked.row_num <= 2
+            ORDER BY a.created_at DESC, a.analysis_id DESC
+            """, nativeQuery = true)
+    List<Analysis> findLatestTwoPerFile(
+            @Param("userId") Integer userId,
+            @Param("repoId") Integer repoId,
+            @Param("branch") String branch);
+
+    @Query(value = """
+            SELECT ranked.file_path AS filePath,
+                   ranked.analysis_id AS analysisId,
+                   ranked.created_at AS analyzedAt,
+                   COALESCE(f.total_issues, 0) AS totalIssueCount,
+                   COALESCE(f.security_count, 0) AS securityIssueCount,
+                   COALESCE(f.inefficiency_count, 0) AS inefficiencyIssueCount,
+                   f.inefficiency_result AS inefficiencyResult
+            FROM (
+                SELECT analysis_id,
+                       file_path,
+                       created_at,
+                       ROW_NUMBER() OVER (
+                           PARTITION BY file_path
+                           ORDER BY created_at DESC, analysis_id DESC
+                       ) AS row_num
+                FROM ANALYSIS
+                WHERE user_id = :userId
+                  AND repo_id = :repoId
+                  AND branch = :branch
+                  AND status = 'COMPLETED'
+                  AND file_path IS NOT NULL
+            ) ranked
+            LEFT JOIN FINDING f ON f.analysis_id = ranked.analysis_id
+            WHERE ranked.row_num = 1
+            """, nativeQuery = true)
+    List<FileIssueSummary> findLatestFileIssues(
+            @Param("userId") Integer userId,
+            @Param("repoId") Integer repoId,
+            @Param("branch") String branch);
+
     @Query("""
             SELECT a
             FROM Analysis a
             WHERE a.user.id = :userId
               AND a.githubRepo.id = :repoId
               AND a.branch = :branch
+              AND a.filePath = :filePath
               AND a.status = 'COMPLETED'
             ORDER BY a.createdAt DESC, a.id DESC
             """)
-    List<Analysis> findRecentCompletedForMySpace(
+    List<Analysis> findLatestCompletedFile(
             @Param("userId") Integer userId,
             @Param("repoId") Integer repoId,
             @Param("branch") String branch,
+            @Param("filePath") String filePath,
             Pageable pageable);
+
+    @Query("""
+            SELECT a
+            FROM Analysis a
+            WHERE a.id = :analysisId
+              AND a.user.id = :userId
+            """)
+    Optional<Analysis> findOwnedAnalysis(
+            @Param("analysisId") Integer analysisId,
+            @Param("userId") Integer userId);
 
     @Query("""
             SELECT a
@@ -126,4 +194,14 @@ public interface AnalysisRepository extends JpaRepository<Analysis, Integer> {
             @Param("repoId") Integer repoId,
             @Param("branch") String branch,
             @Param("filePath") String filePath);
+
+    interface FileIssueSummary {
+        String getFilePath();
+        Integer getAnalysisId();
+        LocalDateTime getAnalyzedAt();
+        int getTotalIssueCount();
+        int getSecurityIssueCount();
+        int getInefficiencyIssueCount();
+        String getInefficiencyResult();
+    }
 }
