@@ -13,6 +13,7 @@ import org.springframework.http.client.SimpleClientHttpRequestFactory;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.client.RestTemplate;
+import org.springframework.beans.factory.annotation.Value;
 
 import tools.jackson.databind.json.JsonMapper;
 import tools.jackson.core.type.TypeReference;
@@ -26,7 +27,8 @@ import lombok.extern.slf4j.Slf4j;
 @Service
 public class EmbeddingService {
 
-    private final String AI_INDEX_URL = "http://localhost:8000/api/embedding/index"; 
+    @Value("${ai.base-url}")
+    private String aiBaseUrl;
     
     private final RepoEmbeddingRepository repoEmbeddingRepository;
     private final GithubRepoRepository githubRepoRepository;
@@ -55,7 +57,8 @@ public class EmbeddingService {
         RestTemplate restTemplate = new RestTemplate();
 
         try {
-            IndexRepoResponse response = restTemplate.postForObject(AI_INDEX_URL, requestEntity, IndexRepoResponse.class);
+            IndexRepoResponse response = restTemplate.postForObject(
+                    aiBaseUrl + "/api/embedding/index", requestEntity, IndexRepoResponse.class);
 
             if (response != null && response.chunks() != null) {
                 System.out.println("임베딩 완료! DB에 메타데이터 저장을 시작합니다.");
@@ -93,8 +96,6 @@ public class EmbeddingService {
         }
     }
 
-    private final String AI_SEARCH_URL = "http://localhost:8000/api/embedding/search";
-
     public List<DuplicateSnippet> searchDuplicates(Integer repoId, String codeContent, String language) {
         
         SearchDuplicateRequest requestDto = new SearchDuplicateRequest(repoId, codeContent, language);
@@ -111,7 +112,8 @@ public class EmbeddingService {
         List<DuplicateSnippet> results = new ArrayList<>();
 
         try {
-            SearchDuplicateResponse response = restTemplate.postForObject(AI_SEARCH_URL, requestEntity, SearchDuplicateResponse.class);
+            SearchDuplicateResponse response = restTemplate.postForObject(
+                    aiBaseUrl + "/api/embedding/search", requestEntity, SearchDuplicateResponse.class);
             System.out.println("[TRACE-A] FastAPI 응답: " + response);
             if (response != null && response.duplicates() != null) {
                 System.out.println("[TRACE-B] duplicates 개수: " + response.duplicates().size());
@@ -175,7 +177,7 @@ public void removeFileEmbeddings(Integer repoId, String filePath) {
 
         try {
             restTemplate.postForObject(
-                    "http://localhost:8000/api/embedding/remove",
+                    aiBaseUrl + "/api/embedding/remove",
                     entity,
                     RemoveVectorsResponse.class
             );
