@@ -47,6 +47,7 @@ import org.springframework.http.client.SimpleClientHttpRequestFactory;
 import org.springframework.stereotype.Service;
 import org.springframework.web.client.RestTemplate;
 import org.springframework.scheduling.annotation.Async;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.transaction.annotation.Transactional;
 
 import tools.jackson.databind.json.JsonMapper;
@@ -61,8 +62,8 @@ import java.util.Map;
 @Service
 public class AnalysisService {
 
-    // AI 서버 주소
-    private final String AI_DETECT_URL = "http://localhost:8000/api/ai/detect";
+    @Value("${ai.base-url}")
+    private String aiBaseUrl;
 
     private final AnalysisRepository analysisRepository;
     private final GithubRepoRepository githubRepoRepository;
@@ -174,7 +175,8 @@ public class AnalysisService {
 
             HttpEntity<DetectRequest> requestEntity = new HttpEntity<>(enrichedRequest, headers);
 
-            DetectResponse response = restTemplate.postForObject(AI_DETECT_URL, requestEntity, DetectResponse.class);
+            DetectResponse response = restTemplate.postForObject(
+                    aiBaseUrl + "/api/ai/detect", requestEntity, DetectResponse.class);
             
             Analysis currentAnalysis = analysisRepository.findById(analysisId).orElseThrow();
             
@@ -518,7 +520,7 @@ public class AnalysisService {
             HttpEntity<PromptReconstructApiRequest> entity = new HttpEntity<>(requestDto, headers);
 
             return restTemplate.postForObject(
-                    "http://localhost:8000/api/ai/reconstruct-prompt",
+                    aiBaseUrl + "/api/ai/reconstruct-prompt",
                     entity,
                     PromptReconstructApiResponse.class
             );
