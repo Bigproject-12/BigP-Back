@@ -48,6 +48,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.web.client.RestTemplate;
 import org.springframework.scheduling.annotation.Async;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.util.StringUtils;
 
 import tools.jackson.databind.json.JsonMapper;
 import java.math.BigDecimal;
@@ -354,7 +355,8 @@ public class AnalysisService {
     }
 
     @Transactional
-    public String createPullRequest(Integer analysisId, Integer userId, String baseBranch) {
+    public String createPullRequest(Integer analysisId, Integer userId, String baseBranch,
+                                    String requestTitle, String requestBody) {  // 파라미터 2개 추가
         Analysis analysis = analysisRepository.findById(analysisId)
                 .orElseThrow(() -> new CustomException(ErrorCode.ANALYSIS_NOT_FOUND));
 
@@ -383,16 +385,14 @@ public class AnalysisService {
             throw new CustomException(ErrorCode.GITHUB_PR_SAME_BRANCH);
         }
 
-        String fileName = analysis.getFilePath() != null
-                ? analysis.getFilePath().substring(analysis.getFilePath().lastIndexOf('/') + 1)
-                : "코드";
-
-        String title = "GuardrAil: " + fileName + " 코드 개선 (이슈 " + finding.getTotalIssues() + "건)";
-        String body = "분석 결과: 총 " + finding.getTotalIssues() + "건의 이슈 개선.\n\n"
-                + "- 파일: `" + analysis.getFilePath() + "`\n"
-                + "- 보안 이슈: " + finding.getSecurityCount() + "건\n"
-                + "- 비효율 이슈: " + finding.getInefficiencyCount() + "건\n\n"
-                + "분석 세부 내용은 분석 ID: " + analysisId + "에서 확인 가능.";
+        // 사용자가 모달에서 값을 보냈으면 그것을, 비어 있으면 기본값을 사용
+        // hasText(): null / "" / "   " 를 한 번에 걸러준다
+        String title = StringUtils.hasText(requestTitle)
+                ? requestTitle.trim()
+                : buildDefaultTitle(analysis, finding);
+        String body = StringUtils.hasText(requestBody)
+                ? requestBody.trim()
+                : buildDefaultBody(analysis, finding, analysisId);
 
         GithubPullRequestResult result = githubService.createPullRequest(
                 userId, repo.getOrganization(), repo.getName(), analysis.getBranch(), targetBranch, title, body);
@@ -402,8 +402,8 @@ public class AnalysisService {
                         .user(analysis.getUser())
                         .githubRepo(repo)
                         .githubPrNumber(result.number())
-                        .title(title)
-                        .description(body)
+                        .title(title)          // 최종 결정된 값 그대로 저장
+                        .description(body)     // 최종 결정된 값 그대로 저장
                         .headBranch(analysis.getBranch())
                         .baseBranch(targetBranch)
                         .status(result.status())
@@ -421,6 +421,27 @@ public class AnalysisService {
 
         return result.url();
     }
+
+    /**
+     * 사용자가 제목을 지정하지 않았을 때 쓰는 기본 PR 제목.
+     */
+    private String buildDefaultTitle(Analysis analysis, Finding finding) {
+        String fileName = analysis.getFilePath() != null
+                ? analysis.getFilePath().substring(analysis.getFilePath().lastIndexOf('/') + 1)
+                : "코드";
+        return "GuardrAil: " + fileName + " 코드 개선 (이슈 " + finding.getTotalIssues() + "건)";
+    }
+    /**
+     * 사용자가 설명을 지정하지 않았을 때 쓰는 기본 PR 본문.
+     */
+    private String buildDefaultBody(Analysis analysis, Finding finding, Integer analysisId) {
+        return "분석 결과: 총 " + finding.getTotalIssues() + "건의 이슈 개선.\n\n"
+                + "- 파일: `" + analysis.getFilePath() + "`\n"
+                + "- 보안 이슈: " + finding.getSecurityCount() + "건\n"
+                + "- 비효율 이슈: " + finding.getInefficiencyCount() + "건\n\n"
+                + "분석 세부 내용은 분석 ID: " + analysisId + "에서 확인 가능.";
+    }
+
     // 개선 가능률 계산  = (원본에서 바뀌거나 사라진 줄 수 / 원본 전체 줄 수) * 100
     private BigDecimal calculateImprovableRatio(String originCode, String modifiedCode) {
 
