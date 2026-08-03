@@ -13,8 +13,10 @@ import com.aivle.bigproject.exception.ErrorCode;
 import com.aivle.bigproject.repository.AnalysisRepository;
 import com.aivle.bigproject.repository.FindingRepository;
 import com.aivle.bigproject.repository.UserRepoRepository;
+import com.aivle.bigproject.dto.repo.GithubPullRequestResponse;
 import java.math.BigDecimal;
 import java.time.LocalDateTime;
+import java.time.OffsetDateTime;
 import java.util.List;
 import java.util.Optional;
 import org.junit.jupiter.api.Test;
@@ -32,6 +34,7 @@ class MySpaceServiceTest {
     @Mock UserRepoRepository userRepoRepository;
     @Mock AnalysisRepository analysisRepository;
     @Mock FindingRepository findingRepository;
+    @Mock GithubService githubService;
     @Spy JsonMapper jsonMapper = JsonMapper.builder().build();
     @InjectMocks MySpaceService mySpaceService;
 
@@ -126,6 +129,51 @@ class MySpaceServiceTest {
                 () -> mySpaceService.getAnalysisDetail(1, 20));
 
         assertEquals(ErrorCode.ANALYSIS_NOT_FOUND, exception.getErrorCode());
+    }
+
+    @Test
+    void returnsMyRecentPullRequestsFilteredByBranchAndStatus() {
+        GithubPullRequestResponse open = pullRequest(42, "OPEN", "dev", true);
+        GithubPullRequestResponse otherBranch = pullRequest(40, "OPEN", "feature/test", true);
+        when(githubService.getRepositoryPullRequests(1, 10, "mine", "open", 1, 50))
+                .thenReturn(List.of(open, otherBranch));
+
+        var response = mySpaceService.getMyPullRequests(1, 10, "dev", "OPEN", 10);
+
+        assertEquals(List.of(open), response);
+        assertEquals(true, response.get(0).platformGenerated());
+        assertEquals("main", response.get(0).baseBranch());
+        assertEquals("https://github.com/aivle/BigP-Back/pull/42", response.get(0).prUrl());
+    }
+
+    @Test
+    void rejectsInvalidPullRequestStatus() {
+        CustomException exception = assertThrows(
+                CustomException.class,
+                () -> mySpaceService.getMyPullRequests(1, 10, null, "DRAFT", 10));
+
+        assertEquals(ErrorCode.INVALID_PR_QUERY, exception.getErrorCode());
+    }
+
+    private GithubPullRequestResponse pullRequest(
+            int number,
+            String status,
+            String headBranch,
+            boolean platformGenerated
+    ) {
+        OffsetDateTime now = OffsetDateTime.parse("2026-07-31T10:00:00+09:00");
+        return new GithubPullRequestResponse(
+                number,
+                "PR #" + number,
+                "bose9029",
+                status,
+                "https://github.com/aivle/BigP-Back/pull/" + number,
+                headBranch,
+                "main",
+                now,
+                now,
+                "MERGED".equals(status) ? now : null,
+                platformGenerated);
     }
 
     private Analysis analysis(int id, String filePath, String ratio, LocalDateTime createdAt) {

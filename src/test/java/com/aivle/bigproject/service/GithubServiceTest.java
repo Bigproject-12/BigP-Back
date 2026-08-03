@@ -30,12 +30,14 @@ import java.util.Base64;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.Mock;
+import org.mockito.Spy;
 import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.core.ParameterizedTypeReference;
 import org.springframework.http.HttpEntity;
 import org.springframework.http.HttpMethod;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.client.RestTemplate;
+import tools.jackson.databind.json.JsonMapper;
 @ExtendWith(MockitoExtension.class)
 class GithubServiceTest {
 
@@ -48,6 +50,7 @@ class GithubServiceTest {
     @Mock GithubPullRequestRepository githubPullRequestRepository;
     @Mock AnalysisRepository analysisRepository;
     @Mock RestTemplate restTemplate;
+    @Spy JsonMapper jsonMapper = JsonMapper.builder().build();
 
     @Test
     void getUserRepoReturnsOnlyConnectedRepository() {
@@ -119,6 +122,11 @@ class GithubServiceTest {
         when(fileIssues.getTotalIssueCount()).thenReturn(6);
         when(fileIssues.getSecurityIssueCount()).thenReturn(2);
         when(fileIssues.getInefficiencyIssueCount()).thenReturn(1);
+        when(fileIssues.getAnalysisId()).thenReturn(20);
+        when(fileIssues.getAnalyzedAt()).thenReturn(
+                java.time.LocalDateTime.of(2026, 8, 2, 10, 0));
+        when(fileIssues.getInefficiencyResult()).thenReturn(
+                "[{\"complexity_score\":26}]");
         when(analysisRepository.findLatestFileIssues(1, 10, "feature/test"))
                 .thenReturn(List.of(fileIssues));
         Map<String, Object> treeBody = Map.of(
@@ -129,7 +137,8 @@ class GithubServiceTest {
                                 "path", "src/App.java",
                                 "type", "blob",
                                 "sha", "blob-sha",
-                                "size", 120L))
+                                "size", 120L),
+                        Map.of("path", "README.md", "type", "blob", "sha", "readme-sha"))
         );
         when(restTemplate.exchange(
                 anyString(),
@@ -139,7 +148,7 @@ class GithubServiceTest {
                         .<ParameterizedTypeReference<Map<String, Object>>>any()))
                 .thenReturn(ResponseEntity.ok(treeBody));
 
-        var response = service().getRepositoryTree(1, 10, "feature/test");
+        var response = service().getRepositoryTree(1, 10, "feature/test", true);
 
         assertEquals(10, response.repoId());
         assertEquals("feature/test", response.branch());
@@ -151,6 +160,42 @@ class GithubServiceTest {
         assertEquals(2, response.items().get(1).securityIssueCount());
         assertEquals(1, response.items().get(1).inefficiencyIssueCount());
         assertEquals(3, response.items().get(1).otherIssueCount());
+        assertEquals(true, response.items().get(1).analyzed());
+        assertEquals(20, response.items().get(1).analysisId());
+        assertEquals(66.0, response.items().get(1).qualityScore());
+        assertEquals(1, response.items().get(1).criticalIssueCount());
+        assertEquals(2, response.items().get(1).highIssueCount());
+        assertEquals(3, response.items().get(1).mediumIssueCount());
+    }
+
+    @Test
+    void getRepositoryTreeCompletesTruncatedGithubTree() {
+        User user = User.builder().id(1).githubAccessToken("encrypted-token").build();
+        GithubRepo repo = GithubRepo.builder()
+                .id(10).organization("aivle").name("BigP-Back").build();
+        when(userRepoRepository.findByUser_IdAndGithubRepo_Id(1, 10))
+                .thenReturn(Optional.of(UserRepo.builder().user(user).githubRepo(repo).build()));
+        when(githubTokenCrypto.decrypt("encrypted-token")).thenReturn("github-token");
+        Map<String, Object> truncated = Map.of("truncated", true, "tree", List.of());
+        Map<String, Object> root = Map.of(
+                "truncated", false,
+                "tree", List.of(Map.of("path", "src", "type", "tree", "sha", "tree-sha")));
+        Map<String, Object> src = Map.of(
+                "truncated", false,
+                "tree", List.of(Map.of("path", "App.java", "type", "blob", "sha", "blob-sha")));
+        when(restTemplate.exchange(
+                anyString(), eq(HttpMethod.GET), any(HttpEntity.class),
+                org.mockito.ArgumentMatchers
+                        .<ParameterizedTypeReference<Map<String, Object>>>any()))
+                .thenReturn(ResponseEntity.ok(truncated))
+                .thenReturn(ResponseEntity.ok(root))
+                .thenReturn(ResponseEntity.ok(src));
+
+        var response = service().getRepositoryTree(1, 10, "dev");
+
+        assertEquals(false, response.truncated());
+        assertEquals(List.of("src", "src/App.java"),
+                response.items().stream().map(item -> item.path()).toList());
     }
 
     @Test
@@ -305,6 +350,7 @@ class GithubServiceTest {
                 repoEmbeddingRepository,
                 githubPullRequestRepository,
                 analysisRepository,
+                jsonMapper,
                 "https://example.com/webhook",
                 "test-secret"
         ) {

@@ -16,8 +16,6 @@ import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.security.oauth2.jwt.Jwt;
 import java.util.Map;
 import java.util.List;
-import org.springframework.web.bind.annotation.PostMapping;
-import org.springframework.web.bind.annotation.RequestBody;
 
 
 @RestController
@@ -36,7 +34,7 @@ public class AnalysisController {
      */
     @PostMapping
     public ResponseEntity<Map<String, Integer>> requestAnalysis(@RequestBody DetectRequest request, @AuthenticationPrincipal Jwt jwt) {
-
+        System.out.println("[TRACE] 컨트롤러 진입, request.repoId()=" + request.repoId());
         Integer loggedInUserId = Integer.valueOf(jwt.getSubject());
 
         Integer analysisId = analysisService.createInitialAnalysis(request, loggedInUserId);

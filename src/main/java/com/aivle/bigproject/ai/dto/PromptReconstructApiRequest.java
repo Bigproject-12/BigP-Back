@@ -9,5 +9,6 @@ public record PromptReconstructApiRequest(
     @JsonProperty("original_prompt") String originalPrompt,
     @JsonProperty("code_content") String codeContent,
     List<Map<String, Object>> vulnerabilities,
-    @JsonProperty("complexity_details") List<Map<String, Object>> complexityDetails
+    @JsonProperty("complexity_details") List<Map<String, Object>> complexityDetails,
+    @JsonProperty("duplicate_snippets") List<Map<String, Object>> duplicateSnippets
 ) {}

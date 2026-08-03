@@ -1,6 +1,7 @@
 package com.aivle.bigproject.dto.repo;
 
 import java.util.List;
+import java.time.LocalDateTime;
 
 public record RepoTreeResponse(
         Integer repoId,
@@ -16,6 +17,14 @@ public record RepoTreeResponse(
             int totalIssueCount,
             int securityIssueCount,
             int inefficiencyIssueCount,
-            int otherIssueCount
+            int otherIssueCount,
+            boolean analyzed,
+            Integer analysisId,
+            LocalDateTime lastAnalyzedAt,
+            Double qualityScore,
+            int criticalIssueCount,
+            int highIssueCount,
+            int mediumIssueCount,
+            int lowIssueCount
     ) {}
 }

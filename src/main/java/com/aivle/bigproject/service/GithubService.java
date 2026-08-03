@@ -38,6 +38,7 @@ import org.springframework.beans.factory.annotation.Value;
 import lombok.extern.slf4j.Slf4j;
 
 import java.time.LocalDate;
+import java.time.LocalDateTime;
 import java.util.Map;
 import java.util.List;
 import java.util.Base64;
@@ -46,11 +47,14 @@ import java.util.ArrayList;
 import java.util.Set;
 import java.util.Collections;
 import java.util.HashSet;
+import java.util.HashMap;
 import java.util.Locale;
 import java.time.OffsetDateTime;
 import java.util.stream.Collectors;
 import org.springframework.web.util.UriComponentsBuilder;
 import org.springframework.web.util.UriUtils;
+import tools.jackson.core.type.TypeReference;
+import tools.jackson.databind.json.JsonMapper;
 
 @Slf4j
 @Service
@@ -67,12 +71,13 @@ public class GithubService {
     private final RepoEmbeddingRepository repoEmbeddingRepository;
     private final GithubPullRequestRepository githubPullRequestRepository;
     private final AnalysisRepository analysisRepository;
+    private final JsonMapper jsonMapper;
 
     private static final Set<String> EMBEDDABLE_EXTENSIONS = Set.of(
             ".java", ".py", ".js", ".jsx", ".ts", ".tsx"
     );
 
-    public GithubService(UserRepository userRepository, GithubTokenCrypto githubTokenCrypto, GithubRepoRepository githubRepoRepository, EmbeddingService embeddingService, UserRepoRepository userRepoRepository, RepoEmbeddingRepository repoEmbeddingRepository, GithubPullRequestRepository githubPullRequestRepository, AnalysisRepository analysisRepository, @Value("${github.webhook-callback-url}") String webhookCallbackUrl,
+    public GithubService(UserRepository userRepository, GithubTokenCrypto githubTokenCrypto, GithubRepoRepository githubRepoRepository, EmbeddingService embeddingService, UserRepoRepository userRepoRepository, RepoEmbeddingRepository repoEmbeddingRepository, GithubPullRequestRepository githubPullRequestRepository, AnalysisRepository analysisRepository, JsonMapper jsonMapper, @Value("${github.webhook-callback-url}") String webhookCallbackUrl,
         @Value("${github.webhook-secret}") String webhookSecret) {
         this.userRepository = userRepository;
         this.githubTokenCrypto = githubTokenCrypto;
@@ -82,6 +87,7 @@ public class GithubService {
         this.repoEmbeddingRepository = repoEmbeddingRepository;
         this.githubPullRequestRepository = githubPullRequestRepository;
         this.analysisRepository = analysisRepository;
+        this.jsonMapper = jsonMapper;
         this.webhookCallbackUrl = webhookCallbackUrl;
         this.webhookSecret = webhookSecret;
     }
@@ -164,6 +170,15 @@ public class GithubService {
     }
 
     public RepoTreeResponse getRepositoryTree(Integer userId, Integer repoId, String branch) {
+        return getRepositoryTree(userId, repoId, branch, false);
+    }
+
+    public RepoTreeResponse getRepositoryTree(
+            Integer userId,
+            Integer repoId,
+            String branch,
+            boolean issuesOnly
+    ) {
         if (branch == null || branch.isBlank()) {
             throw new CustomException(ErrorCode.INVALID_BRANCH);
         }
@@ -198,10 +213,6 @@ public class GithubService {
                 throw new CustomException(ErrorCode.GITHUB_API_ERROR);
             }
             boolean truncated = Boolean.TRUE.equals(body.get("truncated"));
-            if (truncated) {
-                log.warn("{}/{} 레포의 {} 브랜치 파일 트리가 잘렸습니다.",
-                        repo.getOrganization(), repo.getName(), branch);
-            }
             Object rawTree = body.get("tree");
             List<Map<String, Object>> tree = rawTree instanceof List<?> values
                     ? values.stream()
@@ -209,8 +220,18 @@ public class GithubService {
                             .map(value -> (Map<String, Object>) value)
                             .toList()
                     : Collections.emptyList();
+            if (truncated) {
+                log.warn("{}/{} 레포의 {} 브랜치 트리를 재귀 조회로 보완합니다.",
+                        repo.getOrganization(), repo.getName(), branch);
+                TreeFetch completeTree = fetchCompleteTree(repo, branch, headers);
+                tree = completeTree.items();
+                truncated = completeTree.truncated();
+            }
             Map<String, IssueBadge> issueBadges = issueBadges(userId, repoId, branch);
             List<RepoTreeResponse.Item> items = tree.stream()
+                    .filter(item -> !issuesOnly
+                            || issueBadges.getOrDefault((String) item.get("path"), IssueBadge.EMPTY)
+                                    .total() > 0)
                     .map(item -> {
                         String path = (String) item.get("path");
                         IssueBadge issues = issueBadges.getOrDefault(path, IssueBadge.EMPTY);
@@ -222,7 +243,15 @@ public class GithubService {
                                 issues.total(),
                                 issues.security(),
                                 issues.inefficiency(),
-                                issues.other());
+                                issues.other(),
+                                issues.analyzed(),
+                                issues.analysisId(),
+                                issues.lastAnalyzedAt(),
+                                issues.qualityScore(),
+                                issues.critical(),
+                                issues.high(),
+                                issues.medium(),
+                                issues.low());
                     })
                     .toList();
             return new RepoTreeResponse(repoId, branch, truncated, items);
@@ -237,37 +266,164 @@ public class GithubService {
         }
     }
 
+    private TreeFetch fetchCompleteTree(GithubRepo repo, String branch, HttpHeaders headers) {
+        List<Map<String, Object>> items = new ArrayList<>();
+        boolean truncated = appendTree(repo, branch, "", headers, items);
+        return new TreeFetch(items, truncated);
+    }
+
+    private boolean appendTree(
+            GithubRepo repo,
+            String ref,
+            String parentPath,
+            HttpHeaders headers,
+            List<Map<String, Object>> result
+    ) {
+        String url = UriComponentsBuilder.fromUriString("https://api.github.com")
+                .pathSegment("repos", repo.getOrganization(), repo.getName(), "git", "trees", ref)
+                .build()
+                .encode()
+                .toUriString();
+        Map<String, Object> body = restTemplate().exchange(
+                url,
+                HttpMethod.GET,
+                new HttpEntity<>(headers),
+                new ParameterizedTypeReference<Map<String, Object>>() {})
+                .getBody();
+        if (body == null) {
+            throw new CustomException(ErrorCode.GITHUB_API_ERROR);
+        }
+        boolean truncated = Boolean.TRUE.equals(body.get("truncated"));
+        for (Map<String, Object> item : treeItems(body.get("tree"))) {
+            String path = parentPath.isEmpty()
+                    ? (String) item.get("path")
+                    : parentPath + "/" + item.get("path");
+            Map<String, Object> fullPathItem = new HashMap<>(item);
+            fullPathItem.put("path", path);
+            result.add(fullPathItem);
+            if ("tree".equals(item.get("type")) && item.get("sha") instanceof String sha) {
+                truncated |= appendTree(repo, sha, path, headers, result);
+            }
+        }
+        return truncated;
+    }
+
+    @SuppressWarnings("unchecked")
+    private List<Map<String, Object>> treeItems(Object rawTree) {
+        return rawTree instanceof List<?> values
+                ? values.stream()
+                        .filter(Map.class::isInstance)
+                        .map(value -> (Map<String, Object>) value)
+                        .toList()
+                : Collections.emptyList();
+    }
+
     private Map<String, IssueBadge> issueBadges(Integer userId, Integer repoId, String branch) {
         Map<String, IssueBadge> badges = new java.util.HashMap<>();
         for (AnalysisRepository.FileIssueSummary summary
                 : analysisRepository.findLatestFileIssues(userId, repoId, branch)) {
-            IssueBadge badge = new IssueBadge(
-                    summary.getTotalIssueCount(),
-                    summary.getSecurityIssueCount(),
-                    summary.getInefficiencyIssueCount());
+            IssueBadge badge = IssueBadge.file(summary, criticalIssues(summary));
             String path = summary.getFilePath();
             badges.merge(path, badge, IssueBadge::add);
+            IssueBadge folderBadge = badge.asFolder();
             for (int slash = path.indexOf('/'); slash >= 0; slash = path.indexOf('/', slash + 1)) {
-                badges.merge(path.substring(0, slash), badge, IssueBadge::add);
+                badges.merge(path.substring(0, slash), folderBadge, IssueBadge::add);
             }
         }
         return badges;
     }
 
-    private record IssueBadge(int total, int security, int inefficiency) {
-        private static final IssueBadge EMPTY = new IssueBadge(0, 0, 0);
+    private int criticalIssues(AnalysisRepository.FileIssueSummary summary) {
+        if (summary.getInefficiencyResult() == null) {
+            return 0;
+        }
+        try {
+            List<Map<String, Object>> issues = jsonMapper.readValue(
+                    summary.getInefficiencyResult(),
+                    new TypeReference<List<Map<String, Object>>>() {});
+            return (int) issues.stream()
+                    .map(issue -> issue.get("complexity_score"))
+                    .filter(Number.class::isInstance)
+                    .map(Number.class::cast)
+                    .filter(score -> score.intValue() >= 25)
+                    .count();
+        } catch (Exception ignored) {
+            return 0;
+        }
+    }
+
+    private record IssueBadge(
+            int total,
+            int security,
+            int inefficiency,
+            Integer analysisId,
+            LocalDateTime lastAnalyzedAt,
+            double qualitySum,
+            int analyzedFileCount,
+            int critical,
+            int high,
+            int medium,
+            int low
+    ) {
+        private static final IssueBadge EMPTY = new IssueBadge(
+                0, 0, 0, null, null, 0, 0, 0, 0, 0, 0);
+
+        private static IssueBadge file(
+                AnalysisRepository.FileIssueSummary summary,
+                int critical
+        ) {
+            int total = summary.getTotalIssueCount();
+            int security = summary.getSecurityIssueCount();
+            int inefficiency = summary.getInefficiencyIssueCount();
+            int other = Math.max(0, total - security - inefficiency);
+            double quality = Math.max(0, 100 - security * 10 - inefficiency * 5 - other * 3);
+            return new IssueBadge(
+                    total, security, inefficiency,
+                    summary.getAnalysisId(), summary.getAnalyzedAt(), quality, 1,
+                    critical, security + Math.max(0, inefficiency - critical), other, 0);
+        }
 
         private IssueBadge add(IssueBadge other) {
             return new IssueBadge(
                     total + other.total,
                     security + other.security,
-                    inefficiency + other.inefficiency);
+                    inefficiency + other.inefficiency,
+                    analysisId,
+                    latest(lastAnalyzedAt, other.lastAnalyzedAt),
+                    qualitySum + other.qualitySum,
+                    analyzedFileCount + other.analyzedFileCount,
+                    critical + other.critical,
+                    high + other.high,
+                    medium + other.medium,
+                    low + other.low);
+        }
+
+        private IssueBadge asFolder() {
+            return new IssueBadge(
+                    total, security, inefficiency, null, lastAnalyzedAt,
+                    qualitySum, analyzedFileCount, critical, high, medium, low);
         }
 
         private int other() {
             return Math.max(0, total - security - inefficiency);
         }
+
+        private boolean analyzed() {
+            return analyzedFileCount > 0;
+        }
+
+        private Double qualityScore() {
+            return analyzed() ? Math.round(qualitySum / analyzedFileCount * 10) / 10.0 : null;
+        }
+
+        private static LocalDateTime latest(LocalDateTime first, LocalDateTime second) {
+            if (first == null) return second;
+            if (second == null) return first;
+            return first.isAfter(second) ? first : second;
+        }
     }
+
+    private record TreeFetch(List<Map<String, Object>> items, boolean truncated) {}
 
     public GithubFileContent getLatestFileContent(
             Integer userId,
