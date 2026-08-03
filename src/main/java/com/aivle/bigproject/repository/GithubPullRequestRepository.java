@@ -56,6 +56,20 @@ public interface GithubPullRequestRepository
     @Query("""
             SELECT pr
             FROM GithubPullRequest pr
+            WHERE pr.user.id = :userId
+              AND pr.createdAt >= :from
+              AND pr.createdAt < :toExclusive
+            ORDER BY pr.createdAt DESC
+            """)
+    List<GithubPullRequest> findRecentByUserIdAndPeriod(
+            @Param("userId") Integer userId,
+            @Param("from") LocalDateTime from,
+            @Param("toExclusive") LocalDateTime toExclusive,
+            Pageable pageable);
+
+    @Query("""
+            SELECT pr
+            FROM GithubPullRequest pr
             WHERE pr.githubRepo.organization = :organization
               AND pr.githubRepo.name = :repoName
               AND pr.githubPrNumber = :githubPrNumber

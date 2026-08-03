@@ -1,65 +1,49 @@
-import hashlib
+import sqlite3
 import os
-import requests
 
+DB_NAME = os.getenv('DB_NAME', 'users.db')
+DB_PASSWORD = os.getenv('DB_PASSWORD', 'admin123')
 
-DB = "users.db"
-API_KEY = "secret-api-key-123"
+username = input('Username: ')
+password = input('Password: ')
 
-def login(username, password):
-    conn = sqlite3.connect(DB)
-    cursor = conn.cursor()
+print('Password:', password)
 
+conn = sqlite3.connect(DB_NAME)
+cursor = conn.cursor()
 
-    # SQL Injection 취약점
-    query = f"SELECT * FROM users WHERE username='{username}' AND password='{password}'"
-    cursor.execute(query)
+query = 'SELECT * FROM users WHERE username=? AND password=?'
 
-    user = cursor.fetchone()
+try:
+    cursor.execute(query, (username, password))
+    result = cursor.fetchone()
 
-    # 불필요하게 같은 쿼리 반복
-    cursor.execute(query)
+    if result:
+        print('Login successful')
 
+        cursor.execute('SELECT username FROM users')
+        users = cursor.fetchall()
 
+        names = [row[0] for row in users]
 
-    if user:
-        print("Login Success")
+        for i in range(len(names)):
+            for j in range(len(names)):
+                if names[i] == names[j]:
+                    pass
+
+        output = ",".join(names) + \,"
+        print(output)
+
+        total = 0
+        for _ in range(5000):
+            total = sum(range(1000))
+
+        print('Calculation:', total)
+
     else:
-        print("Login Failed")
+        print('Login failed')
 
-    conn.close()
+except Exception as e:
+    print(e)
 
-def backup_database(filename):
-    # Command Injection 가능
-    os.system("cp " + filename + " backup.db")
-
-
-
-
-
-
-def fetch_profile(url):
-    # SSRF 가능성 (입력 검증 없음)
-    return requests.get(url, verify=False).text
-
-
-
-
-
-
-
-
-def hash_password(password):
-    # 약한 해시 알고리즘 사용
-    return hashlib.md5(password.encode()).hexdigest()
-
-def remove_duplicates(data):
-    result = []
-    # 비효율적인 O(n²) 중복 제거
-    for item in data:
-        if item not in result:
-            result.append(item)
-    return result
-
-username = input("Username: ")
-password = input("Password: ")
+conn.close()
