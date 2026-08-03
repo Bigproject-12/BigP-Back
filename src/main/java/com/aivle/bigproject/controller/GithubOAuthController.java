@@ -33,6 +33,9 @@ public class GithubOAuthController {
     @Value("${github.oauth-scope}")
     private String scope;
 
+    @Value("${app.frontend-url}")
+    private String frontendUrl;
+
     public GithubOAuthController(GithubOAuthService githubOAuthService, GithubService githubService) {
         this.githubOAuthService = githubOAuthService;
         this.githubService = githubService;
@@ -80,19 +83,24 @@ public class GithubOAuthController {
                     githubService.connectAndFetchRepos(userId, orgName);
                 } catch (Exception e) {
                     return ResponseEntity.status(HttpStatus.FOUND)
-                            .location(URI.create("http://localhost:5173/?page=mypage&github=partial#github-section"))
+                            .location(frontendRedirect("partial"))
                             .build();
                 }
             }
 
             return ResponseEntity.status(HttpStatus.FOUND)
-                    .location(URI.create("http://localhost:5173/?page=mypage&github=success#github-section"))
+                    .location(frontendRedirect("success"))
                     .build();
 
         } catch (Exception e) {
             return ResponseEntity.status(HttpStatus.FOUND)
-                    .location(URI.create("http://localhost:5173/?page=mypage&github=error#github-section"))
+                    .location(frontendRedirect("error"))
                     .build();
         }
+    }
+
+    private URI frontendRedirect(String status) {
+        return URI.create(frontendUrl.replaceAll("/+$", "")
+                + "/?page=mypage&github=" + status + "#github-section");
     }
 }
