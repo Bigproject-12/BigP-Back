@@ -89,7 +89,10 @@ public class AnalysisController {
             @RequestBody(required = false) PullRequestCreate request,
             @AuthenticationPrincipal Jwt jwt
     ) { String baseBranch = request != null ? request.baseBranch() : null;
-        String prUrl = analysisService.createPullRequest(analysisId, Integer.valueOf(jwt.getSubject()), baseBranch);
+        String title      = request != null ? request.title()      : null;
+        String body       = request != null ? request.body()       : null;
+
+        String prUrl = analysisService.createPullRequest(analysisId, Integer.valueOf(jwt.getSubject()), baseBranch,title,body);
         return ResponseEntity.ok(Map.of("prUrl", prUrl));
     }
 
