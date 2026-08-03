@@ -21,29 +21,23 @@ public class UserManager {
         try {
             Connection conn = DriverManager.getConnection(DB_URL, USER, PASSWORD);
 
-            String sql = "SELECT * FROM users WHERE username='" +
-                    username + "' AND password='" + password + "'";
+            String sql = "SELECT * FROM users WHERE username=? AND password=?";
+            PreparedStatement pstmt = conn.prepareStatement(sql);
+            pstmt.setString(1, username);
+            pstmt.setString(2, password);
 
-            Statement stmt = conn.createStatement();
-            ResultSet rs = stmt.executeQuery(sql);
+            ResultSet rs = pstmt.executeQuery();
 
             if (rs.next()) {
                 System.out.println("Login successful!");
 
                 List<String> names = new ArrayList<>();
-                Statement stmt2 = conn.createStatement();
-                ResultSet rs2 = stmt2.executeQuery("SELECT username FROM users");
+                String sql2 = "SELECT username FROM users";
+                PreparedStatement pstmt2 = conn.prepareStatement(sql2);
+                ResultSet rs2 = pstmt2.executeQuery();
 
                 while (rs2.next()) {
                     names.add(rs2.getString("username"));
-                }
-
-                for (int i = 0; i < names.size(); i++) {
-                    for (int j = 0; j < names.size(); j++) {
-                        if (names.get(i).equals(names.get(j))) {
-                            System.out.print("");
-                        }
-                    }
                 }
 
                 String output = "";
