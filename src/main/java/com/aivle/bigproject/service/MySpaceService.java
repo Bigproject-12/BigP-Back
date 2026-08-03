@@ -204,9 +204,10 @@ public class MySpaceService {
         validateBranch(branch);
         UserRepo userRepo = getConnectedRepo(userId, repoId);
         GithubRepo repo = userRepo.getGithubRepo();
+        long totalAnalysisCount = analysisRepository.countByUser_IdAndGithubRepo_IdAndBranch(userId, repoId, branch);
         List<Analysis> analyses = analysisRepository.findLatestTwoPerFile(userId, repoId, branch);
         if (analyses.isEmpty()) {
-            return emptySummary(repo, branch);
+            return emptySummary(repo, branch, totalAnalysisCount);
         }
 
         Map<String, List<Analysis>> analysesByFile = analyses.stream()
@@ -234,6 +235,7 @@ public class MySpaceService {
                 latest.getId(),
                 latest.getCreatedAt(),
                 latest.getFilePath(),
+                totalAnalysisCount,
                 currentAggregate.totalIssues(),
                 currentAggregate.securityIssues(),
                 currentAggregate.inefficiencyIssues(),
@@ -450,10 +452,11 @@ public class MySpaceService {
         }
     }
 
-    private MySpaceSummaryResponse emptySummary(GithubRepo repo, String branch) {
+    private MySpaceSummaryResponse emptySummary(GithubRepo repo, String branch, long totalAnalysisCount) {
         return new MySpaceSummaryResponse(
                 repo.getId(), repo.getName(), branch,
                 null, null, null,
+                totalAnalysisCount,
                 0, 0, 0, 0,
                 null, 0,
                 new MySpaceSummaryResponse.Comparison(null, null, null, null, null),
