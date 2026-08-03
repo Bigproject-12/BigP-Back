@@ -3,6 +3,7 @@ package com.aivle.bigproject.service;
 import com.aivle.bigproject.dto.myspace.MySpaceAnalysisResponse;
 import com.aivle.bigproject.dto.myspace.MySpaceAnalysisDetailResponse;
 import com.aivle.bigproject.dto.myspace.MySpaceSummaryResponse;
+import com.aivle.bigproject.dto.myspace.MySpaceOverviewResponse;
 import com.aivle.bigproject.dto.repo.GithubPullRequestResponse;
 import com.aivle.bigproject.entity.Analysis;
 import com.aivle.bigproject.entity.Finding;
@@ -10,11 +11,15 @@ import com.aivle.bigproject.entity.GithubRepo;
 import com.aivle.bigproject.entity.UserRepo;
 import com.aivle.bigproject.exception.CustomException;
 import com.aivle.bigproject.exception.ErrorCode;
+import com.aivle.bigproject.entity.GithubPullRequest;
 import com.aivle.bigproject.repository.AnalysisRepository;
 import com.aivle.bigproject.repository.FindingRepository;
+import com.aivle.bigproject.repository.GithubPullRequestRepository;
 import com.aivle.bigproject.repository.UserRepoRepository;
 import java.math.BigDecimal;
 import java.math.RoundingMode;
+import java.time.LocalDate;
+import java.time.LocalDateTime;
 import java.util.Collections;
 import java.util.LinkedHashMap;
 import java.util.List;
@@ -22,6 +27,7 @@ import java.util.Map;
 import java.util.Locale;
 import java.util.function.Function;
 import java.util.stream.Collectors;
+import java.util.stream.IntStream;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -35,6 +41,7 @@ public class MySpaceService {
     private final UserRepoRepository userRepoRepository;
     private final AnalysisRepository analysisRepository;
     private final FindingRepository findingRepository;
+    private final GithubPullRequestRepository githubPullRequestRepository;
     private final JsonMapper jsonMapper;
     private final GithubService githubService;
 
@@ -42,14 +49,155 @@ public class MySpaceService {
             UserRepoRepository userRepoRepository,
             AnalysisRepository analysisRepository,
             FindingRepository findingRepository,
+            GithubPullRequestRepository githubPullRequestRepository,
             JsonMapper jsonMapper,
             GithubService githubService
     ) {
         this.userRepoRepository = userRepoRepository;
         this.analysisRepository = analysisRepository;
         this.findingRepository = findingRepository;
+        this.githubPullRequestRepository = githubPullRequestRepository;
         this.jsonMapper = jsonMapper;
         this.githubService = githubService;
+    }
+
+    public MySpaceOverviewResponse getOverview(Integer userId, LocalDate from, LocalDate to) {
+        LocalDate endDate = to != null ? to : LocalDate.now();
+        LocalDate startDate = from != null ? from : endDate.minusDays(6);
+        if (startDate.isAfter(endDate)) {
+            throw new CustomException(ErrorCode.INVALID_DATE_RANGE);
+        }
+
+        LocalDateTime fromDateTime = startDate.atStartOfDay();
+        LocalDateTime toExclusive = endDate.plusDays(1).atStartOfDay();
+        long periodDays = startDate.datesUntil(endDate.plusDays(1)).count();
+        LocalDateTime previousFrom = startDate.minusDays(periodDays).atStartOfDay();
+        LocalDateTime previousToExclusive = fromDateTime;
+
+        long repositoryCount = userRepoRepository.countByUserId(userId);
+
+        long totalAnalysisCount = analysisRepository.countByUserIdAndPeriod(userId, fromDateTime, toExclusive);
+        long previousAnalysisCount = analysisRepository.countByUserIdAndPeriod(
+                userId, previousFrom, previousToExclusive);
+
+        FindingRepository.IssueCountSummary issueCounts =
+                findingRepository.sumIssueCountsByUserIdAndPeriod(userId, fromDateTime, toExclusive);
+        FindingRepository.IssueCountSummary previousIssueCounts =
+                findingRepository.sumIssueCountsByUserIdAndPeriod(userId, previousFrom, previousToExclusive);
+
+        double averageQualityScore = findingRepository.averageQualityScoreByUserIdAndPeriod(
+                userId, fromDateTime, toExclusive);
+        double previousQualityScore = findingRepository.averageQualityScoreByUserIdAndPeriod(
+                userId, previousFrom, previousToExclusive);
+
+        Map<LocalDate, FindingRepository.DailyQualityScore> dailyScores = findingRepository
+                .findDailyQualityScoresByUserIdAndPeriod(userId, fromDateTime, toExclusive)
+                .stream()
+                .collect(Collectors.toMap(
+                        FindingRepository.DailyQualityScore::getAnalysisDate,
+                        Function.identity()));
+        List<MySpaceOverviewResponse.QualityTrend> qualityTrend = startDate
+                .datesUntil(endDate.plusDays(1))
+                .map(date -> new MySpaceOverviewResponse.QualityTrend(
+                        date,
+                        dailyScores.containsKey(date) ? dailyScores.get(date).getAverageScore() : null))
+                .toList();
+
+        long otherIssueCount = Math.max(0,
+                issueCounts.getTotalIssueCount()
+                        - issueCounts.getSecurityIssueCount()
+                        - issueCounts.getInefficiencyIssueCount());
+        List<MySpaceOverviewResponse.IssueDistribution> issueDistribution = List.of(
+                distribution("SECURITY", issueCounts.getSecurityIssueCount(), issueCounts.getTotalIssueCount()),
+                distribution("INEFFICIENCY", issueCounts.getInefficiencyIssueCount(), issueCounts.getTotalIssueCount()),
+                distribution("OTHER", otherIssueCount, issueCounts.getTotalIssueCount())
+        );
+
+        List<FindingRepository.RiskRepositorySummary> riskSummaries = findingRepository
+                .findTop5RiskRepositoriesByUserIdAndPeriod(userId, fromDateTime, toExclusive);
+        List<MySpaceOverviewResponse.RiskRepository> riskRepositories = IntStream
+                .range(0, riskSummaries.size())
+                .mapToObj(index -> toRiskRepository(index + 1, riskSummaries.get(index)))
+                .toList();
+
+        List<MySpaceOverviewResponse.RecentAnalysis> recentAnalyses = analysisRepository
+                .findTop5ByUserIdAndPeriod(userId, fromDateTime, toExclusive)
+                .stream()
+                .map(this::toRecentAnalysis)
+                .toList();
+
+        List<MySpaceOverviewResponse.RecentPullRequest> recentPullRequests = githubPullRequestRepository
+                .findRecentByUserIdAndPeriod(userId, fromDateTime, toExclusive, PageRequest.of(0, 10))
+                .stream()
+                .map(this::toRecentPullRequest)
+                .toList();
+
+        return new MySpaceOverviewResponse(
+                repositoryCount,
+                totalAnalysisCount,
+                issueCounts.getTotalIssueCount(),
+                averageQualityScore,
+                new MySpaceOverviewResponse.Comparison(
+                        changeRate(totalAnalysisCount, previousAnalysisCount),
+                        changeRate(issueCounts.getTotalIssueCount(), previousIssueCounts.getTotalIssueCount()),
+                        roundOneDecimal(averageQualityScore - previousQualityScore)),
+                qualityTrend,
+                issueDistribution,
+                riskRepositories,
+                recentAnalyses,
+                recentPullRequests);
+    }
+
+    private MySpaceOverviewResponse.RecentPullRequest toRecentPullRequest(GithubPullRequest pullRequest) {
+        return new MySpaceOverviewResponse.RecentPullRequest(
+                pullRequest.getId(),
+                pullRequest.getGithubPrNumber(),
+                pullRequest.getGithubRepo().getId(),
+                pullRequest.getGithubRepo().getName(),
+                pullRequest.getTitle(),
+                pullRequest.getStatus(),
+                pullRequest.getPrUrl(),
+                pullRequest.getHeadBranch(),
+                pullRequest.getBaseBranch(),
+                pullRequest.getCreatedAt()
+        );
+    }
+
+    private MySpaceOverviewResponse.RiskRepository toRiskRepository(
+            int rank,
+            FindingRepository.RiskRepositorySummary summary
+    ) {
+        return new MySpaceOverviewResponse.RiskRepository(
+                rank,
+                summary.getRepoId(),
+                summary.getRepoName(),
+                summary.getQualityScore(),
+                summary.getTotalIssueCount(),
+                summary.getSecurityIssueCount(),
+                summary.getInefficiencyIssueCount(),
+                summary.getOtherIssueCount(),
+                summary.getLastAnalyzedAt()
+        );
+    }
+
+    private MySpaceOverviewResponse.IssueDistribution distribution(String type, long count, long total) {
+        double percentage = total == 0 ? 0 : roundOneDecimal(count * 100.0 / total);
+        return new MySpaceOverviewResponse.IssueDistribution(type, count, percentage);
+    }
+
+    private MySpaceOverviewResponse.RecentAnalysis toRecentAnalysis(Analysis analysis) {
+        long totalIssueCount = findingRepository.findByAnalysisId(analysis.getId())
+                .map(finding -> finding.getTotalIssues().longValue())
+                .orElse(0L);
+
+        return new MySpaceOverviewResponse.RecentAnalysis(
+                analysis.getId(),
+                analysis.getGithubRepo().getId(),
+                analysis.getGithubRepo().getName(),
+                analysis.getLanguage(),
+                analysis.getStatus(),
+                totalIssueCount
+        );
     }
 
     public MySpaceSummaryResponse getSummary(Integer userId, Integer repoId, String branch) {
@@ -362,6 +510,13 @@ public class MySpaceService {
                         ? null
                         : current.improvableRatio().subtract(previous.improvableRatio()),
                 roundOneDecimal(current.qualityScore() - previous.qualityScore()));
+    }
+
+    private double changeRate(long current, long previous) {
+        if (previous == 0) {
+            return current == 0 ? 0 : 100;
+        }
+        return roundOneDecimal((current - previous) * 100.0 / previous);
     }
 
     private int totalIssues(Finding finding) {
