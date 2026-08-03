@@ -1,27 +1,23 @@
 import hashlib
 import os
 import requests
+import sqlite3
+import shutil
+from urllib.parse import urlparse
 
-
-DB = "users.db"
-API_KEY = "secret-api-key-123"
+DB = os.getenv("DB_PATH", "users.db")
+API_KEY = os.getenv("API_KEY")
 
 def login(username, password):
     conn = sqlite3.connect(DB)
     cursor = conn.cursor()
 
-
-    # SQL Injection 취약점
-    query = f"SELECT * FROM users WHERE username='{username}' AND password='{password}'"
-    cursor.execute(query)
-
+    # 매개변수화된 쿼리를 사용하여 SQL Injection 방지
+    query = "SELECT * FROM users WHERE username=? AND password=?"
+    cursor.execute(query, (username, password))
+    
     user = cursor.fetchone()
-
-    # 불필요하게 같은 쿼리 반복
-    cursor.execute(query)
-
-
-
+    
     if user:
         print("Login Success")
     else:
@@ -30,36 +26,36 @@ def login(username, password):
     conn.close()
 
 def backup_database(filename):
-    # Command Injection 가능
-    os.system("cp " + filename + " backup.db")
-
-
-
-
-
+    # Command Injection 방지를 위해 shutil 모듈 사용
+    try:
+        shutil.copy2(filename, "backup.db")
+    except OSError as e:
+        print(f"Backup failed: {e}")
 
 def fetch_profile(url):
-    # SSRF 가능성 (입력 검증 없음)
-    return requests.get(url, verify=False).text
+    # SSRF 방지를 위한 도메인 화이트리스트 검증
+    parsed_url = urlparse(url)
+    allowed_domains = ["example.com", "api.example.com"]
+n    if parsed_url.netloc not in allowed_domains:
+        return "Invalid domain"
+    
+    try:
+        return requests.get(url, verify=True, timeout=5).text
+    except requests.exceptions.RequestException:
+        return "Error fetching profile"
 
-
-
-
-
-
-
-
-def hash_password(password):
-    # 약한 해시 알고리즘 사용
-    return hashlib.md5(password.encode()).hexdigest()
+def hash_password(password, salt=None):
+    # MD5 대신 안전한 scrypt 알고리즘 사용
+    if salt is None:
+        salt = os.urandom(16)
+    hash_key = hashlib.scrypt(password.encode(), salt=salt, n=16384, r=8, p=1)
+    return hash_key.hex(), salt.hex()
 
 def remove_duplicates(data):
-    result = []
-    # 비효율적인 O(n²) 중복 제거
-    for item in data:
-        if item not in result:
-            result.append(item)
-    return result
+    # set을 사용하여 O(n) 복잡도로 중복 제거
+    return list(set(data))
 
-username = input("Username: ")
-password = input("Password: ")
+if __name__ == "__main__":
+    username = input("Username: ")
+    password = input("Password: ")
+    login(username, password)
