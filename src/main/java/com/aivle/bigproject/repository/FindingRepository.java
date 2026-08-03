@@ -71,6 +71,40 @@ public interface FindingRepository extends JpaRepository<Finding, Integer> {
             @Param("from") LocalDateTime from,
             @Param("toExclusive") LocalDateTime toExclusive);
 
+    // 유저별 기간별 이슈 수를 조회 (My Space)
+    @Query(value = """
+            SELECT COALESCE(SUM(f.total_issues), 0) AS totalIssueCount,
+                   COALESCE(SUM(f.security_count), 0) AS securityIssueCount,
+                   COALESCE(SUM(f.inefficiency_count), 0) AS inefficiencyIssueCount
+            FROM FINDING f
+            JOIN ANALYSIS a ON a.analysis_id = f.analysis_id
+            WHERE a.user_id = :userId
+              AND a.created_at >= :from
+              AND a.created_at < :toExclusive
+            """, nativeQuery = true)
+    IssueCountSummary sumIssueCountsByUserIdAndPeriod(
+            @Param("userId") Integer userId,
+            @Param("from") LocalDateTime from,
+            @Param("toExclusive") LocalDateTime toExclusive);
+
+    // 유저별 기간별 평균 품질 점수를 조회 (My Space)
+    @Query(value = """
+            SELECT COALESCE(ROUND(AVG(GREATEST(0,
+                       100 - f.security_count * 10
+                           - f.inefficiency_count * 5
+                           - GREATEST(f.total_issues - f.security_count - f.inefficiency_count, 0) * 3
+                   )), 1), 0) AS averageScore
+            FROM FINDING f
+            JOIN ANALYSIS a ON a.analysis_id = f.analysis_id
+            WHERE a.user_id = :userId
+              AND a.created_at >= :from
+              AND a.created_at < :toExclusive
+            """, nativeQuery = true)
+    double averageQualityScoreByUserIdAndPeriod(
+            @Param("userId") Integer userId,
+            @Param("from") LocalDateTime from,
+            @Param("toExclusive") LocalDateTime toExclusive);
+
     // 회사별 기간별 일일 품질 점수를 조회
     @Query(value = """
             SELECT DATE(a.created_at) AS analysisDate,
@@ -149,6 +183,82 @@ public interface FindingRepository extends JpaRepository<Finding, Integer> {
             """, nativeQuery = true)
     List<RiskRepositorySummary> findTop5RiskRepositoriesByCompanyIdAndPeriod(
             @Param("companyId") Integer companyId,
+            @Param("from") LocalDateTime from,
+            @Param("toExclusive") LocalDateTime toExclusive);
+
+    // 유저별 기간별 일일 품질 점수를 조회 (My Space)
+    @Query(value = """
+            SELECT DATE(a.created_at) AS analysisDate,
+                   ROUND(AVG(GREATEST(0,
+                       100 - f.security_count * 10
+                           - f.inefficiency_count * 5
+                           - GREATEST(f.total_issues - f.security_count - f.inefficiency_count, 0) * 3
+                   )), 1) AS averageScore
+            FROM FINDING f
+            JOIN ANALYSIS a ON a.analysis_id = f.analysis_id
+            WHERE a.user_id = :userId
+              AND a.created_at >= :from
+              AND a.created_at < :toExclusive
+            GROUP BY DATE(a.created_at)
+            ORDER BY DATE(a.created_at)
+            """, nativeQuery = true)
+    List<DailyQualityScore> findDailyQualityScoresByUserIdAndPeriod(
+            @Param("userId") Integer userId,
+            @Param("from") LocalDateTime from,
+            @Param("toExclusive") LocalDateTime toExclusive);
+
+    // 유저 본인 repo 중 기간 내 위험도 TOP5 (My Space)
+    @Query(value = """
+            SELECT gr.repo_id AS repoId,
+                   gr.name AS repoName,
+                   ROUND(GREATEST(0,
+                       100 - f.securityIssueCount * 10
+                           - f.inefficiencyIssueCount * 5
+                           - f.otherIssueCount * 3
+                   ), 1) AS qualityScore,
+                   f.totalIssueCount AS totalIssueCount,
+                   f.securityIssueCount AS securityIssueCount,
+                   f.inefficiencyIssueCount AS inefficiencyIssueCount,
+                   f.otherIssueCount AS otherIssueCount,
+                   a.created_at AS lastAnalyzedAt
+            FROM ANALYSIS a
+            JOIN GITHUB_REPO gr ON gr.repo_id = a.repo_id
+            JOIN (
+                SELECT analysis_id,
+                       SUM(total_issues) AS totalIssueCount,
+                       SUM(security_count) AS securityIssueCount,
+                       SUM(inefficiency_count) AS inefficiencyIssueCount,
+                       SUM(GREATEST(total_issues - security_count - inefficiency_count, 0)) AS otherIssueCount
+                FROM FINDING
+                GROUP BY analysis_id
+            ) f ON f.analysis_id = a.analysis_id
+            WHERE a.user_id = :userId
+              AND a.status = 'COMPLETED'
+              AND a.created_at >= :from
+              AND a.created_at < :toExclusive
+              AND a.analysis_id = (
+                  SELECT a2.analysis_id
+                  FROM ANALYSIS a2
+                  WHERE a2.user_id = :userId
+                    AND a2.repo_id = a.repo_id
+                    AND a2.status = 'COMPLETED'
+                    AND a2.created_at >= :from
+                    AND a2.created_at < :toExclusive
+                    AND EXISTS (
+                        SELECT 1 FROM FINDING f2
+                        WHERE f2.analysis_id = a2.analysis_id
+                    )
+                  ORDER BY a2.created_at DESC, a2.analysis_id DESC
+                  LIMIT 1
+              )
+            ORDER BY qualityScore ASC,
+                     securityIssueCount DESC,
+                     totalIssueCount DESC,
+                     lastAnalyzedAt DESC
+            LIMIT 5
+            """, nativeQuery = true)
+    List<RiskRepositorySummary> findTop5RiskRepositoriesByUserIdAndPeriod(
+            @Param("userId") Integer userId,
             @Param("from") LocalDateTime from,
             @Param("toExclusive") LocalDateTime toExclusive);
 

@@ -32,6 +32,17 @@ public interface AnalysisRepository extends JpaRepository<Analysis, Integer> {
 
     @Query(value = """
             SELECT COUNT(*) FROM ANALYSIS
+            WHERE user_id = :userId
+              AND created_at >= :from
+              AND created_at < :toExclusive
+            """, nativeQuery = true)
+    long countByUserIdAndPeriod(
+            @Param("userId") Integer userId,
+            @Param("from") LocalDateTime from,
+            @Param("toExclusive") LocalDateTime toExclusive);
+
+    @Query(value = """
+            SELECT COUNT(*) FROM ANALYSIS
             WHERE company_id = :companyId
               AND status = :status
               AND created_at >= :from
@@ -53,6 +64,19 @@ public interface AnalysisRepository extends JpaRepository<Analysis, Integer> {
             """, nativeQuery = true)
     List<Analysis> findTop5ByCompanyIdAndPeriod(
             @Param("companyId") Integer companyId,
+            @Param("from") LocalDateTime from,
+            @Param("toExclusive") LocalDateTime toExclusive);
+
+    @Query(value = """
+            SELECT * FROM ANALYSIS
+            WHERE user_id = :userId
+              AND created_at >= :from
+              AND created_at < :toExclusive
+            ORDER BY analysis_id DESC
+            LIMIT 5
+            """, nativeQuery = true)
+    List<Analysis> findTop5ByUserIdAndPeriod(
+            @Param("userId") Integer userId,
             @Param("from") LocalDateTime from,
             @Param("toExclusive") LocalDateTime toExclusive);
 
