@@ -17,6 +17,8 @@ public interface AnalysisRepository extends JpaRepository<Analysis, Integer> {
 
     long countByUserIdAndStatus(Integer userId, String status);
 
+    long countByUser_IdAndGithubRepo_IdAndBranch(Integer userId, Integer repoId, String branch);
+
     List<Analysis> findTop5ByUserIdOrderByIdDesc(Integer userId);
 
     @Query(value = """

@@ -10,6 +10,7 @@ public record MySpaceSummaryResponse(
         Integer analysisId,
         LocalDateTime lastAnalyzedAt,
         String filePath,
+        long totalAnalysisCount,
         int totalIssueCount,
         int securityIssueCount,
         int inefficiencyIssueCount,
