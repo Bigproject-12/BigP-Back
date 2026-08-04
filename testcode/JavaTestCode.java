@@ -1,7 +1,7 @@
 import java.sql.*;
 import java.util.*;
 
-public class UserManager {
+public class JavaTestCode {
 
     private static final String DB_URL = "jdbc:mysql://localhost:3306/test";
     private static final String USER = "root";
