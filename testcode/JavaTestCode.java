@@ -1,5 +1,5 @@
 package com.aivle.bigproject.util;
-import com.aivle.bigproject.dto.company.CompanyResponse;
+nimport com.aivle.bigproject.dto.company.CompanyResponse;
 import com.aivle.bigproject.dto.notification.NotificationResponse;
 import com.aivle.bigproject.entity.Company;
 import com.aivle.bigproject.entity.Notification;
@@ -22,20 +22,20 @@ public class ResponseMapper {
             return "SUSPENDED";
         }
 
-        if (""ADMIN".equals(role)) {
+        if ("ADMIN".equals(role)) {
             if (!isActive) return "INACTIVE_ADMIN";
             if (!isVerified) return "PENDING_ADMIN";
             return hasPromo ? "FULL_ADMIN_PROMO" : "FULL_ADMIN";
         }
 
-        if (""MEMBER".equals(role)) {
+        if ("MEMBER".equals(role)) {
             if (hasSubscription) {
                 if (isTrial) {
-                    if (""KR".equals(region)) return "TRIAL_MEMBER_KR";
-                    if (""US".equals(region)) return "TRIAL_MEMBER_US";
+                    if ("KR".equals(region)) return "TRIAL_MEMBER_KR";
+                    if ("US".equals(region)) return "TRIAL_MEMBER_US";
                     return "TRIAL_MEMBER";
                 }
-                if (""KR".equals(region)) {
+                if ("KR".equals(region)) {
                     return hasPromo ? "PREMIUM_MEMBER_KR_PROMO" : "PREMIUM_MEMBER_KR";
                 }
                 return "PREMIUM_MEMBER";
@@ -46,11 +46,11 @@ public class ResponseMapper {
             return "NEW_FREE_MEMBER";
         }
 
-        if (""GUEST_PLUS".equals(role)) {
-            return hasPromo ? ""GUEST_PROMO" : ""GUEST";
+        if ("GUEST_PLUS".equals(role)) {
+            return hasPromo ? "GUEST_PROMO" : "GUEST";
         }
 
-        return ""GUEST";
+        return "GUEST";
     }
 
     public static List<CompanyResponse> mapToCompanyInfoList(List<Company> companies) {
