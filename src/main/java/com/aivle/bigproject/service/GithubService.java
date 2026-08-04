@@ -35,6 +35,7 @@ import org.springframework.web.client.RestTemplate;
 import org.springframework.web.client.HttpClientErrorException;
 import org.springframework.web.client.RestClientException;
 import org.springframework.beans.factory.annotation.Value;
+import org.springframework.util.StringUtils;
 import lombok.extern.slf4j.Slf4j;
 
 import java.time.LocalDate;
@@ -753,6 +754,35 @@ public class GithubService {
                 throw new CustomException(ErrorCode.GITHUB_FILE_FETCH_FAILED);
             }
         }
+
+    public String getBranchHeadSha(Integer userId, String orgName, String repoName, String branch) {
+        User user = userRepository.findById(userId)
+                .orElseThrow(() -> new CustomException(ErrorCode.USER_NOT_FOUND));
+        String token = githubTokenCrypto.decrypt(user.getGithubAccessToken());
+
+        HttpHeaders headers = new HttpHeaders();
+        headers.setBearerAuth(token);
+        headers.set("Accept", "application/vnd.github+json");
+        String encodedBranch = UriUtils.encodePathSegment(branch, StandardCharsets.UTF_8);
+        String url = "https://api.github.com/repos/" + orgName + "/" + repoName
+                + "/git/ref/heads/" + encodedBranch;
+
+        try {
+            ResponseEntity<Map> response = new RestTemplate().exchange(
+                    url, HttpMethod.GET, new HttpEntity<>(headers), Map.class);
+            Map body = response.getBody();
+            Map object = body == null ? null : (Map) body.get("object");
+            String sha = object == null ? null : (String) object.get("sha");
+            if (!StringUtils.hasText(sha)) {
+                throw new CustomException(ErrorCode.GITHUB_BRANCH_FETCH_FAILED);
+            }
+            return sha;
+        } catch (CustomException e) {
+            throw e;
+        } catch (Exception e) {
+            throw new CustomException(ErrorCode.GITHUB_BRANCH_FETCH_FAILED);
+        }
+    }
 
     public void commitFile(Integer userId, String orgName, String repoName, String filePath, String branch,
                             String content, String sha, String message) {
