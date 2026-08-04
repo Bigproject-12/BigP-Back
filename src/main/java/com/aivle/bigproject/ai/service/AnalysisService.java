@@ -10,6 +10,8 @@ import com.aivle.bigproject.ai.dto.AnalysisResultResponse;
 import com.aivle.bigproject.ai.dto.ReanalysisStart;
 import com.aivle.bigproject.dto.repo.GithubPullRequestResult;
 import com.aivle.bigproject.dto.repo.GithubFileContent;
+import com.aivle.bigproject.dto.analysis.BatchPushPreparationResponse;
+import com.aivle.bigproject.dto.analysis.BatchPushRequest;
 
 // Entity
 import com.aivle.bigproject.entity.Analysis;
@@ -58,6 +60,10 @@ import java.util.List;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.Map;
+import java.util.HashSet;
+import java.util.Set;
+import java.util.function.Function;
+import java.util.stream.Collectors;
 
 
 @Service
@@ -354,6 +360,64 @@ public class AnalysisService {
         githubService.commitFile(
                 userId, repo.getOrganization(), repo.getName(), analysis.getFilePath(), analysis.getBranch(),
                 codeTocommit, sha, "GuardrAil: AI 코드 개선 반영 (분석 ID: " + analysisId + ")");
+    }
+
+    @Transactional(readOnly = true)
+    public BatchPushPreparationResponse prepareBatchPush(BatchPushRequest request, Integer userId) {
+        List<Integer> ids = request.analysisIds();
+        if (new HashSet<>(ids).size() != ids.size()) {
+            throw new CustomException(ErrorCode.BATCH_ANALYSIS_DUPLICATED);
+        }
+
+        Map<Integer, Analysis> found = analysisRepository.findAllById(ids).stream()
+                .collect(Collectors.toMap(Analysis::getId, Function.identity()));
+        if (found.size() != ids.size()) {
+            throw new CustomException(ErrorCode.ANALYSIS_NOT_FOUND);
+        }
+
+        List<Analysis> analyses = ids.stream().map(found::get).toList();
+        Analysis first = analyses.get(0);
+        Integer repoId = first.getGithubRepo().getId();
+        String branch = first.getBranch();
+        Set<String> filePaths = new HashSet<>();
+
+        for (Analysis analysis : analyses) {
+            validateOwner(analysis, userId);
+            if (!"COMPLETED".equals(analysis.getStatus())) {
+                throw new CustomException(ErrorCode.ANALYSIS_NOT_COMPLETED);
+            }
+            if (!StringUtils.hasText(analysis.getBranch())
+                    || !StringUtils.hasText(analysis.getFilePath())) {
+                throw new CustomException(ErrorCode.ANALYSIS_BRANCH_FILE_INFO_MISSING);
+            }
+            if (!repoId.equals(analysis.getGithubRepo().getId())) {
+                throw new CustomException(ErrorCode.BATCH_REPOSITORY_MISMATCH);
+            }
+            if (!branch.equals(analysis.getBranch())) {
+                throw new CustomException(ErrorCode.BATCH_BRANCH_MISMATCH);
+            }
+            if (!filePaths.add(analysis.getFilePath())) {
+                throw new CustomException(ErrorCode.BATCH_FILE_DUPLICATED);
+            }
+
+            Finding finding = findingRepository.findByAnalysisId(analysis.getId())
+                    .orElseThrow(() -> new CustomException(ErrorCode.FINDING_NOT_FOUND));
+            if (!StringUtils.hasText(finding.getModifiedCode())) {
+                throw new CustomException(ErrorCode.IMPROVED_CODE_MISSING);
+            }
+        }
+
+        GithubRepo repo = first.getGithubRepo();
+        String headSha = githubService.getBranchHeadSha(
+                userId, repo.getOrganization(), repo.getName(), branch);
+
+        return new BatchPushPreparationResponse(
+                ids,
+                repoId,
+                repo.getOrganization() + "/" + repo.getName(),
+                branch,
+                headSha,
+                "READY");
     }
 
     @Transactional
