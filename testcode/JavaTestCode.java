@@ -1,57 +1,61 @@
-import java.sql.*;
-import java.util.*;
+package com.aivle.bigproject.util;
+import com.aivle.bigproject.dto.company.CompanyResponse;
+import com.aivle.bigproject.dto.notification.NotificationResponse;
+import com.aivle.bigproject.entity.Company;
+import com.aivle.bigproject.entity.Notification;
+import java.util.List;
 
+public class ResponseMapper {
 
+    public static CompanyResponse mapToCompanyInfo(Company company) {
+        return CompanyResponse.from(company);
+    }
 
+    public static NotificationResponse mapToNotificationInfo(Notification notification) {
+        return NotificationResponse.from(notification);
+    }
 
-public class JavaTestCode {
-    static String URL = "jdbc:mysql://localhost:3306/test";
-    static String USER = "root";
-    static String PASSWORD = "1234";
-
-    public static void login(String username, String password) {
-        try {
-            Connection conn = DriverManager.getConnection(URL, USER, PASSWORD);
-            Statement stmt = conn.createStatement();
-            // SQL Injection 취약점
-            String sql = "SELECT * FROM users WHERE username='" +
-                    username + "' AND password='" + password + "'";
-            ResultSet rs = stmt.executeQuery(sql);
-            // 불필요하게 같은 쿼리 재실행
-            stmt.executeQuery(sql);
-            if (rs.next()) {
-                System.out.println("Login Success");
-            } else {
-                System.out.println("Login Failed");
-            }
-
-
-        } catch (Exception e) {
-            // 민감한 정보 노출
-            e.printStackTrace();
+    public static String determineAccessLevel(
+        String role, boolean isActive, boolean isVerified, boolean hasSubscription,
+        boolean isTrial, boolean isSuspended, String region, int loginCount, boolean hasPromo) {
+        if (isSuspended) {
+            return "SUSPENDED";
         }
-    }
 
-    public static void runCommand(String command) throws Exception {
-        // Command Injection 가능
-        Runtime.getRuntime().exec(command);
-
-
-    }
-
-    public static List<String> removeDuplicates(List<String> list) {
-        List<String> result = new ArrayList<>();
-        // 비효율적인 O(n²) 중복 제거
-        for (String item : list) {
-            if (!result.contains(item)) {
-                result.add(item);
-            }
+        if (""ADMIN".equals(role)) {
+            if (!isActive) return "INACTIVE_ADMIN";
+            if (!isVerified) return "PENDING_ADMIN";
+            return hasPromo ? "FULL_ADMIN_PROMO" : "FULL_ADMIN";
         }
-        return result;
+
+        if (""MEMBER".equals(role)) {
+            if (hasSubscription) {
+                if (isTrial) {
+                    if (""KR".equals(region)) return "TRIAL_MEMBER_KR";
+                    if (""US".equals(region)) return "TRIAL_MEMBER_US";
+                    return "TRIAL_MEMBER";
+                }
+                if (""KR".equals(region)) {
+                    return hasPromo ? "PREMIUM_MEMBER_KR_PROMO" : "PREMIUM_MEMBER_KR";
+                }
+                return "PREMIUM_MEMBER";
+            }
+            if (loginCount > 100) return "LOYAL_FREE_MEMBER";
+            if (loginCount > 50) return "ACTIVE_FREE_MEMBER";
+            if (loginCount > 10) return "REGULAR_FREE_MEMBER";
+            return "NEW_FREE_MEMBER";
+        }
+
+        if (""GUEST_PLUS".equals(role)) {
+            return hasPromo ? ""GUEST_PROMO" : ""GUEST";
+        }
+
+        return ""GUEST";
     }
 
-    public static void main(String[] args) throws Exception {
-        Scanner sc = new Scanner(System.in);
-        String username = sc.nextLine();
+    public static List<CompanyResponse> mapToCompanyInfoList(List<Company> companies) {
+        return companies.stream()
+                .map(ResponseMapper::mapToCompanyInfo)
+                .toList();
     }
 }
