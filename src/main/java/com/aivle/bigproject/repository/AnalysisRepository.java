@@ -62,9 +62,9 @@ public interface AnalysisRepository extends JpaRepository<Analysis, Integer> {
               AND created_at >= :from
               AND created_at < :toExclusive
             ORDER BY analysis_id DESC
-            LIMIT 5
+            LIMIT 7
             """, nativeQuery = true)
-    List<Analysis> findTop5ByCompanyIdAndPeriod(
+    List<Analysis> findTop7ByCompanyIdAndPeriod(
             @Param("companyId") Integer companyId,
             @Param("from") LocalDateTime from,
             @Param("toExclusive") LocalDateTime toExclusive);

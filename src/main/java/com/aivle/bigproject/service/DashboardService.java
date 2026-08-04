@@ -95,7 +95,7 @@ public class DashboardService {
 
         // 최신 분석 데이터를 조회
         List<DashboardResponse.RecentAnalysis> recentAnalyses = analysisRepository
-                .findTop5ByCompanyIdAndPeriod(companyId, fromDateTime, toExclusive)
+                .findTop7ByCompanyIdAndPeriod(companyId, fromDateTime, toExclusive)
                 .stream()
                 .map(this::toRecentAnalysis)
                 .toList();
@@ -130,7 +130,7 @@ public class DashboardService {
                 .toList();
         List<DashboardResponse.RecentPullRequest> recentPullRequests = githubPullRequestRepository
                 .findRecentByCompanyIdAndPeriod(
-                        companyId, fromDateTime, toExclusive, PageRequest.of(0, 10))
+                        companyId, fromDateTime, toExclusive, PageRequest.of(0, 7))
                 .stream()
                 .map(this::toRecentPullRequest)
                 .toList();
