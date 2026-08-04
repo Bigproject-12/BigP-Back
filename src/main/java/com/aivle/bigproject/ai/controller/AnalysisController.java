@@ -7,8 +7,11 @@ import com.aivle.bigproject.ai.dto.AnalysisResultResponse;
 import com.aivle.bigproject.ai.dto.ReanalysisStart;
 import com.aivle.bigproject.ai.dto.ReanalysisResponse;
 import com.aivle.bigproject.dto.repo.PullRequestCreate;
+import com.aivle.bigproject.dto.analysis.BatchPushPreparationResponse;
+import com.aivle.bigproject.dto.analysis.BatchPushRequest;
 import com.aivle.bigproject.ai.service.AnalysisService;
 
+import jakarta.validation.Valid;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
@@ -69,6 +72,15 @@ public class AnalysisController {
             @AuthenticationPrincipal Jwt jwt
     ) { analysisService.pushImprovedCode(analysisId, Integer.valueOf(jwt.getSubject()));
         return ResponseEntity.noContent().build();
+    }
+
+    @PostMapping("/batch-push/prepare")
+    public ResponseEntity<BatchPushPreparationResponse> prepareBatchPush(
+            @Valid @RequestBody BatchPushRequest request,
+            @AuthenticationPrincipal Jwt jwt
+    ) {
+        return ResponseEntity.ok(analysisService.prepareBatchPush(
+                request, Integer.valueOf(jwt.getSubject())));
     }
 
     @PostMapping("/{analysis_id}/reanalyze")

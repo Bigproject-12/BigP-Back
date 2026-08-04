@@ -9,6 +9,7 @@ import static org.mockito.Mockito.when;
 
 import com.aivle.bigproject.dto.repo.GithubPullRequestResult;
 import com.aivle.bigproject.dto.repo.GithubFileContent;
+import com.aivle.bigproject.dto.analysis.BatchPushRequest;
 import com.aivle.bigproject.exception.CustomException;
 import com.aivle.bigproject.exception.ErrorCode;
 import com.aivle.bigproject.entity.Analysis;
@@ -28,6 +29,7 @@ import com.aivle.bigproject.repository.UserRepository;
 import com.aivle.bigproject.service.GithubService;
 import com.aivle.bigproject.service.NotificationService;
 import java.util.Optional;
+import java.util.List;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.ArgumentCaptor;
@@ -90,7 +92,7 @@ class AnalysisServicePullRequestTest {
         when(githubPullRequestRepository.save(any(GithubPullRequest.class)))
                 .thenAnswer(invocation -> invocation.getArgument(0));
 
-        String url = analysisService.createPullRequest(20, 1, null);
+        String url = analysisService.createPullRequest(20, 1, null, null, null);
 
         assertEquals(result.url(), url);
         ArgumentCaptor<GithubPullRequest> prCaptor =
@@ -104,6 +106,99 @@ class AnalysisServicePullRequestTest {
         verify(pullRequestAnalysisRepository).save(linkCaptor.capture());
         assertEquals(analysis, linkCaptor.getValue().getAnalysis());
         assertEquals(prCaptor.getValue(), linkCaptor.getValue().getPullRequest());
+    }
+
+    @Test
+    void pushesSingleImprovedFileUsingLatestFileSha() {
+        User user = User.builder().id(1).build();
+        GithubRepo repo = GithubRepo.builder()
+                .id(10)
+                .organization("aivle")
+                .name("BigP-Back")
+                .build();
+        Analysis analysis = Analysis.builder()
+                .id(20)
+                .user(user)
+                .githubRepo(repo)
+                .status("COMPLETED")
+                .branch("dev")
+                .filePath("src/App.java")
+                .build();
+        Finding finding = Finding.builder().modifiedCode("class App {}").build();
+
+        when(analysisRepository.findById(20)).thenReturn(Optional.of(analysis));
+        when(findingRepository.findByAnalysisId(20)).thenReturn(Optional.of(finding));
+        when(githubService.getFileSha(1, "aivle", "BigP-Back", "src/App.java", "dev"))
+                .thenReturn("file-sha");
+
+        analysisService.pushImprovedCode(20, 1);
+
+        verify(githubService).commitFile(
+                1, "aivle", "BigP-Back", "src/App.java", "dev",
+                "class App {}", "file-sha", "GuardrAil: AI 코드 개선 반영 (분석 ID: 20)");
+    }
+
+    @Test
+    void preparesBatchPushAfterValidatingSelectedAnalyses() {
+        User user = User.builder().id(1).build();
+        GithubRepo repo = GithubRepo.builder()
+                .id(10)
+                .organization("aivle")
+                .name("BigP-Back")
+                .build();
+        Analysis first = completedAnalysis(20, user, repo, "dev", "src/A.java");
+        Analysis second = completedAnalysis(21, user, repo, "dev", "src/B.java");
+
+        when(analysisRepository.findAllById(List.of(20, 21)))
+                .thenReturn(List.of(first, second));
+        when(findingRepository.findByAnalysisId(20))
+                .thenReturn(Optional.of(Finding.builder().modifiedCode("class A {}").build()));
+        when(findingRepository.findByAnalysisId(21))
+                .thenReturn(Optional.of(Finding.builder().modifiedCode("class B {}").build()));
+        when(githubService.getBranchHeadSha(1, "aivle", "BigP-Back", "dev"))
+                .thenReturn("head-sha");
+
+        var response = analysisService.prepareBatchPush(
+                new BatchPushRequest(List.of(20, 21), "main", "title", "body"), 1);
+
+        assertEquals(List.of(20, 21), response.analysisIds());
+        assertEquals("aivle/BigP-Back", response.repository());
+        assertEquals("dev", response.branch());
+        assertEquals("head-sha", response.branchHeadSha());
+        assertEquals("READY", response.status());
+    }
+
+    @Test
+    void rejectsBatchPushWhenBranchesDiffer() {
+        User user = User.builder().id(1).build();
+        GithubRepo repo = GithubRepo.builder().id(10).build();
+        Analysis first = completedAnalysis(20, user, repo, "dev", "src/A.java");
+        Analysis second = completedAnalysis(21, user, repo, "main", "src/B.java");
+
+        when(analysisRepository.findAllById(List.of(20, 21)))
+                .thenReturn(List.of(first, second));
+        when(findingRepository.findByAnalysisId(20))
+                .thenReturn(Optional.of(Finding.builder().modifiedCode("class A {}").build()));
+
+        CustomException exception = assertThrows(
+                CustomException.class,
+                () -> analysisService.prepareBatchPush(
+                        new BatchPushRequest(List.of(20, 21), "main", null, null), 1));
+
+        assertEquals(ErrorCode.BATCH_BRANCH_MISMATCH, exception.getErrorCode());
+        verify(githubService, never()).getBranchHeadSha(any(), any(), any(), any());
+    }
+
+    private Analysis completedAnalysis(
+            Integer id, User user, GithubRepo repo, String branch, String filePath) {
+        return Analysis.builder()
+                .id(id)
+                .user(user)
+                .githubRepo(repo)
+                .status("COMPLETED")
+                .branch(branch)
+                .filePath(filePath)
+                .build();
     }
 
     @Test
