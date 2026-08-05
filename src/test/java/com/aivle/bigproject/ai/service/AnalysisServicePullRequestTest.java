@@ -11,6 +11,7 @@ import static org.mockito.Mockito.when;
 
 import com.aivle.bigproject.dto.repo.GithubPullRequestResult;
 import com.aivle.bigproject.dto.repo.GithubFileContent;
+import com.aivle.bigproject.ai.dto.DetectRequest;
 import com.aivle.bigproject.dto.analysis.BatchPushRequest;
 import com.aivle.bigproject.dto.analysis.BatchPullRequestRequest;
 import com.aivle.bigproject.dto.repo.GithubTreeItem;
@@ -61,6 +62,28 @@ class AnalysisServicePullRequestTest {
     @Mock GithubPullRequestRepository githubPullRequestRepository;
     @Mock PullRequestAnalysisRepository pullRequestAnalysisRepository;
     @InjectMocks AnalysisService analysisService;
+
+    @Test
+    void storesGithubSourceShaWhenAnalyzingUserEditedCode() {
+        Company company = Company.builder().id(2).name("AIVLE").build();
+        User user = User.builder().id(1).company(company).build();
+        GithubRepo repo = GithubRepo.builder()
+                .id(10).organization("aivle").name("BigP-Back").build();
+        DetectRequest request = new DetectRequest(
+                "user-edited-code", 10, "Java", null,
+                "src/App.java", "dev", List.of());
+        when(userRepository.findById(1)).thenReturn(Optional.of(user));
+        when(githubRepoRepository.findById(10)).thenReturn(Optional.of(repo));
+        when(githubService.getLatestFileContent(1, 10, "src/App.java", "dev"))
+                .thenReturn(new GithubFileContent("github-original", "source-blob-sha"));
+
+        analysisService.createInitialAnalysis(request, 1);
+
+        ArgumentCaptor<Analysis> captor = ArgumentCaptor.forClass(Analysis.class);
+        verify(analysisRepository).save(captor.capture());
+        assertEquals("user-edited-code", captor.getValue().getOriginCode());
+        assertEquals("source-blob-sha", captor.getValue().getSourceBlobSha());
+    }
 
     @Test
     void createsAndStoresPullRequestThenReturnsGithubUrl() {
