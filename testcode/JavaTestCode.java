@@ -23,12 +23,6 @@ public class ResponseMapper {
             return "SUSPENDED";
         }
 
-        if ("ADMIN".equals(role)) {
-            if (!isActive) return "INACTIVE_ADMIN";
-            if (!isVerified) return "PENDING_ADMIN";
-            return hasPromo ? "FULL_ADMIN_PROMO" : "FULL_ADMIN";
-        }
-
         if ("MEMBER".equals(role)) {
             if (hasSubscription) {
                 if (isTrial) {
