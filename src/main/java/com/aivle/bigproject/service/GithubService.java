@@ -20,6 +20,7 @@ import com.aivle.bigproject.dto.repo.GithubPullRequestResult;
 import com.aivle.bigproject.dto.repo.GithubPullRequestResponse;
 import com.aivle.bigproject.dto.repo.RepoTreeResponse;
 import com.aivle.bigproject.dto.repo.GithubFileContent;
+import com.aivle.bigproject.dto.repo.GithubTreeItem;
 import com.aivle.bigproject.repository.GithubPullRequestRepository;
 import com.aivle.bigproject.repository.AnalysisRepository;
 
@@ -34,6 +35,7 @@ import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.client.RestTemplate;
 import org.springframework.web.client.HttpClientErrorException;
 import org.springframework.web.client.RestClientException;
+import org.springframework.web.client.RestClientResponseException;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.util.StringUtils;
 import lombok.extern.slf4j.Slf4j;
@@ -44,12 +46,14 @@ import java.util.Map;
 import java.util.List;
 import java.util.Base64;
 import java.nio.charset.StandardCharsets;
+import java.net.URI;
 import java.util.ArrayList;
 import java.util.Set;
 import java.util.Collections;
 import java.util.HashSet;
 import java.util.HashMap;
 import java.util.Locale;
+import java.util.Optional;
 import java.time.OffsetDateTime;
 import java.util.stream.Collectors;
 import org.springframework.web.util.UriComponentsBuilder;
@@ -763,9 +767,7 @@ public class GithubService {
         HttpHeaders headers = new HttpHeaders();
         headers.setBearerAuth(token);
         headers.set("Accept", "application/vnd.github+json");
-        String encodedBranch = UriUtils.encodePathSegment(branch, StandardCharsets.UTF_8);
-        String url = "https://api.github.com/repos/" + orgName + "/" + repoName
-                + "/git/ref/heads/" + encodedBranch;
+        URI url = branchRefUri(orgName, repoName, "/git/ref/heads", branch);
 
         try {
             ResponseEntity<Map> response = new RestTemplate().exchange(
@@ -784,8 +786,245 @@ public class GithubService {
         }
     }
 
-    public void commitFile(Integer userId, String orgName, String repoName, String filePath, String branch,
-                            String content, String sha, String message) {
+    public String getCommitTreeSha(
+            Integer userId, String orgName, String repoName, String commitSha) {
+        HttpHeaders headers = githubHeaders(userId);
+        String url = "https://api.github.com/repos/" + orgName + "/" + repoName
+                + "/git/commits/" + commitSha;
+
+        try {
+            ResponseEntity<Map> response = new RestTemplate().exchange(
+                    url, HttpMethod.GET, new HttpEntity<>(headers), Map.class);
+            Map body = response.getBody();
+            Map tree = body == null ? null : (Map) body.get("tree");
+            String sha = tree == null ? null : (String) tree.get("sha");
+            if (!StringUtils.hasText(sha)) {
+                throw new CustomException(ErrorCode.GITHUB_COMMIT_FETCH_FAILED);
+            }
+            return sha;
+        } catch (CustomException e) {
+            throw e;
+        } catch (Exception e) {
+            throw new CustomException(ErrorCode.GITHUB_COMMIT_FETCH_FAILED);
+        }
+    }
+
+    public String createBlob(Integer userId, String orgName, String repoName, String content) {
+        HttpHeaders headers = githubHeaders(userId);
+        Map<String, String> body = Map.of("content", content, "encoding", "utf-8");
+        String url = "https://api.github.com/repos/" + orgName + "/" + repoName + "/git/blobs";
+
+        try {
+            ResponseEntity<Map> response = new RestTemplate().postForEntity(
+                    url, new HttpEntity<>(body, headers), Map.class);
+            String sha = response.getBody() == null ? null : (String) response.getBody().get("sha");
+            if (!StringUtils.hasText(sha)) {
+                throw new CustomException(ErrorCode.GITHUB_BLOB_CREATE_FAILED);
+            }
+            return sha;
+        } catch (CustomException e) {
+            throw e;
+        } catch (Exception e) {
+            logGithubApiFailure("blob 생성", orgName, repoName, e);
+            throw new CustomException(ErrorCode.GITHUB_BLOB_CREATE_FAILED);
+        }
+    }
+
+    public Map<String, String> getFileModes(
+            Integer userId,
+            String orgName,
+            String repoName,
+            String treeSha,
+            Set<String> paths
+    ) {
+        HttpHeaders headers = githubHeaders(userId);
+        String url = "https://api.github.com/repos/" + orgName + "/" + repoName
+                + "/git/trees/" + treeSha + "?recursive=1";
+
+        try {
+            ResponseEntity<Map> response = new RestTemplate().exchange(
+                    url, HttpMethod.GET, new HttpEntity<>(headers), Map.class);
+            Map body = response.getBody();
+            if (body == null || Boolean.TRUE.equals(body.get("truncated"))) {
+                throw new CustomException(ErrorCode.GITHUB_FILE_MODE_FETCH_FAILED);
+            }
+
+            Map<String, String> modes = new HashMap<>();
+            List<Map<String, Object>> tree = (List<Map<String, Object>>) body.get("tree");
+            if (tree != null) {
+                for (Map<String, Object> item : tree) {
+                    String path = (String) item.get("path");
+                    if (paths.contains(path) && "blob".equals(item.get("type"))) {
+                        modes.put(path, (String) item.get("mode"));
+                    }
+                }
+            }
+            if (modes.size() != paths.size() || modes.values().stream().anyMatch(mode -> !StringUtils.hasText(mode))) {
+                throw new CustomException(ErrorCode.GITHUB_FILE_MODE_FETCH_FAILED);
+            }
+            return modes;
+        } catch (CustomException e) {
+            throw e;
+        } catch (Exception e) {
+            logGithubApiFailure("파일 모드 조회", orgName, repoName, e);
+            throw new CustomException(ErrorCode.GITHUB_FILE_MODE_FETCH_FAILED);
+        }
+    }
+
+    public String createTree(
+            Integer userId,
+            String orgName,
+            String repoName,
+            String baseTreeSha,
+            List<GithubTreeItem> items
+    ) {
+        HttpHeaders headers = githubHeaders(userId);
+        List<Map<String, String>> tree = items.stream()
+                .map(item -> Map.of(
+                        "path", item.path(),
+                        "mode", item.mode(),
+                        "type", "blob",
+                        "sha", item.blobSha()))
+                .toList();
+        Map<String, Object> body = Map.of("base_tree", baseTreeSha, "tree", tree);
+        String url = "https://api.github.com/repos/" + orgName + "/" + repoName + "/git/trees";
+
+        try {
+            ResponseEntity<Map> response = new RestTemplate().postForEntity(
+                    url, new HttpEntity<>(body, headers), Map.class);
+            String sha = response.getBody() == null ? null : (String) response.getBody().get("sha");
+            if (!StringUtils.hasText(sha)) {
+                throw new CustomException(ErrorCode.GITHUB_TREE_CREATE_FAILED);
+            }
+            return sha;
+        } catch (CustomException e) {
+            throw e;
+        } catch (Exception e) {
+            logGithubApiFailure("tree 생성", orgName, repoName, e);
+            throw new CustomException(ErrorCode.GITHUB_TREE_CREATE_FAILED);
+        }
+    }
+
+    public String createCommit(
+            Integer userId,
+            String orgName,
+            String repoName,
+            String message,
+            String treeSha,
+            String parentCommitSha
+    ) {
+        HttpHeaders headers = githubHeaders(userId);
+        Map<String, Object> body = Map.of(
+                "message", message,
+                "tree", treeSha,
+                "parents", List.of(parentCommitSha));
+        String url = "https://api.github.com/repos/" + orgName + "/" + repoName + "/git/commits";
+
+        try {
+            ResponseEntity<Map> response = new RestTemplate().postForEntity(
+                    url, new HttpEntity<>(body, headers), Map.class);
+            String sha = response.getBody() == null ? null : (String) response.getBody().get("sha");
+            if (!StringUtils.hasText(sha)) {
+                throw new CustomException(ErrorCode.GITHUB_COMMIT_CREATE_FAILED);
+            }
+            return sha;
+        } catch (CustomException e) {
+            throw e;
+        } catch (Exception e) {
+            logGithubApiFailure("commit 생성", orgName, repoName, e);
+            throw new CustomException(ErrorCode.GITHUB_COMMIT_CREATE_FAILED);
+        }
+    }
+
+    private void logGithubApiFailure(
+            String stage, String orgName, String repoName, Exception exception) {
+        if (exception instanceof RestClientResponseException responseException) {
+            log.warn("GitHub {} 실패 ({}/{} status={}): {}",
+                    stage,
+                    orgName,
+                    repoName,
+                    responseException.getStatusCode(),
+                    responseException.getResponseBodyAsString());
+            return;
+        }
+        log.error("GitHub {} 실패 ({}/{} type={}): {}",
+                stage,
+                orgName,
+                repoName,
+                exception.getClass().getSimpleName(),
+                exception.getMessage());
+    }
+
+    public void updateBranchHead(
+            Integer userId,
+            String orgName,
+            String repoName,
+            String branch,
+            String commitSha
+    ) {
+        HttpHeaders headers = githubHeaders(userId);
+        Map<String, Object> body = Map.of("sha", commitSha, "force", false);
+        URI url = branchRefUri(orgName, repoName, "/git/refs/heads", branch);
+
+        try {
+            new RestTemplate().exchange(
+                    url,
+                    HttpMethod.PATCH,
+                    new HttpEntity<>(body, headers),
+                    Map.class);
+        } catch (HttpClientErrorException e) {
+            log.warn("GitHub 브랜치 갱신 거절 ({}/{}, branch={}, status={}): {}",
+                    orgName, repoName, branch, e.getStatusCode(), e.getResponseBodyAsString());
+            throw new CustomException(resolveBranchUpdateError(
+                    e.getStatusCode().value(), e.getResponseBodyAsString()));
+        } catch (Exception e) {
+            log.error("GitHub 브랜치 갱신 실패 ({}/{}, branch={}): {}",
+                    orgName, repoName, branch, e.getMessage());
+            throw new CustomException(ErrorCode.GITHUB_BRANCH_UPDATE_API_FAILED);
+        }
+    }
+
+    static ErrorCode resolveBranchUpdateError(int status, String responseBody) {
+        String message = responseBody == null ? "" : responseBody.toLowerCase(Locale.ROOT);
+        if (status == 401 || status == 403 || message.contains("protected branch")) {
+            return ErrorCode.GITHUB_BRANCH_UPDATE_FORBIDDEN;
+        }
+        if (status == 404) {
+            return ErrorCode.GITHUB_BRANCH_NOT_FOUND;
+        }
+        if (status == 409 || message.contains("fast forward") || message.contains("fast-forward")) {
+            return ErrorCode.GITHUB_BRANCH_UPDATE_FAILED;
+        }
+        if (status == 422) {
+            return ErrorCode.GITHUB_BRANCH_UPDATE_REJECTED;
+        }
+        return ErrorCode.GITHUB_BRANCH_UPDATE_API_FAILED;
+    }
+
+    private HttpHeaders githubHeaders(Integer userId) {
+        User user = userRepository.findById(userId)
+                .orElseThrow(() -> new CustomException(ErrorCode.USER_NOT_FOUND));
+        if (!StringUtils.hasText(user.getGithubAccessToken())) {
+            throw new CustomException(ErrorCode.GITHUB_TOKEN_NOT_CONNECTED);
+        }
+        String token = githubTokenCrypto.decrypt(user.getGithubAccessToken());
+        HttpHeaders headers = new HttpHeaders();
+        headers.setBearerAuth(token);
+        headers.set("Accept", "application/vnd.github+json");
+        return headers;
+    }
+
+    private URI branchRefUri(String orgName, String repoName, String endpoint, String branch) {
+        return UriComponentsBuilder
+                .fromUriString("https://api.github.com/repos/" + orgName + "/" + repoName + endpoint)
+                .path("/" + branch)
+                .build()
+                .encode()
+                .toUri();
+    }
+
+    public String commitFile(Integer userId, String orgName, String repoName, String filePath, String branch,
+                             String content, String sha, String message) {
         User user = userRepository.findById(userId)
                 .orElseThrow(() -> new CustomException(ErrorCode.USER_NOT_FOUND));
         String token = githubTokenCrypto.decrypt(user.getGithubAccessToken());
@@ -805,11 +1044,22 @@ public class GithubService {
         HttpEntity<Map<String, Object>> entity = new HttpEntity<>(body, headers);
         String url = "https://api.github.com/repos/" + orgName + "/" + repoName + "/contents/" + filePath;
 
-        try { restTemplate.exchange(url, HttpMethod.PUT, entity, Map.class);
-            } catch (Exception e) {
+        try {
+            ResponseEntity<Map> response = restTemplate.exchange(
+                    url, HttpMethod.PUT, entity, Map.class);
+            Map responseBody = response.getBody();
+            Map commit = responseBody == null ? null : (Map) responseBody.get("commit");
+            String commitSha = commit == null ? null : (String) commit.get("sha");
+            if (!StringUtils.hasText(commitSha)) {
                 throw new CustomException(ErrorCode.GITHUB_COMMIT_FAILED);
             }
+            return commitSha;
+        } catch (CustomException e) {
+            throw e;
+        } catch (Exception e) {
+            throw new CustomException(ErrorCode.GITHUB_COMMIT_FAILED);
         }
+    }
     
     public String getDefaultBranch(Integer userId, String orgName, String repoName) {
         User user = userRepository.findById(userId)
@@ -834,14 +1084,8 @@ public class GithubService {
 
     public GithubPullRequestResult createPullRequest(Integer userId, String orgName, String repoName,
                                                      String head, String base, String title, String body) {
-        User user = userRepository.findById(userId)
-                .orElseThrow(() -> new CustomException(ErrorCode.USER_NOT_FOUND));
-        String token = githubTokenCrypto.decrypt(user.getGithubAccessToken());
-
         RestTemplate restTemplate = new RestTemplate();
-        HttpHeaders headers = new HttpHeaders();
-        headers.setBearerAuth(token);
-        headers.set("Accept", "application/vnd.github+json");
+        HttpHeaders headers = githubHeaders(userId);
 
         Map<String, Object> requestBody = Map.of(
                 "title", title,
@@ -856,25 +1100,80 @@ public class GithubService {
 
         try {
             ResponseEntity<Map> response = restTemplate.postForEntity(url, entity, Map.class);
-            Map responseBody = response.getBody();
-            Map headInfo = (Map) responseBody.get("head");
-            return new GithubPullRequestResult(
-                    ((Number) responseBody.get("number")).intValue(),
-                    (String) responseBody.get("html_url"),
-                    ((String) responseBody.get("state")).toUpperCase(Locale.ROOT),
-                    Boolean.TRUE.equals(responseBody.get("draft")),
-                    (String) headInfo.get("sha")
-            );
+            return toPullRequestResult(response.getBody());
         } catch (HttpClientErrorException e) {
             log.error("PR 생성 실패 ({}/{}, head={}, base={}): {}", orgName, repoName, head, base, e.getResponseBodyAsString());
             if (e.getStatusCode() == HttpStatus.UNPROCESSABLE_ENTITY && e.getResponseBodyAsString().contains("A pull request already exists")) {
-                throw new CustomException(ErrorCode.GITHUB_PR_ALREADY_OPEN);
+                return findOpenPullRequest(userId, orgName, repoName, head, base)
+                        .orElseThrow(() -> new CustomException(ErrorCode.GITHUB_PR_ALREADY_OPEN));
             }
             throw new CustomException(ErrorCode.GITHUB_PR_CREATE_FAILED);
         } catch (Exception e) {
             log.error("PR 생성 중 알 수 없는 오류 ({}/{}, head={}, base={}): {}", orgName, repoName, head, base, e.getMessage());
             throw new CustomException(ErrorCode.GITHUB_PR_CREATE_FAILED);
         }
+    }
+
+    public Optional<GithubPullRequestResult> findOpenPullRequest(
+            Integer userId,
+            String orgName,
+            String repoName,
+            String head,
+            String base
+    ) {
+        HttpHeaders headers = githubHeaders(userId);
+        URI url = UriComponentsBuilder
+                .fromUriString("https://api.github.com/repos/" + orgName + "/" + repoName + "/pulls")
+                .queryParam("state", "open")
+                .queryParam("head", orgName + ":" + head)
+                .queryParam("base", base)
+                .build()
+                .encode()
+                .toUri();
+
+        try {
+            ResponseEntity<List> response = new RestTemplate().exchange(
+                    url, HttpMethod.GET, new HttpEntity<>(headers), List.class);
+            List results = response.getBody();
+            if (results == null || results.isEmpty()) {
+                return Optional.empty();
+            }
+            return Optional.of(toPullRequestResult((Map) results.get(0)));
+        } catch (Exception e) {
+            throw new CustomException(ErrorCode.GITHUB_PR_CREATE_FAILED);
+        }
+    }
+
+    public void closePullRequest(
+            Integer userId, String orgName, String repoName, Integer pullRequestNumber) {
+        HttpHeaders headers = githubHeaders(userId);
+        String url = "https://api.github.com/repos/" + orgName + "/" + repoName
+                + "/pulls/" + pullRequestNumber;
+        try {
+            new RestTemplate().exchange(
+                    url,
+                    HttpMethod.PATCH,
+                    new HttpEntity<>(Map.of("state", "closed"), headers),
+                    Map.class);
+        } catch (Exception e) {
+            throw new CustomException(ErrorCode.GITHUB_PR_CLOSE_FAILED);
+        }
+    }
+
+    private GithubPullRequestResult toPullRequestResult(Map responseBody) {
+        if (responseBody == null) {
+            throw new CustomException(ErrorCode.GITHUB_PR_CREATE_FAILED);
+        }
+        Map headInfo = (Map) responseBody.get("head");
+        if (headInfo == null) {
+            throw new CustomException(ErrorCode.GITHUB_PR_CREATE_FAILED);
+        }
+        return new GithubPullRequestResult(
+                ((Number) responseBody.get("number")).intValue(),
+                (String) responseBody.get("html_url"),
+                ((String) responseBody.get("state")).toUpperCase(Locale.ROOT),
+                Boolean.TRUE.equals(responseBody.get("draft")),
+                (String) headInfo.get("sha"));
     }
 
     @Async

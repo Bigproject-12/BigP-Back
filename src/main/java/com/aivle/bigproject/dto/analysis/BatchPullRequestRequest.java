@@ -7,15 +7,10 @@ import jakarta.validation.constraints.Size;
 
 import java.util.List;
 
-public record BatchPushRequest(
+public record BatchPullRequestRequest(
         @NotEmpty @Size(max = 20) List<@NotNull @Positive Integer> analysisIds,
-        Boolean overwriteChangedFiles
+        String baseBranch,
+        @Size(max = 255) String title,
+        String body
 ) {
-    public BatchPushRequest {
-        overwriteChangedFiles = Boolean.TRUE.equals(overwriteChangedFiles);
-    }
-
-    public BatchPushRequest(List<Integer> analysisIds) {
-        this(analysisIds, false);
-    }
 }
