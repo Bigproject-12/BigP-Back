@@ -1,58 +1,72 @@
+package com.example.vulntest;
+
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.jdbc.core.JdbcTemplate;
+import org.springframework.web.bind.annotation.*;
+import org.springframework.web.util.HtmlUtils;
+
 import java.sql.*;
-import java.util.*;
+import java.util.List;
 
-public class JavaTestCode {
+/*
+ * 테스트용 샘플 - 보안 수정 완료
+ * 1. 하드코딩된 시크릿 제거 (환경 변수 사용)
+ * 2. SQL Injection 방지 (PreparedStatement 사용)
+ * 3. Reflected XSS 방지 (HTML 이스케이프 처리)
+ */
+@RestController
+@RequestMapping("/api/board")
+class BoardController {
 
-    private static final String DB_URL = System.getenv("DB_URL") != null ? System.getenv("DB_URL") : "jdbc:mysql://localhost:3306/test";
-    private static final String USER = System.getenv("DB_USER") != null ? System.getenv("DB_USER") : "root";
-    private static final String PASSWORD = System.getenv("DB_PASSWORD") != null ? System.getenv("DB_PASSWORD") : "1234";
+    // 수정: 환경 변수에서 시크릿 키 로드
+    private static final String API_SECRET = System.getenv("API_SECRET");
 
-    public static void main(String[] args) {
-        Scanner scanner = new Scanner(System.in);
+    @Autowired
+    private JdbcTemplate jdbcTemplate;
 
-        System.out.print("Enter username: ");
-        String username = scanner.nextLine();
-        System.out.print("Enter password: ");
-        String password = scanner.nextLine();
-
-        System.out.println("Password entered: " + password);
-
-        try (Connection conn = DriverManager.getConnection(DB_URL, USER, PASSWORD)) {
-            String sql = "SELECT * FROM users WHERE username=? AND password=?";
-            try (PreparedStatement pstmt = conn.prepareStatement(sql)) {
-                pstmt.setString(1, username);
-                pstmt.setString(2, password);
-
-                try (ResultSet rs = pstmt.executeQuery()) {
-                    if (rs.next()) {
-                        System.out.println("Login successful!");
-
-                        List<String> names = new ArrayList<>();
-                        String sql2 = "SELECT username FROM users";
-                        try (PreparedStatement pstmt2 = conn.prepareStatement(sql2);
-                             ResultSet rs2 = pstmt2.executeQuery()) {
-                                while (rs2.next()) {
-                                    names.add(rs2.getString("username"));
-                                }
-                        }
-
-                                                StringBuilder output = new StringBuilder();
-                        for (int i = 0; i < names.size(); i++) {
-                            output.append(names.get(i));
-                            if (i < names.size() - 1) {
-                                output.append(",");
-                            }
-                        }
-                        System.out.println(output.toString());
-                    } else {
-                        System.out.println("Login failed.");
-                    }
-                }
-            }
-        } catch (Exception e) {
-            e.printStackTrace();
-        } finally {
-            scanner.close();
-        }
+    // 수정: PreparedStatement 방식을 사용하여 SQL Injection 방지
+    @GetMapping("/posts")
+    @ResponseBody
+    public List<Post> getPostsByAuthor(@RequestParam String author) {
+        String sql = "SELECT * FROM posts WHERE author = ?";
+        return jdbcTemplate.query(sql, author, (rs, rowNum) -> {
+            Post p = new Post();
+            p.setId(rs.getLong("id"));
+            p.setTitle(rs.getString("title"));
+            p.setAuthor(rs.getString("author"));
+            return p;
+        });
     }
+
+    // 수정: 사용자 입력을 HTML 이스케이프 처리하여 XSS 방지
+    @GetMapping("/search")
+    @ResponseBody
+    public String search(@RequestParam String keyword) {
+        String escapedKeyword = HtmlUtils.htmlEscape(keyword);
+        return "<html><body>"
+             + "<h3>'" + escapedKeyword + "' 검색 결과</h3>"
+             + "</body></html>";
+    }
+
+    // 수정: PreparedStatement 방식을 사용하여 SQL Injection 방지
+    @DeleteMapping("/posts")
+    @ResponseBody
+n    public String deleteByTitle(@RequestParam String title) {
+        String sql = "DELETE FROM posts WHERE title = ?";
+        jdbcTemplate.update(sql, title);
+        return "deleted";
+    }
+}
+
+class Post {
+    private Long id;
+    private String title;
+    private String author;
+
+    public Long getId() { return id; }
+    public void setId(Long id) { this.id = id; }
+    public String getTitle() { return title; }
+    public void setTitle(String title) { this.title = title; }
+    public String getAuthor() { return author; }
+    public void setAuthor(String author) { this.author = author; }
 }
