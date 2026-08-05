@@ -10,8 +10,9 @@ import com.aivle.bigproject.ai.dto.AnalysisResultResponse;
 import com.aivle.bigproject.ai.dto.ReanalysisStart;
 import com.aivle.bigproject.dto.repo.GithubPullRequestResult;
 import com.aivle.bigproject.dto.repo.GithubFileContent;
-import com.aivle.bigproject.dto.analysis.BatchPushPreparationResponse;
+import com.aivle.bigproject.dto.analysis.BatchPushResponse;
 import com.aivle.bigproject.dto.analysis.BatchPushRequest;
+import com.aivle.bigproject.dto.repo.GithubTreeItem;
 
 // Entity
 import com.aivle.bigproject.entity.Analysis;
@@ -64,6 +65,7 @@ import java.util.HashSet;
 import java.util.Set;
 import java.util.function.Function;
 import java.util.stream.Collectors;
+import java.time.LocalDateTime;
 
 
 @Service
@@ -362,8 +364,8 @@ public class AnalysisService {
                 codeTocommit, sha, "GuardrAil: AI 코드 개선 반영 (분석 ID: " + analysisId + ")");
     }
 
-    @Transactional(readOnly = true)
-    public BatchPushPreparationResponse prepareBatchPush(BatchPushRequest request, Integer userId) {
+    @Transactional
+    public BatchPushResponse batchPush(BatchPushRequest request, Integer userId) {
         List<Integer> ids = request.analysisIds();
         if (new HashSet<>(ids).size() != ids.size()) {
             throw new CustomException(ErrorCode.BATCH_ANALYSIS_DUPLICATED);
@@ -380,11 +382,15 @@ public class AnalysisService {
         Integer repoId = first.getGithubRepo().getId();
         String branch = first.getBranch();
         Set<String> filePaths = new HashSet<>();
+        Map<Integer, Finding> findings = new HashMap<>();
 
         for (Analysis analysis : analyses) {
             validateOwner(analysis, userId);
             if (!"COMPLETED".equals(analysis.getStatus())) {
                 throw new CustomException(ErrorCode.ANALYSIS_NOT_COMPLETED);
+            }
+            if (StringUtils.hasText(analysis.getPushedCommitSha())) {
+                throw new CustomException(ErrorCode.ANALYSIS_ALREADY_PUSHED);
             }
             if (!StringUtils.hasText(analysis.getBranch())
                     || !StringUtils.hasText(analysis.getFilePath())) {
@@ -405,19 +411,56 @@ public class AnalysisService {
             if (!StringUtils.hasText(finding.getModifiedCode())) {
                 throw new CustomException(ErrorCode.IMPROVED_CODE_MISSING);
             }
+            findings.put(analysis.getId(), finding);
         }
 
         GithubRepo repo = first.getGithubRepo();
         String headSha = githubService.getBranchHeadSha(
                 userId, repo.getOrganization(), repo.getName(), branch);
+        String baseTreeSha = githubService.getCommitTreeSha(
+                userId, repo.getOrganization(), repo.getName(), headSha);
 
-        return new BatchPushPreparationResponse(
+        List<BatchPushResponse.FileBlob> files = new ArrayList<>();
+        List<GithubTreeItem> treeItems = new ArrayList<>();
+        for (Analysis analysis : analyses) {
+            String blobSha = githubService.createBlob(
+                    userId,
+                    repo.getOrganization(),
+                    repo.getName(),
+                    findings.get(analysis.getId()).getModifiedCode());
+            files.add(new BatchPushResponse.FileBlob(
+                    analysis.getId(), analysis.getFilePath(), blobSha));
+            treeItems.add(new GithubTreeItem(analysis.getFilePath(), blobSha));
+        }
+        String preparedTreeSha = githubService.createTree(
+                userId, repo.getOrganization(), repo.getName(), baseTreeSha, treeItems);
+        String commitMessage = "GuardrAil: AI 코드 개선 반영 (" + analyses.size() + "개 파일)";
+        String commitSha = githubService.createCommit(
+                userId,
+                repo.getOrganization(),
+                repo.getName(),
+                commitMessage,
+                preparedTreeSha,
+                headSha);
+        githubService.updateBranchHead(
+                userId, repo.getOrganization(), repo.getName(), branch, commitSha);
+
+        LocalDateTime pushedAt = LocalDateTime.now();
+        analyses.forEach(analysis -> analysis.markPushed(commitSha, pushedAt));
+        analysisRepository.saveAll(analyses);
+
+        return new BatchPushResponse(
                 ids,
                 repoId,
                 repo.getOrganization() + "/" + repo.getName(),
                 branch,
                 headSha,
-                "READY");
+                baseTreeSha,
+                preparedTreeSha,
+                commitSha,
+                pushedAt,
+                files,
+                "PUSHED");
     }
 
     @Transactional

@@ -7,7 +7,7 @@ import com.aivle.bigproject.ai.dto.AnalysisResultResponse;
 import com.aivle.bigproject.ai.dto.ReanalysisStart;
 import com.aivle.bigproject.ai.dto.ReanalysisResponse;
 import com.aivle.bigproject.dto.repo.PullRequestCreate;
-import com.aivle.bigproject.dto.analysis.BatchPushPreparationResponse;
+import com.aivle.bigproject.dto.analysis.BatchPushResponse;
 import com.aivle.bigproject.dto.analysis.BatchPushRequest;
 import com.aivle.bigproject.ai.service.AnalysisService;
 
@@ -74,12 +74,12 @@ public class AnalysisController {
         return ResponseEntity.noContent().build();
     }
 
-    @PostMapping("/batch-push/prepare")
-    public ResponseEntity<BatchPushPreparationResponse> prepareBatchPush(
+    @PostMapping("/batch-push")
+    public ResponseEntity<BatchPushResponse> batchPush(
             @Valid @RequestBody BatchPushRequest request,
             @AuthenticationPrincipal Jwt jwt
     ) {
-        return ResponseEntity.ok(analysisService.prepareBatchPush(
+        return ResponseEntity.ok(analysisService.batchPush(
                 request, Integer.valueOf(jwt.getSubject())));
     }
 
