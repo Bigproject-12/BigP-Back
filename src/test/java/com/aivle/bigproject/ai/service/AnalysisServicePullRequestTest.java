@@ -2,14 +2,17 @@ package com.aivle.bigproject.ai.service;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertThrows;
+import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.never;
+import static org.mockito.Mockito.doThrow;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
 import com.aivle.bigproject.dto.repo.GithubPullRequestResult;
 import com.aivle.bigproject.dto.repo.GithubFileContent;
 import com.aivle.bigproject.dto.analysis.BatchPushRequest;
+import com.aivle.bigproject.dto.repo.GithubTreeItem;
 import com.aivle.bigproject.exception.CustomException;
 import com.aivle.bigproject.exception.ErrorCode;
 import com.aivle.bigproject.entity.Analysis;
@@ -139,7 +142,7 @@ class AnalysisServicePullRequestTest {
     }
 
     @Test
-    void preparesBatchPushAfterValidatingSelectedAnalyses() {
+    void pushesSelectedAnalysesAsOneCommit() {
         User user = User.builder().id(1).build();
         GithubRepo repo = GithubRepo.builder()
                 .id(10)
@@ -157,15 +160,139 @@ class AnalysisServicePullRequestTest {
                 .thenReturn(Optional.of(Finding.builder().modifiedCode("class B {}").build()));
         when(githubService.getBranchHeadSha(1, "aivle", "BigP-Back", "dev"))
                 .thenReturn("head-sha");
+        when(githubService.getCommitTreeSha(1, "aivle", "BigP-Back", "head-sha"))
+                .thenReturn("base-tree-sha");
+        when(githubService.createBlob(1, "aivle", "BigP-Back", "class A {}"))
+                .thenReturn("blob-a");
+        when(githubService.createBlob(1, "aivle", "BigP-Back", "class B {}"))
+                .thenReturn("blob-b");
+        when(githubService.createTree(
+                1,
+                "aivle",
+                "BigP-Back",
+                "base-tree-sha",
+                List.of(
+                        new GithubTreeItem("src/A.java", "blob-a"),
+                        new GithubTreeItem("src/B.java", "blob-b"))))
+                .thenReturn("prepared-tree-sha");
+        when(githubService.createCommit(
+                1,
+                "aivle",
+                "BigP-Back",
+                "GuardrAil: AI 코드 개선 반영 (2개 파일)",
+                "prepared-tree-sha",
+                "head-sha"))
+                .thenReturn("commit-sha");
 
-        var response = analysisService.prepareBatchPush(
+        var response = analysisService.batchPush(
                 new BatchPushRequest(List.of(20, 21), "main", "title", "body"), 1);
 
         assertEquals(List.of(20, 21), response.analysisIds());
         assertEquals("aivle/BigP-Back", response.repository());
         assertEquals("dev", response.branch());
         assertEquals("head-sha", response.branchHeadSha());
-        assertEquals("READY", response.status());
+        assertEquals("base-tree-sha", response.baseTreeSha());
+        assertEquals("prepared-tree-sha", response.treeSha());
+        assertEquals("commit-sha", response.commitSha());
+        assertEquals(List.of("blob-a", "blob-b"),
+                response.files().stream().map(file -> file.blobSha()).toList());
+        assertEquals("PUSHED", response.status());
+        assertEquals("commit-sha", first.getPushedCommitSha());
+        assertEquals(response.pushedAt(), first.getPushedAt());
+        assertEquals("commit-sha", second.getPushedCommitSha());
+        verify(githubService).updateBranchHead(
+                1, "aivle", "BigP-Back", "dev", "commit-sha");
+        verify(analysisRepository).saveAll(List.of(first, second));
+    }
+
+    @Test
+    void doesNotCreateTreeWhenAnyBlobCreationFails() {
+        User user = User.builder().id(1).build();
+        GithubRepo repo = GithubRepo.builder()
+                .id(10)
+                .organization("aivle")
+                .name("BigP-Back")
+                .build();
+        Analysis first = completedAnalysis(20, user, repo, "dev", "src/A.java");
+        Analysis second = completedAnalysis(21, user, repo, "dev", "src/B.java");
+
+        when(analysisRepository.findAllById(List.of(20, 21)))
+                .thenReturn(List.of(first, second));
+        when(findingRepository.findByAnalysisId(20))
+                .thenReturn(Optional.of(Finding.builder().modifiedCode("class A {}").build()));
+        when(findingRepository.findByAnalysisId(21))
+                .thenReturn(Optional.of(Finding.builder().modifiedCode("class B {}").build()));
+        when(githubService.getBranchHeadSha(1, "aivle", "BigP-Back", "dev"))
+                .thenReturn("head-sha");
+        when(githubService.getCommitTreeSha(1, "aivle", "BigP-Back", "head-sha"))
+                .thenReturn("base-tree-sha");
+        when(githubService.createBlob(1, "aivle", "BigP-Back", "class A {}"))
+                .thenReturn("blob-a");
+        when(githubService.createBlob(1, "aivle", "BigP-Back", "class B {}"))
+                .thenThrow(new CustomException(ErrorCode.GITHUB_BLOB_CREATE_FAILED));
+
+        CustomException exception = assertThrows(
+                CustomException.class,
+                () -> analysisService.batchPush(
+                        new BatchPushRequest(List.of(20, 21), "main", null, null), 1));
+
+        assertEquals(ErrorCode.GITHUB_BLOB_CREATE_FAILED, exception.getErrorCode());
+        verify(githubService, never()).createTree(any(), any(), any(), any(), any());
+    }
+
+    @Test
+    void doesNotSavePushResultWhenBranchUpdateFails() {
+        User user = User.builder().id(1).build();
+        GithubRepo repo = GithubRepo.builder()
+                .id(10).organization("aivle").name("BigP-Back").build();
+        Analysis analysis = completedAnalysis(20, user, repo, "dev", "src/A.java");
+
+        when(analysisRepository.findAllById(List.of(20))).thenReturn(List.of(analysis));
+        when(findingRepository.findByAnalysisId(20))
+                .thenReturn(Optional.of(Finding.builder().modifiedCode("class A {}").build()));
+        when(githubService.getBranchHeadSha(1, "aivle", "BigP-Back", "dev"))
+                .thenReturn("head-sha");
+        when(githubService.getCommitTreeSha(1, "aivle", "BigP-Back", "head-sha"))
+                .thenReturn("base-tree-sha");
+        when(githubService.createBlob(1, "aivle", "BigP-Back", "class A {}"))
+                .thenReturn("blob-a");
+        when(githubService.createTree(
+                1, "aivle", "BigP-Back", "base-tree-sha",
+                List.of(new GithubTreeItem("src/A.java", "blob-a"))))
+                .thenReturn("tree-sha");
+        when(githubService.createCommit(
+                1, "aivle", "BigP-Back",
+                "GuardrAil: AI 코드 개선 반영 (1개 파일)", "tree-sha", "head-sha"))
+                .thenReturn("commit-sha");
+        doThrow(new CustomException(ErrorCode.GITHUB_BRANCH_UPDATE_FAILED))
+                .when(githubService)
+                .updateBranchHead(1, "aivle", "BigP-Back", "dev", "commit-sha");
+
+        CustomException exception = assertThrows(
+                CustomException.class,
+                () -> analysisService.batchPush(
+                        new BatchPushRequest(List.of(20), "main", null, null), 1));
+
+        assertEquals(ErrorCode.GITHUB_BRANCH_UPDATE_FAILED, exception.getErrorCode());
+        assertNull(analysis.getPushedCommitSha());
+        verify(analysisRepository, never()).saveAll(any());
+    }
+
+    @Test
+    void rejectsAnalysisThatWasAlreadyPushed() {
+        User user = User.builder().id(1).build();
+        GithubRepo repo = GithubRepo.builder().id(10).build();
+        Analysis analysis = completedAnalysis(20, user, repo, "dev", "src/A.java");
+        analysis.markPushed("existing-commit", java.time.LocalDateTime.now());
+        when(analysisRepository.findAllById(List.of(20))).thenReturn(List.of(analysis));
+
+        CustomException exception = assertThrows(
+                CustomException.class,
+                () -> analysisService.batchPush(
+                        new BatchPushRequest(List.of(20), "main", null, null), 1));
+
+        assertEquals(ErrorCode.ANALYSIS_ALREADY_PUSHED, exception.getErrorCode());
+        verify(githubService, never()).getBranchHeadSha(any(), any(), any(), any());
     }
 
     @Test
@@ -182,7 +309,7 @@ class AnalysisServicePullRequestTest {
 
         CustomException exception = assertThrows(
                 CustomException.class,
-                () -> analysisService.prepareBatchPush(
+                () -> analysisService.batchPush(
                         new BatchPushRequest(List.of(20, 21), "main", null, null), 1));
 
         assertEquals(ErrorCode.BATCH_BRANCH_MISMATCH, exception.getErrorCode());
