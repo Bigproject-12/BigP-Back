@@ -127,6 +127,9 @@ public class AnalysisService {
             throw new CustomException(ErrorCode.COMPANY_NOT_LINKED);
         }
 
+        GithubFileContent sourceFile = githubService.getLatestFileContent(
+                userId, repo.getId(), requestDto.filePath(), requestDto.branch());
+
         // 분석 중 상태로 DB에 저장
         Analysis analysis = Analysis.builder()
                 .githubRepo(repo)
@@ -136,6 +139,7 @@ public class AnalysisService {
                 .language(requestDto.language())
                 .filePath(requestDto.filePath()) // 히스토리관련 추가
                 .branch(requestDto.branch())
+                .sourceBlobSha(sourceFile.sha())
                 .prompt(null) 
                 .status("ANALYZING") // 초기 생성 시 곧바로 ANALYZING 처리
                 .build();

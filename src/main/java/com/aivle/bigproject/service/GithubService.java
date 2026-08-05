@@ -35,6 +35,7 @@ import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.client.RestTemplate;
 import org.springframework.web.client.HttpClientErrorException;
 import org.springframework.web.client.RestClientException;
+import org.springframework.web.client.RestClientResponseException;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.util.StringUtils;
 import lombok.extern.slf4j.Slf4j;
@@ -824,6 +825,7 @@ public class GithubService {
         } catch (CustomException e) {
             throw e;
         } catch (Exception e) {
+            logGithubApiFailure("blob 생성", orgName, repoName, e);
             throw new CustomException(ErrorCode.GITHUB_BLOB_CREATE_FAILED);
         }
     }
@@ -864,6 +866,7 @@ public class GithubService {
         } catch (CustomException e) {
             throw e;
         } catch (Exception e) {
+            logGithubApiFailure("파일 모드 조회", orgName, repoName, e);
             throw new CustomException(ErrorCode.GITHUB_FILE_MODE_FETCH_FAILED);
         }
     }
@@ -897,6 +900,7 @@ public class GithubService {
         } catch (CustomException e) {
             throw e;
         } catch (Exception e) {
+            logGithubApiFailure("tree 생성", orgName, repoName, e);
             throw new CustomException(ErrorCode.GITHUB_TREE_CREATE_FAILED);
         }
     }
@@ -927,8 +931,28 @@ public class GithubService {
         } catch (CustomException e) {
             throw e;
         } catch (Exception e) {
+            logGithubApiFailure("commit 생성", orgName, repoName, e);
             throw new CustomException(ErrorCode.GITHUB_COMMIT_CREATE_FAILED);
         }
+    }
+
+    private void logGithubApiFailure(
+            String stage, String orgName, String repoName, Exception exception) {
+        if (exception instanceof RestClientResponseException responseException) {
+            log.warn("GitHub {} 실패 ({}/{} status={}): {}",
+                    stage,
+                    orgName,
+                    repoName,
+                    responseException.getStatusCode(),
+                    responseException.getResponseBodyAsString());
+            return;
+        }
+        log.error("GitHub {} 실패 ({}/{} type={}): {}",
+                stage,
+                orgName,
+                repoName,
+                exception.getClass().getSimpleName(),
+                exception.getMessage());
     }
 
     public void updateBranchHead(
