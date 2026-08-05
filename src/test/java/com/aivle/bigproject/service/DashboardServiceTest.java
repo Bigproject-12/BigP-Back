@@ -108,9 +108,9 @@ class DashboardServiceTest {
         when(findingRepository.findTop5RiskRepositoriesByCompanyIdAndPeriod(
                 anyInt(), org.mockito.ArgumentMatchers.any(), org.mockito.ArgumentMatchers.any()))
                 .thenReturn(List.of(riskRepository));
-        when(analysisRepository.findTop5ByCompanyIdAndPeriod(
-                anyInt(), org.mockito.ArgumentMatchers.any(), org.mockito.ArgumentMatchers.any()))
-                .thenReturn(List.of(analysis));
+        //when(analysisRepository.findTop5ByCompanyIdAndPeriod(
+        //        anyInt(), org.mockito.ArgumentMatchers.any(), org.mockito.ArgumentMatchers.any()))
+        //        .thenReturn(List.of(analysis));
         when(findingRepository.findByAnalysisId(20)).thenReturn(Optional.of(finding));
         when(githubPullRequestRepository.countByCompanyIdAndPeriod(
                 anyInt(), org.mockito.ArgumentMatchers.any(), org.mockito.ArgumentMatchers.any()))

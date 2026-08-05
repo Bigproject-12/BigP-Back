@@ -1045,7 +1045,8 @@ public class GithubService {
         } catch (HttpClientErrorException e) {
             log.error("PR 생성 실패 ({}/{}, head={}, base={}): {}", orgName, repoName, head, base, e.getResponseBodyAsString());
             if (e.getStatusCode() == HttpStatus.UNPROCESSABLE_ENTITY && e.getResponseBodyAsString().contains("A pull request already exists")) {
-                throw new CustomException(ErrorCode.GITHUB_PR_ALREADY_OPEN);
+                return findOpenPullRequest(userId, orgName, repoName, head, base)
+                        .orElseThrow(() -> new CustomException(ErrorCode.GITHUB_PR_ALREADY_OPEN));
             }
             throw new CustomException(ErrorCode.GITHUB_PR_CREATE_FAILED);
         } catch (Exception e) {
