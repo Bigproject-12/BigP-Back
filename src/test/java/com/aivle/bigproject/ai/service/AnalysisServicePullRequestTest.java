@@ -136,33 +136,47 @@ class AnalysisServicePullRequestTest {
                 .build();
         Finding finding = Finding.builder().modifiedCode(" ").build();
 
-        when(analysisRepository.findAllById(List.of(20))).thenReturn(List.of(analysis));
+        when(analysisRepository.findById(20)).thenReturn(Optional.of(analysis));
         when(findingRepository.findByAnalysisId(20)).thenReturn(Optional.of(finding));
-        when(githubService.getBranchHeadSha(1, "aivle", "BigP-Back", "dev"))
-                .thenReturn("head-sha");
-        when(githubService.getLatestFileContent(1, 10, "src/App.java", "head-sha"))
+        when(githubService.getLatestFileContent(1, 10, "src/App.java", "dev"))
                 .thenReturn(new GithubFileContent("original", "source-sha-20"));
-        when(githubService.getCommitTreeSha(1, "aivle", "BigP-Back", "head-sha"))
-                .thenReturn("base-tree-sha");
-        when(githubService.getFileModes(
-                1, "aivle", "BigP-Back", "base-tree-sha", Set.of("src/App.java")))
-                .thenReturn(Map.of("src/App.java", "100644"));
-        when(githubService.createBlob(1, "aivle", "BigP-Back", "original"))
-                .thenReturn("blob-sha");
-        when(githubService.createTree(
-                1, "aivle", "BigP-Back", "base-tree-sha",
-                List.of(new GithubTreeItem("src/App.java", "blob-sha", "100644"))))
-                .thenReturn("tree-sha");
-        when(githubService.createCommit(
-                1, "aivle", "BigP-Back", "GuardrAil: AI 코드 개선 반영 (1개 파일)",
-                "tree-sha", "head-sha"))
+        when(githubService.commitFile(
+                1, "aivle", "BigP-Back", "src/App.java", "dev",
+                "original", "source-sha-20",
+                "GuardrAil: AI 코드 개선 반영 (분석 ID: 20)"))
                 .thenReturn("commit-sha");
 
         analysisService.pushImprovedCode(20, 1);
 
-        verify(githubService).updateBranchHead(
-                1, "aivle", "BigP-Back", "dev", "commit-sha");
-        verify(analysisRepository).saveAll(List.of(analysis));
+        assertEquals("commit-sha", analysis.getPushedCommitSha());
+        verify(analysisRepository).save(analysis);
+        verify(githubService, never()).createBlob(any(), any(), any(), any());
+    }
+
+    @Test
+    void singlePushOverwritesLatestFileAfterConfirmation() {
+        User user = User.builder().id(1).build();
+        GithubRepo repo = GithubRepo.builder()
+                .id(10).organization("aivle").name("BigP-Back").build();
+        Analysis analysis = Analysis.builder()
+                .id(20).user(user).githubRepo(repo).status("COMPLETED")
+                .branch("dev").filePath("src/App.java")
+                .originCode("original").sourceBlobSha("old-sha").build();
+        when(analysisRepository.findById(20)).thenReturn(Optional.of(analysis));
+        when(findingRepository.findByAnalysisId(20))
+                .thenReturn(Optional.of(Finding.builder().modifiedCode("improved").build()));
+        when(githubService.getLatestFileContent(1, 10, "src/App.java", "dev"))
+                .thenReturn(new GithubFileContent("changed-by-teammate", "latest-file-sha"));
+        when(githubService.commitFile(
+                1, "aivle", "BigP-Back", "src/App.java", "dev",
+                "improved", "latest-file-sha",
+                "GuardrAil: AI 코드 개선 반영 (분석 ID: 20)"))
+                .thenReturn("commit-sha");
+
+        analysisService.pushImprovedCode(20, 1, true);
+
+        assertEquals("commit-sha", analysis.getPushedCommitSha());
+        verify(analysisRepository).save(analysis);
     }
 
     @Test
@@ -441,6 +455,45 @@ class AnalysisServicePullRequestTest {
 
         assertEquals(ErrorCode.SOURCE_CHANGED_SINCE_ANALYSIS, exception.getErrorCode());
         verify(githubService, never()).createBlob(any(), any(), any(), any());
+    }
+
+    @Test
+    void overwritesChangedGithubFileAfterExplicitConfirmation() {
+        User user = User.builder().id(1).build();
+        GithubRepo repo = GithubRepo.builder()
+                .id(10).organization("aivle").name("BigP-Back").build();
+        Analysis analysis = completedAnalysis(20, user, repo, "dev", "src/A.java");
+        analysis.setOriginCode("original");
+        when(analysisRepository.findAllById(List.of(20))).thenReturn(List.of(analysis));
+        when(findingRepository.findByAnalysisId(20))
+                .thenReturn(Optional.of(Finding.builder().modifiedCode("improved").build()));
+        when(githubService.getBranchHeadSha(1, "aivle", "BigP-Back", "dev"))
+                .thenReturn("latest-head");
+        when(githubService.getLatestFileContent(1, 10, "src/A.java", "latest-head"))
+                .thenReturn(new GithubFileContent("changed-by-teammate", "changed-sha"));
+        when(githubService.getCommitTreeSha(1, "aivle", "BigP-Back", "latest-head"))
+                .thenReturn("base-tree");
+        when(githubService.getFileModes(
+                1, "aivle", "BigP-Back", "base-tree", Set.of("src/A.java")))
+                .thenReturn(Map.of("src/A.java", "100644"));
+        when(githubService.createBlob(1, "aivle", "BigP-Back", "improved"))
+                .thenReturn("blob-sha");
+        when(githubService.createTree(
+                1, "aivle", "BigP-Back", "base-tree",
+                List.of(new GithubTreeItem("src/A.java", "blob-sha", "100644"))))
+                .thenReturn("tree-sha");
+        when(githubService.createCommit(
+                1, "aivle", "BigP-Back", "GuardrAil: AI 코드 개선 반영 (1개 파일)",
+                "tree-sha", "latest-head"))
+                .thenReturn("commit-sha");
+
+        var response = analysisService.batchPush(
+                new BatchPushRequest(List.of(20), true), 1);
+
+        assertEquals("OVERWRITE_PUSHED", response.status());
+        verify(githubService).updateBranchHead(
+                1, "aivle", "BigP-Back", "dev", "commit-sha");
+        verify(analysisRepository).saveAll(List.of(analysis));
     }
 
     @Test

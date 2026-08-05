@@ -338,7 +338,55 @@ public class AnalysisService {
 
     @Transactional
     public void pushImprovedCode(Integer analysisId, Integer userId) {
-        batchPush(new BatchPushRequest(List.of(analysisId)), userId);
+        pushImprovedCode(analysisId, userId, false);
+    }
+
+    @Transactional
+    public void pushImprovedCode(
+            Integer analysisId, Integer userId, boolean overwriteChangedFiles) {
+        Analysis analysis = analysisRepository.findById(analysisId)
+                .orElseThrow(() -> new CustomException(ErrorCode.ANALYSIS_NOT_FOUND));
+        validateOwner(analysis, userId);
+        if (!"COMPLETED".equals(analysis.getStatus())) {
+            throw new CustomException(ErrorCode.ANALYSIS_NOT_COMPLETED);
+        }
+        if (StringUtils.hasText(analysis.getPushedCommitSha())) {
+            throw new CustomException(ErrorCode.ANALYSIS_ALREADY_PUSHED);
+        }
+        if (!StringUtils.hasText(analysis.getBranch())
+                || !StringUtils.hasText(analysis.getFilePath())) {
+            throw new CustomException(ErrorCode.ANALYSIS_BRANCH_FILE_INFO_MISSING);
+        }
+
+        Finding finding = findingRepository.findByAnalysisId(analysisId)
+                .orElseThrow(() -> new CustomException(ErrorCode.FINDING_NOT_FOUND));
+        String pushCode = StringUtils.hasText(finding.getModifiedCode())
+                ? finding.getModifiedCode()
+                : analysis.getOriginCode();
+        if (pushCode == null) {
+            throw new CustomException(ErrorCode.IMPROVED_CODE_MISSING);
+        }
+
+        GithubRepo repo = analysis.getGithubRepo();
+        GithubFileContent latestFile = githubService.getLatestFileContent(
+                userId, repo.getId(), analysis.getFilePath(), analysis.getBranch());
+        boolean sourceUnchanged = Objects.equals(analysis.getSourceBlobSha(), latestFile.sha())
+                || Objects.equals(analysis.getOriginCode(), latestFile.content());
+        if (!sourceUnchanged && !overwriteChangedFiles) {
+            throw new CustomException(ErrorCode.SOURCE_CHANGED_SINCE_ANALYSIS);
+        }
+
+        String commitSha = githubService.commitFile(
+                userId,
+                repo.getOrganization(),
+                repo.getName(),
+                analysis.getFilePath(),
+                analysis.getBranch(),
+                pushCode,
+                latestFile.sha(),
+                "GuardrAil: AI 코드 개선 반영 (분석 ID: " + analysisId + ")");
+        analysis.markPushed(commitSha, LocalDateTime.now());
+        analysisRepository.save(analysis);
     }
 
     @Transactional
@@ -405,9 +453,8 @@ public class AnalysisService {
                     repoId,
                     analysis.getFilePath(),
                     headSha);
-            boolean unchanged = StringUtils.hasText(analysis.getSourceBlobSha())
-                    ? analysis.getSourceBlobSha().equals(latestFile.sha())
-                    : Objects.equals(analysis.getOriginCode(), latestFile.content());
+            boolean unchanged = Objects.equals(analysis.getSourceBlobSha(), latestFile.sha())
+                    || Objects.equals(analysis.getOriginCode(), latestFile.content());
             allSourcesUnchanged &= unchanged;
             allImprovedCodesApplied &= Objects.equals(
                     pushCodes.get(analysis.getId()), latestFile.content());
@@ -431,7 +478,9 @@ public class AnalysisService {
                         List.of(),
                         "RECOVERED");
             }
-            throw new CustomException(ErrorCode.SOURCE_CHANGED_SINCE_ANALYSIS);
+            if (!request.overwriteChangedFiles()) {
+                throw new CustomException(ErrorCode.SOURCE_CHANGED_SINCE_ANALYSIS);
+            }
         }
 
         String baseTreeSha = githubService.getCommitTreeSha(
@@ -484,7 +533,7 @@ public class AnalysisService {
                 commitSha,
                 pushedAt,
                 files,
-                "PUSHED");
+                allSourcesUnchanged ? "PUSHED" : "OVERWRITE_PUSHED");
     }
 
     @Transactional

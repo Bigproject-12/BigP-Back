@@ -999,8 +999,8 @@ public class GithubService {
                 .toUri();
     }
 
-    public void commitFile(Integer userId, String orgName, String repoName, String filePath, String branch,
-                            String content, String sha, String message) {
+    public String commitFile(Integer userId, String orgName, String repoName, String filePath, String branch,
+                             String content, String sha, String message) {
         User user = userRepository.findById(userId)
                 .orElseThrow(() -> new CustomException(ErrorCode.USER_NOT_FOUND));
         String token = githubTokenCrypto.decrypt(user.getGithubAccessToken());
@@ -1020,11 +1020,22 @@ public class GithubService {
         HttpEntity<Map<String, Object>> entity = new HttpEntity<>(body, headers);
         String url = "https://api.github.com/repos/" + orgName + "/" + repoName + "/contents/" + filePath;
 
-        try { restTemplate.exchange(url, HttpMethod.PUT, entity, Map.class);
-            } catch (Exception e) {
+        try {
+            ResponseEntity<Map> response = restTemplate.exchange(
+                    url, HttpMethod.PUT, entity, Map.class);
+            Map responseBody = response.getBody();
+            Map commit = responseBody == null ? null : (Map) responseBody.get("commit");
+            String commitSha = commit == null ? null : (String) commit.get("sha");
+            if (!StringUtils.hasText(commitSha)) {
                 throw new CustomException(ErrorCode.GITHUB_COMMIT_FAILED);
             }
+            return commitSha;
+        } catch (CustomException e) {
+            throw e;
+        } catch (Exception e) {
+            throw new CustomException(ErrorCode.GITHUB_COMMIT_FAILED);
         }
+    }
     
     public String getDefaultBranch(Integer userId, String orgName, String repoName) {
         User user = userRepository.findById(userId)
@@ -1069,7 +1080,8 @@ public class GithubService {
         } catch (HttpClientErrorException e) {
             log.error("PR 생성 실패 ({}/{}, head={}, base={}): {}", orgName, repoName, head, base, e.getResponseBodyAsString());
             if (e.getStatusCode() == HttpStatus.UNPROCESSABLE_ENTITY && e.getResponseBodyAsString().contains("A pull request already exists")) {
-                throw new CustomException(ErrorCode.GITHUB_PR_ALREADY_OPEN);
+                return findOpenPullRequest(userId, orgName, repoName, head, base)
+                        .orElseThrow(() -> new CustomException(ErrorCode.GITHUB_PR_ALREADY_OPEN));
             }
             throw new CustomException(ErrorCode.GITHUB_PR_CREATE_FAILED);
         } catch (Exception e) {
