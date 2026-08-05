@@ -98,7 +98,9 @@ public interface AnalysisRepository extends JpaRepository<Analysis, Integer> {
                     ELSE NULL
                 END,
                 a.improvableRatio,
-                a.status
+                a.status,
+                a.branch,
+                CASE WHEN a.pushedCommitSha IS NOT NULL THEN true ELSE false END
             )
             FROM Analysis a
             LEFT JOIN Finding f ON f.analysis = a

@@ -14,7 +14,9 @@ public record AnalysisHistoryResponse (
     LocalDateTime analyzedAt,
     Integer issueCount,
     BigDecimal improvableRatio, // 개선가능률
-    String status
+    String status,
+    String branch,
+    Boolean pushed
 
 ){
     public static AnalysisHistoryResponse of (Analysis analysis, Finding finding){
@@ -24,7 +26,9 @@ public record AnalysisHistoryResponse (
                 analysis.getCreatedAt(),
                 resolveIssueCount(analysis,finding),// 진행중 / 실패 / 취소에는 finding이 없으므로
                 analysis.getImprovableRatio(),
-                analysis.getStatus()
+                analysis.getStatus(),
+                analysis.getBranch(),
+                analysis.getPushedCommitSha() != null && !analysis.getPushedCommitSha().isBlank()
         );
     }
 
@@ -36,5 +40,3 @@ public record AnalysisHistoryResponse (
         return "COMPLETED".equals(analysis.getStatus()) ? 0:null;
     }
 }
-
-
