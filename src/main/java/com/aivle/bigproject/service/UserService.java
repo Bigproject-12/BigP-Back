@@ -141,7 +141,10 @@ public class UserService {
                 refreshToken,
                 user.getId(),
                 user.getName(),
-                user.getRole()
+                user.getRole(),
+                user.getGithubAccessToken() != null 
+                ? githubTokenCrypto.decrypt(user.getGithubAccessToken()) 
+                : null
         );
     }
 
@@ -157,7 +160,10 @@ public class UserService {
                 rotated.refreshToken(),
                 user.getId(),
                 user.getName(),
-                user.getRole()
+                user.getRole(),
+                user.getGithubAccessToken() != null 
+                ? githubTokenCrypto.decrypt(user.getGithubAccessToken()) 
+                : null
         );
     }
 
