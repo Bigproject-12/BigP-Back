@@ -64,6 +64,14 @@ class AnalysisServicePullRequestTest {
     @InjectMocks AnalysisService analysisService;
 
     @Test
+    void defaultsMissingOverwriteConfirmationToFalse() throws Exception {
+        BatchPushRequest request = JsonMapper.builder().build().readValue(
+                "{\"analysisIds\":[20]}", BatchPushRequest.class);
+
+        assertEquals(false, request.overwriteChangedFiles());
+    }
+
+    @Test
     void storesGithubSourceShaWhenAnalyzingUserEditedCode() {
         Company company = Company.builder().id(2).name("AIVLE").build();
         User user = User.builder().id(1).company(company).build();

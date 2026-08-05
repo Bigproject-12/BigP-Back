@@ -9,8 +9,12 @@ import java.util.List;
 
 public record BatchPushRequest(
         @NotEmpty @Size(max = 20) List<@NotNull @Positive Integer> analysisIds,
-        boolean overwriteChangedFiles
+        Boolean overwriteChangedFiles
 ) {
+    public BatchPushRequest {
+        overwriteChangedFiles = Boolean.TRUE.equals(overwriteChangedFiles);
+    }
+
     public BatchPushRequest(List<Integer> analysisIds) {
         this(analysisIds, false);
     }
