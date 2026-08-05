@@ -108,7 +108,7 @@ class DashboardServiceTest {
         when(findingRepository.findTop5RiskRepositoriesByCompanyIdAndPeriod(
                 anyInt(), org.mockito.ArgumentMatchers.any(), org.mockito.ArgumentMatchers.any()))
                 .thenReturn(List.of(riskRepository));
-        when(analysisRepository.findTop5ByCompanyIdAndPeriod(
+        when(analysisRepository.findTop7ByCompanyIdAndPeriod(
                 anyInt(), org.mockito.ArgumentMatchers.any(), org.mockito.ArgumentMatchers.any()))
                 .thenReturn(List.of(analysis));
         when(findingRepository.findByAnalysisId(20)).thenReturn(Optional.of(finding));

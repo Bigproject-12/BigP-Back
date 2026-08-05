@@ -117,7 +117,7 @@ class AnalysisServicePullRequestTest {
     }
 
     @Test
-    void routesSinglePushThroughSafeBatchWorkflow() {
+    void pushesOriginalCodeWhenImprovedCodeIsBlank() {
         User user = User.builder().id(1).build();
         GithubRepo repo = GithubRepo.builder()
                 .id(10)
@@ -134,7 +134,7 @@ class AnalysisServicePullRequestTest {
                 .originCode("original")
                 .sourceBlobSha("source-sha-20")
                 .build();
-        Finding finding = Finding.builder().modifiedCode("class App {}").build();
+        Finding finding = Finding.builder().modifiedCode(" ").build();
 
         when(analysisRepository.findAllById(List.of(20))).thenReturn(List.of(analysis));
         when(findingRepository.findByAnalysisId(20)).thenReturn(Optional.of(finding));
@@ -147,7 +147,7 @@ class AnalysisServicePullRequestTest {
         when(githubService.getFileModes(
                 1, "aivle", "BigP-Back", "base-tree-sha", Set.of("src/App.java")))
                 .thenReturn(Map.of("src/App.java", "100644"));
-        when(githubService.createBlob(1, "aivle", "BigP-Back", "class App {}"))
+        when(githubService.createBlob(1, "aivle", "BigP-Back", "original"))
                 .thenReturn("blob-sha");
         when(githubService.createTree(
                 1, "aivle", "BigP-Back", "base-tree-sha",

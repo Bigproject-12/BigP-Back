@@ -53,6 +53,18 @@ class GithubServiceTest {
     @Spy JsonMapper jsonMapper = JsonMapper.builder().build();
 
     @Test
+    void classifiesGithubBranchUpdateErrors() {
+        assertEquals(ErrorCode.GITHUB_BRANCH_UPDATE_FORBIDDEN,
+                GithubService.resolveBranchUpdateError(403, "Resource protected by branch rules"));
+        assertEquals(ErrorCode.GITHUB_BRANCH_NOT_FOUND,
+                GithubService.resolveBranchUpdateError(404, "Not Found"));
+        assertEquals(ErrorCode.GITHUB_BRANCH_UPDATE_FAILED,
+                GithubService.resolveBranchUpdateError(422, "Update is not a fast forward"));
+        assertEquals(ErrorCode.GITHUB_BRANCH_UPDATE_REJECTED,
+                GithubService.resolveBranchUpdateError(422, "Validation Failed"));
+    }
+
+    @Test
     void getUserRepoReturnsOnlyConnectedRepository() {
         GithubRepo repo = GithubRepo.builder().id(10).name("BigP").build();
         UserRepo userRepo = UserRepo.builder().githubRepo(repo).build();
