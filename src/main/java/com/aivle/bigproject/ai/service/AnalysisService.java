@@ -338,7 +338,13 @@ public class AnalysisService {
 
     @Transactional
     public void pushImprovedCode(Integer analysisId, Integer userId) {
-        batchPush(new BatchPushRequest(List.of(analysisId)), userId);
+        pushImprovedCode(analysisId, userId, false);
+    }
+
+    @Transactional
+    public void pushImprovedCode(
+            Integer analysisId, Integer userId, boolean overwriteChangedFiles) {
+        batchPush(new BatchPushRequest(List.of(analysisId), overwriteChangedFiles), userId);
     }
 
     @Transactional
@@ -405,9 +411,8 @@ public class AnalysisService {
                     repoId,
                     analysis.getFilePath(),
                     headSha);
-            boolean unchanged = StringUtils.hasText(analysis.getSourceBlobSha())
-                    ? analysis.getSourceBlobSha().equals(latestFile.sha())
-                    : Objects.equals(analysis.getOriginCode(), latestFile.content());
+            boolean unchanged = Objects.equals(analysis.getSourceBlobSha(), latestFile.sha())
+                    || Objects.equals(analysis.getOriginCode(), latestFile.content());
             allSourcesUnchanged &= unchanged;
             allImprovedCodesApplied &= Objects.equals(
                     pushCodes.get(analysis.getId()), latestFile.content());
@@ -431,7 +436,9 @@ public class AnalysisService {
                         List.of(),
                         "RECOVERED");
             }
-            throw new CustomException(ErrorCode.SOURCE_CHANGED_SINCE_ANALYSIS);
+            if (!request.overwriteChangedFiles()) {
+                throw new CustomException(ErrorCode.SOURCE_CHANGED_SINCE_ANALYSIS);
+            }
         }
 
         String baseTreeSha = githubService.getCommitTreeSha(
@@ -484,7 +491,7 @@ public class AnalysisService {
                 commitSha,
                 pushedAt,
                 files,
-                "PUSHED");
+                allSourcesUnchanged ? "PUSHED" : "OVERWRITE_PUSHED");
     }
 
     @Transactional
