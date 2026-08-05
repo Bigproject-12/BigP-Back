@@ -23,7 +23,7 @@ spring:
       ddl-auto: validate
       naming:
         physical-strategy: org.hibernate.boot.model.naming.PhysicalNamingStrategyStandardImpl
-    show-sql: true
+    show-sql: ${JPA_SHOW_SQL:false}
     properties:
       hibernate:
         format_sql: true
@@ -38,6 +38,12 @@ spring:
           auth: true
           starttls:
             enable: true
+
+logging:
+  level:
+    org.springframework.web: INFO
+    org.springframework.security: INFO
+    org.hibernate.SQL: INFO
 
 jwt:
   issuer: ${JWT_ISSUER:bigproject}

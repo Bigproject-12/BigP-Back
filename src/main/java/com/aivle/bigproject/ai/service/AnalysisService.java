@@ -336,35 +336,9 @@ public class AnalysisService {
         }
     }
 
+    @Transactional
     public void pushImprovedCode(Integer analysisId, Integer userId) {
-        Analysis analysis = analysisRepository.findById(analysisId)
-                .orElseThrow(() -> new CustomException(ErrorCode.ANALYSIS_NOT_FOUND));
-
-        if (!analysis.getUser().getId().equals(userId)) {
-            throw new CustomException(ErrorCode.NO_PERMISSION);
-        }
-        if (!"COMPLETED".equals(analysis.getStatus())) {
-            throw new CustomException(ErrorCode.ANALYSIS_NOT_COMPLETED);
-        }
-        if (analysis.getBranch() == null || analysis.getFilePath() == null) {
-            throw new CustomException(ErrorCode.ANALYSIS_BRANCH_FILE_INFO_MISSING);
-        }
-
-        Finding finding = findingRepository.findByAnalysisId(analysisId)
-                .orElseThrow(() -> new CustomException(ErrorCode.FINDING_NOT_FOUND));
-
-        GithubRepo repo = analysis.getGithubRepo();
-
-        String sha = githubService.getFileSha(
-                userId, repo.getOrganization(), repo.getName(), analysis.getFilePath(), analysis.getBranch());
-        
-        String codeTocommit = (finding.getModifiedCode() != null &&
-        !finding.getModifiedCode().isBlank())
-                ? finding.getModifiedCode() : analysis.getOriginCode();
-
-        githubService.commitFile(
-                userId, repo.getOrganization(), repo.getName(), analysis.getFilePath(), analysis.getBranch(),
-                codeTocommit, sha, "GuardrAil: AI 코드 개선 반영 (분석 ID: " + analysisId + ")");
+        batchPush(new BatchPushRequest(List.of(analysisId)), userId);
     }
 
     @Transactional
@@ -418,24 +392,53 @@ public class AnalysisService {
         }
 
         GithubRepo repo = first.getGithubRepo();
+        String headSha = githubService.getBranchHeadSha(
+                userId, repo.getOrganization(), repo.getName(), branch);
+        boolean allSourcesUnchanged = true;
+        boolean allImprovedCodesApplied = true;
         for (Analysis analysis : analyses) {
             GithubFileContent latestFile = githubService.getLatestFileContent(
                     userId,
                     repoId,
                     analysis.getFilePath(),
-                    branch);
+                    headSha);
             boolean unchanged = StringUtils.hasText(analysis.getSourceBlobSha())
                     ? analysis.getSourceBlobSha().equals(latestFile.sha())
                     : Objects.equals(analysis.getOriginCode(), latestFile.content());
-            if (!unchanged) {
-                throw new CustomException(ErrorCode.SOURCE_CHANGED_SINCE_ANALYSIS);
-            }
+            allSourcesUnchanged &= unchanged;
+            allImprovedCodesApplied &= Objects.equals(
+                    findings.get(analysis.getId()).getModifiedCode(), latestFile.content());
         }
 
-        String headSha = githubService.getBranchHeadSha(
-                userId, repo.getOrganization(), repo.getName(), branch);
+        if (!allSourcesUnchanged) {
+            if (allImprovedCodesApplied) {
+                LocalDateTime recoveredAt = LocalDateTime.now();
+                analyses.forEach(analysis -> analysis.markPushed(headSha, recoveredAt));
+                analysisRepository.saveAll(analyses);
+                return new BatchPushResponse(
+                        ids,
+                        repoId,
+                        repo.getOrganization() + "/" + repo.getName(),
+                        branch,
+                        headSha,
+                        null,
+                        null,
+                        headSha,
+                        recoveredAt,
+                        List.of(),
+                        "RECOVERED");
+            }
+            throw new CustomException(ErrorCode.SOURCE_CHANGED_SINCE_ANALYSIS);
+        }
+
         String baseTreeSha = githubService.getCommitTreeSha(
                 userId, repo.getOrganization(), repo.getName(), headSha);
+        Map<String, String> fileModes = githubService.getFileModes(
+                userId,
+                repo.getOrganization(),
+                repo.getName(),
+                baseTreeSha,
+                filePaths);
 
         List<BatchPushResponse.FileBlob> files = new ArrayList<>();
         List<GithubTreeItem> treeItems = new ArrayList<>();
@@ -447,7 +450,8 @@ public class AnalysisService {
                     findings.get(analysis.getId()).getModifiedCode());
             files.add(new BatchPushResponse.FileBlob(
                     analysis.getId(), analysis.getFilePath(), blobSha));
-            treeItems.add(new GithubTreeItem(analysis.getFilePath(), blobSha));
+            treeItems.add(new GithubTreeItem(
+                    analysis.getFilePath(), blobSha, fileModes.get(analysis.getFilePath())));
         }
         String preparedTreeSha = githubService.createTree(
                 userId, repo.getOrganization(), repo.getName(), baseTreeSha, treeItems);
@@ -574,6 +578,13 @@ public class AnalysisService {
         }
 
         if (!pushedCommitSha.equals(result.headCommitSha())) {
+            if (!recovered) {
+                githubService.closePullRequest(
+                        userId,
+                        repo.getOrganization(),
+                        repo.getName(),
+                        result.number());
+            }
             throw new CustomException(ErrorCode.GITHUB_PR_HEAD_MISMATCH);
         }
 
