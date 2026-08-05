@@ -52,6 +52,7 @@ import java.util.Collections;
 import java.util.HashSet;
 import java.util.HashMap;
 import java.util.Locale;
+import java.util.Optional;
 import java.time.OffsetDateTime;
 import java.util.stream.Collectors;
 import org.springframework.web.util.UriComponentsBuilder;
@@ -984,14 +985,8 @@ public class GithubService {
 
     public GithubPullRequestResult createPullRequest(Integer userId, String orgName, String repoName,
                                                      String head, String base, String title, String body) {
-        User user = userRepository.findById(userId)
-                .orElseThrow(() -> new CustomException(ErrorCode.USER_NOT_FOUND));
-        String token = githubTokenCrypto.decrypt(user.getGithubAccessToken());
-
         RestTemplate restTemplate = new RestTemplate();
-        HttpHeaders headers = new HttpHeaders();
-        headers.setBearerAuth(token);
-        headers.set("Accept", "application/vnd.github+json");
+        HttpHeaders headers = githubHeaders(userId);
 
         Map<String, Object> requestBody = Map.of(
                 "title", title,
@@ -1006,15 +1001,7 @@ public class GithubService {
 
         try {
             ResponseEntity<Map> response = restTemplate.postForEntity(url, entity, Map.class);
-            Map responseBody = response.getBody();
-            Map headInfo = (Map) responseBody.get("head");
-            return new GithubPullRequestResult(
-                    ((Number) responseBody.get("number")).intValue(),
-                    (String) responseBody.get("html_url"),
-                    ((String) responseBody.get("state")).toUpperCase(Locale.ROOT),
-                    Boolean.TRUE.equals(responseBody.get("draft")),
-                    (String) headInfo.get("sha")
-            );
+            return toPullRequestResult(response.getBody());
         } catch (HttpClientErrorException e) {
             log.error("PR 생성 실패 ({}/{}, head={}, base={}): {}", orgName, repoName, head, base, e.getResponseBodyAsString());
             if (e.getStatusCode() == HttpStatus.UNPROCESSABLE_ENTITY && e.getResponseBodyAsString().contains("A pull request already exists")) {
@@ -1025,6 +1012,52 @@ public class GithubService {
             log.error("PR 생성 중 알 수 없는 오류 ({}/{}, head={}, base={}): {}", orgName, repoName, head, base, e.getMessage());
             throw new CustomException(ErrorCode.GITHUB_PR_CREATE_FAILED);
         }
+    }
+
+    public Optional<GithubPullRequestResult> findOpenPullRequest(
+            Integer userId,
+            String orgName,
+            String repoName,
+            String head,
+            String base
+    ) {
+        HttpHeaders headers = githubHeaders(userId);
+        URI url = UriComponentsBuilder
+                .fromUriString("https://api.github.com/repos/" + orgName + "/" + repoName + "/pulls")
+                .queryParam("state", "open")
+                .queryParam("head", orgName + ":" + head)
+                .queryParam("base", base)
+                .build()
+                .encode()
+                .toUri();
+
+        try {
+            ResponseEntity<List> response = new RestTemplate().exchange(
+                    url, HttpMethod.GET, new HttpEntity<>(headers), List.class);
+            List results = response.getBody();
+            if (results == null || results.isEmpty()) {
+                return Optional.empty();
+            }
+            return Optional.of(toPullRequestResult((Map) results.get(0)));
+        } catch (Exception e) {
+            throw new CustomException(ErrorCode.GITHUB_PR_CREATE_FAILED);
+        }
+    }
+
+    private GithubPullRequestResult toPullRequestResult(Map responseBody) {
+        if (responseBody == null) {
+            throw new CustomException(ErrorCode.GITHUB_PR_CREATE_FAILED);
+        }
+        Map headInfo = (Map) responseBody.get("head");
+        if (headInfo == null) {
+            throw new CustomException(ErrorCode.GITHUB_PR_CREATE_FAILED);
+        }
+        return new GithubPullRequestResult(
+                ((Number) responseBody.get("number")).intValue(),
+                (String) responseBody.get("html_url"),
+                ((String) responseBody.get("state")).toUpperCase(Locale.ROOT),
+                Boolean.TRUE.equals(responseBody.get("draft")),
+                (String) headInfo.get("sha"));
     }
 
     @Async

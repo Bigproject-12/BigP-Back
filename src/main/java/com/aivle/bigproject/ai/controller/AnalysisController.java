@@ -9,6 +9,8 @@ import com.aivle.bigproject.ai.dto.ReanalysisResponse;
 import com.aivle.bigproject.dto.repo.PullRequestCreate;
 import com.aivle.bigproject.dto.analysis.BatchPushResponse;
 import com.aivle.bigproject.dto.analysis.BatchPushRequest;
+import com.aivle.bigproject.dto.analysis.BatchPullRequestRequest;
+import com.aivle.bigproject.dto.analysis.BatchPullRequestResponse;
 import com.aivle.bigproject.ai.service.AnalysisService;
 
 import jakarta.validation.Valid;
@@ -80,6 +82,15 @@ public class AnalysisController {
             @AuthenticationPrincipal Jwt jwt
     ) {
         return ResponseEntity.ok(analysisService.batchPush(
+                request, Integer.valueOf(jwt.getSubject())));
+    }
+
+    @PostMapping("/batch-pull-request")
+    public ResponseEntity<BatchPullRequestResponse> createBatchPullRequest(
+            @Valid @RequestBody BatchPullRequestRequest request,
+            @AuthenticationPrincipal Jwt jwt
+    ) {
+        return ResponseEntity.ok(analysisService.createBatchPullRequest(
                 request, Integer.valueOf(jwt.getSubject())));
     }
 

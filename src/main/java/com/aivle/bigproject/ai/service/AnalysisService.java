@@ -12,6 +12,8 @@ import com.aivle.bigproject.dto.repo.GithubPullRequestResult;
 import com.aivle.bigproject.dto.repo.GithubFileContent;
 import com.aivle.bigproject.dto.analysis.BatchPushResponse;
 import com.aivle.bigproject.dto.analysis.BatchPushRequest;
+import com.aivle.bigproject.dto.analysis.BatchPullRequestRequest;
+import com.aivle.bigproject.dto.analysis.BatchPullRequestResponse;
 import com.aivle.bigproject.dto.repo.GithubTreeItem;
 
 // Entity
@@ -66,6 +68,7 @@ import java.util.Set;
 import java.util.function.Function;
 import java.util.stream.Collectors;
 import java.time.LocalDateTime;
+import java.util.Objects;
 
 
 @Service
@@ -415,6 +418,20 @@ public class AnalysisService {
         }
 
         GithubRepo repo = first.getGithubRepo();
+        for (Analysis analysis : analyses) {
+            GithubFileContent latestFile = githubService.getLatestFileContent(
+                    userId,
+                    repoId,
+                    analysis.getFilePath(),
+                    branch);
+            boolean unchanged = StringUtils.hasText(analysis.getSourceBlobSha())
+                    ? analysis.getSourceBlobSha().equals(latestFile.sha())
+                    : Objects.equals(analysis.getOriginCode(), latestFile.content());
+            if (!unchanged) {
+                throw new CustomException(ErrorCode.SOURCE_CHANGED_SINCE_ANALYSIS);
+            }
+        }
+
         String headSha = githubService.getBranchHeadSha(
                 userId, repo.getOrganization(), repo.getName(), branch);
         String baseTreeSha = githubService.getCommitTreeSha(
@@ -461,6 +478,147 @@ public class AnalysisService {
                 pushedAt,
                 files,
                 "PUSHED");
+    }
+
+    @Transactional
+    public BatchPullRequestResponse createBatchPullRequest(
+            BatchPullRequestRequest request, Integer userId) {
+        List<Integer> ids = request.analysisIds();
+        if (new HashSet<>(ids).size() != ids.size()) {
+            throw new CustomException(ErrorCode.BATCH_ANALYSIS_DUPLICATED);
+        }
+
+        Map<Integer, Analysis> found = analysisRepository.findAllById(ids).stream()
+                .collect(Collectors.toMap(Analysis::getId, Function.identity()));
+        if (found.size() != ids.size()) {
+            throw new CustomException(ErrorCode.ANALYSIS_NOT_FOUND);
+        }
+
+        List<Analysis> analyses = ids.stream().map(found::get).toList();
+        Analysis first = analyses.get(0);
+        GithubRepo repo = first.getGithubRepo();
+        Integer repoId = repo.getId();
+        String headBranch = first.getBranch();
+        String pushedCommitSha = first.getPushedCommitSha();
+
+        for (Analysis analysis : analyses) {
+            validateOwner(analysis, userId);
+            if (!"COMPLETED".equals(analysis.getStatus())) {
+                throw new CustomException(ErrorCode.ANALYSIS_NOT_COMPLETED);
+            }
+            if (!StringUtils.hasText(analysis.getBranch())) {
+                throw new CustomException(ErrorCode.ANALYSIS_BRANCH_INFO_MISSING);
+            }
+            if (!repoId.equals(analysis.getGithubRepo().getId())) {
+                throw new CustomException(ErrorCode.BATCH_REPOSITORY_MISMATCH);
+            }
+            if (!headBranch.equals(analysis.getBranch())) {
+                throw new CustomException(ErrorCode.BATCH_BRANCH_MISMATCH);
+            }
+            if (!StringUtils.hasText(analysis.getPushedCommitSha())) {
+                throw new CustomException(ErrorCode.ANALYSIS_NOT_PUSHED);
+            }
+            if (!pushedCommitSha.equals(analysis.getPushedCommitSha())) {
+                throw new CustomException(ErrorCode.BATCH_COMMIT_MISMATCH);
+            }
+            if (pullRequestAnalysisRepository.existsByAnalysis_Id(analysis.getId())) {
+                throw new CustomException(ErrorCode.GITHUB_PR_ALREADY_CREATED);
+            }
+        }
+
+        String baseBranch = StringUtils.hasText(request.baseBranch())
+                ? request.baseBranch().trim()
+                : githubService.getDefaultBranch(
+                        userId, repo.getOrganization(), repo.getName());
+        if (headBranch.equals(baseBranch)) {
+            throw new CustomException(ErrorCode.GITHUB_PR_SAME_BRANCH);
+        }
+
+        String currentHeadSha = githubService.getBranchHeadSha(
+                userId, repo.getOrganization(), repo.getName(), headBranch);
+        if (!pushedCommitSha.equals(currentHeadSha)) {
+            throw new CustomException(ErrorCode.GITHUB_PR_HEAD_MISMATCH);
+        }
+
+        String title = StringUtils.hasText(request.title())
+                ? request.title().trim()
+                : "GuardrAil: AI 코드 개선 (" + analyses.size() + "개 파일)";
+        String body = StringUtils.hasText(request.body())
+                ? request.body().trim()
+                : buildBatchPullRequestBody(analyses);
+
+        boolean recovered = false;
+        GithubPullRequestResult result;
+        try {
+            result = githubService.createPullRequest(
+                    userId,
+                    repo.getOrganization(),
+                    repo.getName(),
+                    headBranch,
+                    baseBranch,
+                    title,
+                    body);
+        } catch (CustomException e) {
+            if (e.getErrorCode() != ErrorCode.GITHUB_PR_ALREADY_OPEN) {
+                throw e;
+            }
+            result = githubService.findOpenPullRequest(
+                            userId,
+                            repo.getOrganization(),
+                            repo.getName(),
+                            headBranch,
+                            baseBranch)
+                    .filter(pr -> pushedCommitSha.equals(pr.headCommitSha()))
+                    .orElseThrow(() -> e);
+            recovered = true;
+        }
+
+        if (!pushedCommitSha.equals(result.headCommitSha())) {
+            throw new CustomException(ErrorCode.GITHUB_PR_HEAD_MISMATCH);
+        }
+
+        GithubPullRequestResult finalResult = result;
+        GithubPullRequest pullRequest = githubPullRequestRepository
+                .findTrackedPullRequest(
+                        repo.getOrganization(), repo.getName(), finalResult.number())
+                .orElseGet(() -> githubPullRequestRepository.save(
+                        GithubPullRequest.builder()
+                                .user(first.getUser())
+                                .githubRepo(repo)
+                                .githubPrNumber(finalResult.number())
+                                .title(title)
+                                .description(body)
+                                .headBranch(headBranch)
+                                .baseBranch(baseBranch)
+                                .status(finalResult.status())
+                                .draft(finalResult.draft())
+                                .prUrl(finalResult.url())
+                                .headCommitSha(finalResult.headCommitSha())
+                                .build()));
+
+        pullRequestAnalysisRepository.saveAll(analyses.stream()
+                .map(analysis -> PullRequestAnalysis.builder()
+                        .pullRequest(pullRequest)
+                        .analysis(analysis)
+                        .build())
+                .toList());
+
+        return new BatchPullRequestResponse(
+                result.number(),
+                result.url(),
+                headBranch,
+                baseBranch,
+                result.headCommitSha(),
+                ids,
+                recovered,
+                "PR_CREATED");
+    }
+
+    private String buildBatchPullRequestBody(List<Analysis> analyses) {
+        return "선택한 AI 개선 코드 " + analyses.size() + "개를 반영합니다.\n\n"
+                + analyses.stream()
+                        .map(analysis -> "- `" + analysis.getFilePath() + "`")
+                        .collect(Collectors.joining("\n"));
     }
 
     @Transactional
