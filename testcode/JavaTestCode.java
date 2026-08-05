@@ -1,5 +1,6 @@
 package com.aivle.bigproject.util;
-nimport com.aivle.bigproject.dto.company.CompanyResponse;
+
+import com.aivle.bigproject.dto.company.CompanyResponse;
 import com.aivle.bigproject.dto.notification.NotificationResponse;
 import com.aivle.bigproject.entity.Company;
 import com.aivle.bigproject.entity.Notification;
