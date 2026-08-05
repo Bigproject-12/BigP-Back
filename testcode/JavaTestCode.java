@@ -1,7 +1,7 @@
 import java.sql.*;
 import java.util.*;
 
-public class UserManager {
+public class JavaTestCode {
 
     private static final String DB_URL = System.getenv("DB_URL") != null ? System.getenv("DB_URL") : "jdbc:mysql://localhost:3306/test";
     private static final String USER = System.getenv("DB_USER") != null ? System.getenv("DB_USER") : "root";
@@ -12,7 +12,6 @@ public class UserManager {
 
         System.out.print("Enter username: ");
         String username = scanner.nextLine();
-
         System.out.print("Enter password: ");
         String password = scanner.nextLine();
 
@@ -32,14 +31,17 @@ public class UserManager {
                         String sql2 = "SELECT username FROM users";
                         try (PreparedStatement pstmt2 = conn.prepareStatement(sql2);
                              ResultSet rs2 = pstmt2.executeQuery()) {
-                            while (rs2.next()) {
-                                names.add(rs2.getString("username"));
-                            }
+                                while (rs2.next()) {
+                                    names.add(rs2.getString("username"));
+                                }
                         }
 
-                        StringBuilder output = new StringBuilder();
-                        for (String name : names) {
-                            output.append(name).append(",");
+                                                StringBuilder output = new StringBuilder();
+                        for (int i = 0; i < names.size(); i++) {
+                            output.append(names.get(i));
+                            if (i < names.size() - 1) {
+                                output.append(",");
+                            }
                         }
                         System.out.println(output.toString());
                     } else {
@@ -49,6 +51,8 @@ public class UserManager {
             }
         } catch (Exception e) {
             e.printStackTrace();
+        } finally {
+            scanner.close();
         }
     }
 }
