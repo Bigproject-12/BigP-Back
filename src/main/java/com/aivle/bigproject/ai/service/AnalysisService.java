@@ -344,7 +344,49 @@ public class AnalysisService {
     @Transactional
     public void pushImprovedCode(
             Integer analysisId, Integer userId, boolean overwriteChangedFiles) {
-        batchPush(new BatchPushRequest(List.of(analysisId), overwriteChangedFiles), userId);
+        Analysis analysis = analysisRepository.findById(analysisId)
+                .orElseThrow(() -> new CustomException(ErrorCode.ANALYSIS_NOT_FOUND));
+        validateOwner(analysis, userId);
+        if (!"COMPLETED".equals(analysis.getStatus())) {
+            throw new CustomException(ErrorCode.ANALYSIS_NOT_COMPLETED);
+        }
+        if (StringUtils.hasText(analysis.getPushedCommitSha())) {
+            throw new CustomException(ErrorCode.ANALYSIS_ALREADY_PUSHED);
+        }
+        if (!StringUtils.hasText(analysis.getBranch())
+                || !StringUtils.hasText(analysis.getFilePath())) {
+            throw new CustomException(ErrorCode.ANALYSIS_BRANCH_FILE_INFO_MISSING);
+        }
+
+        Finding finding = findingRepository.findByAnalysisId(analysisId)
+                .orElseThrow(() -> new CustomException(ErrorCode.FINDING_NOT_FOUND));
+        String pushCode = StringUtils.hasText(finding.getModifiedCode())
+                ? finding.getModifiedCode()
+                : analysis.getOriginCode();
+        if (pushCode == null) {
+            throw new CustomException(ErrorCode.IMPROVED_CODE_MISSING);
+        }
+
+        GithubRepo repo = analysis.getGithubRepo();
+        GithubFileContent latestFile = githubService.getLatestFileContent(
+                userId, repo.getId(), analysis.getFilePath(), analysis.getBranch());
+        boolean sourceUnchanged = Objects.equals(analysis.getSourceBlobSha(), latestFile.sha())
+                || Objects.equals(analysis.getOriginCode(), latestFile.content());
+        if (!sourceUnchanged && !overwriteChangedFiles) {
+            throw new CustomException(ErrorCode.SOURCE_CHANGED_SINCE_ANALYSIS);
+        }
+
+        String commitSha = githubService.commitFile(
+                userId,
+                repo.getOrganization(),
+                repo.getName(),
+                analysis.getFilePath(),
+                analysis.getBranch(),
+                pushCode,
+                latestFile.sha(),
+                "GuardrAil: AI 코드 개선 반영 (분석 ID: " + analysisId + ")");
+        analysis.markPushed(commitSha, LocalDateTime.now());
+        analysisRepository.save(analysis);
     }
 
     @Transactional
