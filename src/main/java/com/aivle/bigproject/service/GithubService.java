@@ -948,9 +948,33 @@ public class GithubService {
                     HttpMethod.PATCH,
                     new HttpEntity<>(body, headers),
                     Map.class);
+        } catch (HttpClientErrorException e) {
+            log.warn("GitHub 브랜치 갱신 거절 ({}/{}, branch={}, status={}): {}",
+                    orgName, repoName, branch, e.getStatusCode(), e.getResponseBodyAsString());
+            throw new CustomException(resolveBranchUpdateError(
+                    e.getStatusCode().value(), e.getResponseBodyAsString()));
         } catch (Exception e) {
-            throw new CustomException(ErrorCode.GITHUB_BRANCH_UPDATE_FAILED);
+            log.error("GitHub 브랜치 갱신 실패 ({}/{}, branch={}): {}",
+                    orgName, repoName, branch, e.getMessage());
+            throw new CustomException(ErrorCode.GITHUB_BRANCH_UPDATE_API_FAILED);
         }
+    }
+
+    static ErrorCode resolveBranchUpdateError(int status, String responseBody) {
+        String message = responseBody == null ? "" : responseBody.toLowerCase(Locale.ROOT);
+        if (status == 401 || status == 403 || message.contains("protected branch")) {
+            return ErrorCode.GITHUB_BRANCH_UPDATE_FORBIDDEN;
+        }
+        if (status == 404) {
+            return ErrorCode.GITHUB_BRANCH_NOT_FOUND;
+        }
+        if (status == 409 || message.contains("fast forward") || message.contains("fast-forward")) {
+            return ErrorCode.GITHUB_BRANCH_UPDATE_FAILED;
+        }
+        if (status == 422) {
+            return ErrorCode.GITHUB_BRANCH_UPDATE_REJECTED;
+        }
+        return ErrorCode.GITHUB_BRANCH_UPDATE_API_FAILED;
     }
 
     private HttpHeaders githubHeaders(Integer userId) {

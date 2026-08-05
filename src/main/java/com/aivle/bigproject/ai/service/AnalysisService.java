@@ -359,7 +359,7 @@ public class AnalysisService {
         Integer repoId = first.getGithubRepo().getId();
         String branch = first.getBranch();
         Set<String> filePaths = new HashSet<>();
-        Map<Integer, Finding> findings = new HashMap<>();
+        Map<Integer, String> pushCodes = new HashMap<>();
 
         for (Analysis analysis : analyses) {
             validateOwner(analysis, userId);
@@ -385,10 +385,13 @@ public class AnalysisService {
 
             Finding finding = findingRepository.findByAnalysisId(analysis.getId())
                     .orElseThrow(() -> new CustomException(ErrorCode.FINDING_NOT_FOUND));
-            if (!StringUtils.hasText(finding.getModifiedCode())) {
+            String pushCode = StringUtils.hasText(finding.getModifiedCode())
+                    ? finding.getModifiedCode()
+                    : analysis.getOriginCode();
+            if (pushCode == null) {
                 throw new CustomException(ErrorCode.IMPROVED_CODE_MISSING);
             }
-            findings.put(analysis.getId(), finding);
+            pushCodes.put(analysis.getId(), pushCode);
         }
 
         GithubRepo repo = first.getGithubRepo();
@@ -407,7 +410,7 @@ public class AnalysisService {
                     : Objects.equals(analysis.getOriginCode(), latestFile.content());
             allSourcesUnchanged &= unchanged;
             allImprovedCodesApplied &= Objects.equals(
-                    findings.get(analysis.getId()).getModifiedCode(), latestFile.content());
+                    pushCodes.get(analysis.getId()), latestFile.content());
         }
 
         if (!allSourcesUnchanged) {
@@ -447,7 +450,7 @@ public class AnalysisService {
                     userId,
                     repo.getOrganization(),
                     repo.getName(),
-                    findings.get(analysis.getId()).getModifiedCode());
+                    pushCodes.get(analysis.getId()));
             files.add(new BatchPushResponse.FileBlob(
                     analysis.getId(), analysis.getFilePath(), blobSha));
             treeItems.add(new GithubTreeItem(
