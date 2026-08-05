@@ -15,7 +15,8 @@ public record LoginResponse (
     String tokenType, // 토큰 인증 방식 표기
     Integer userId,
     String name,
-    String role
+    String role,
+    String githubToken
 ){
     /**
      * 토큰과 유저 정보로 로그인 응답 생성
@@ -26,8 +27,9 @@ public record LoginResponse (
             String refreshToken,
             Integer userId,
             String name,
-            String role
+            String role,
+            String githubToken
     ) {
-        return new LoginResponse(accessToken, refreshToken, "Bearer", userId, name, role);
+        return new LoginResponse(accessToken, refreshToken, "Bearer", userId, name, role, githubToken);
     }
 }
