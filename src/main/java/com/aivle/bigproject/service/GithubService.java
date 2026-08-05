@@ -828,6 +828,46 @@ public class GithubService {
         }
     }
 
+    public Map<String, String> getFileModes(
+            Integer userId,
+            String orgName,
+            String repoName,
+            String treeSha,
+            Set<String> paths
+    ) {
+        HttpHeaders headers = githubHeaders(userId);
+        String url = "https://api.github.com/repos/" + orgName + "/" + repoName
+                + "/git/trees/" + treeSha + "?recursive=1";
+
+        try {
+            ResponseEntity<Map> response = new RestTemplate().exchange(
+                    url, HttpMethod.GET, new HttpEntity<>(headers), Map.class);
+            Map body = response.getBody();
+            if (body == null || Boolean.TRUE.equals(body.get("truncated"))) {
+                throw new CustomException(ErrorCode.GITHUB_FILE_MODE_FETCH_FAILED);
+            }
+
+            Map<String, String> modes = new HashMap<>();
+            List<Map<String, Object>> tree = (List<Map<String, Object>>) body.get("tree");
+            if (tree != null) {
+                for (Map<String, Object> item : tree) {
+                    String path = (String) item.get("path");
+                    if (paths.contains(path) && "blob".equals(item.get("type"))) {
+                        modes.put(path, (String) item.get("mode"));
+                    }
+                }
+            }
+            if (modes.size() != paths.size() || modes.values().stream().anyMatch(mode -> !StringUtils.hasText(mode))) {
+                throw new CustomException(ErrorCode.GITHUB_FILE_MODE_FETCH_FAILED);
+            }
+            return modes;
+        } catch (CustomException e) {
+            throw e;
+        } catch (Exception e) {
+            throw new CustomException(ErrorCode.GITHUB_FILE_MODE_FETCH_FAILED);
+        }
+    }
+
     public String createTree(
             Integer userId,
             String orgName,
@@ -839,7 +879,7 @@ public class GithubService {
         List<Map<String, String>> tree = items.stream()
                 .map(item -> Map.of(
                         "path", item.path(),
-                        "mode", "100644",
+                        "mode", item.mode(),
                         "type", "blob",
                         "sha", item.blobSha()))
                 .toList();
@@ -1041,6 +1081,22 @@ public class GithubService {
             return Optional.of(toPullRequestResult((Map) results.get(0)));
         } catch (Exception e) {
             throw new CustomException(ErrorCode.GITHUB_PR_CREATE_FAILED);
+        }
+    }
+
+    public void closePullRequest(
+            Integer userId, String orgName, String repoName, Integer pullRequestNumber) {
+        HttpHeaders headers = githubHeaders(userId);
+        String url = "https://api.github.com/repos/" + orgName + "/" + repoName
+                + "/pulls/" + pullRequestNumber;
+        try {
+            new RestTemplate().exchange(
+                    url,
+                    HttpMethod.PATCH,
+                    new HttpEntity<>(Map.of("state", "closed"), headers),
+                    Map.class);
+        } catch (Exception e) {
+            throw new CustomException(ErrorCode.GITHUB_PR_CLOSE_FAILED);
         }
     }
 
