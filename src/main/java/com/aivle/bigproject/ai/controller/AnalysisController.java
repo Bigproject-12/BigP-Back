@@ -71,8 +71,10 @@ public class AnalysisController {
     @PostMapping("/{analysis_id}/push")
     public ResponseEntity<Void> pushToGithub(
             @PathVariable("analysis_id") Integer analysisId,
+            @RequestParam(defaultValue = "false") boolean overwriteChangedFiles,
             @AuthenticationPrincipal Jwt jwt
-    ) { analysisService.pushImprovedCode(analysisId, Integer.valueOf(jwt.getSubject()));
+    ) { analysisService.pushImprovedCode(
+            analysisId, Integer.valueOf(jwt.getSubject()), overwriteChangedFiles);
         return ResponseEntity.noContent().build();
     }
 
