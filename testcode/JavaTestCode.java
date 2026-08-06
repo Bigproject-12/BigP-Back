@@ -35,11 +35,11 @@ public class JavaTestCode {
                             List<String> names = new ArrayList<>();
                             String sql2 = "SELECT username FROM users";
                             try (PreparedStatement pstmt2 = conn.prepareStatement(sql2);
-                                 ResultSet rs2 = pstmt2.executeQuery()) {
-                                                               while (rs2.next()) {
-                                    names.add(rs2.getString("username"));
-                                                               } }
-                            } 
+                                                                ResultSet rs2 = pstmt2.executeQuery()) {
+                                                                   while (rs2.next()) {
+                                                                       names.add(rs2.getString("username"));
+                                                                   } }
+                            }
 
                             StringBuilder output = new StringBuilder();
                             for (int i = 0; i < names.size(); i++) {
