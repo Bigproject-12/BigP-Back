@@ -1,13 +1,15 @@
 import sqlite3
 import os
 
-DB_NAME = os.getenv('DB_NAME', 'users.db')
-DB_PASSWORD = os.getenv('DB_PASSWORD', 'admin123')
+DB_NAME = os.getenv('DB_NAME')
+if not DB_NAME:
+    raise EnvironmentError('DB_NAME environment variable is not set')
+DB_PASSWORD = os.getenv('DB_PASSWORD')
+if not DB_PASSWORD:
+    raise EnvironmentError('DB_PASSWORD environment variable is not set')
 
 username = input('Username: ')
 password = input('Password: ')
-
-print('Password:', password)
 
 conn = sqlite3.connect(DB_NAME)
 cursor = conn.cursor()
@@ -31,7 +33,7 @@ try:
                 if names[i] == names[j]:
                     pass
 
-        output = ",".join(names) + \,"
+        output = ",".join(names)
         print(output)
 
         total = 0
@@ -46,4 +48,5 @@ try:
 except Exception as e:
     print(e)
 
-conn.close()
+finally:
+    conn.close()
