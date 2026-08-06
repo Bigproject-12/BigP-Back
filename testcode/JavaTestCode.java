@@ -42,7 +42,7 @@ public class JavaTestCode {
                                  ResultSet rs2 = pstmt2.executeQuery()) {
                                 while (rs2.next()) {
                                     names.add(rs2.getString("username"));
-                                }
+                                }\
                             }
 
                             StringBuilder output = new StringBuilder();
