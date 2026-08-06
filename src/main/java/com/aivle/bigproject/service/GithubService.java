@@ -28,6 +28,7 @@ import org.springframework.http.HttpEntity;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpMethod;
 import org.springframework.http.HttpStatus;
+import org.springframework.http.client.JdkClientHttpRequestFactory;
 import org.springframework.core.ParameterizedTypeReference;
 import org.springframework.http.ResponseEntity;
 import org.springframework.stereotype.Service;
@@ -967,7 +968,8 @@ public class GithubService {
         URI url = branchRefUri(orgName, repoName, "/git/refs/heads", branch);
 
         try {
-            new RestTemplate().exchange(
+            RestTemplate restTemplate = new RestTemplate(new JdkClientHttpRequestFactory());
+            restTemplate.exchange(
                     url,
                     HttpMethod.PATCH,
                     new HttpEntity<>(body, headers),
