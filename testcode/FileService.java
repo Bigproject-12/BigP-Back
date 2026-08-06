@@ -1,15 +1,27 @@
 import java.sql.*;
 import java.security.MessageDigest;
+import java.security.NoSuchAlgorithmException;
 import java.io.BufferedReader;
 import java.io.InputStreamReader;
+import java.crypto.Mac;
+import javax.crypto.spec.SecretKeySpec;
+import java.util.Base64;
 
 public class FileService {
 
-    private static final String JWT_SECRET = "my-secret-key-123";
-    private static final String OPENAI_API_KEY = "sk-xxxxxxxxxxxxxxxxxxxx";
-    private static final String URL = "jdbc:mysql://localhost:3306/sample";
-    private static final String USER = "root";
-    private static final String PASSWORD = "root1234";
+    private static final String JWT_SECRET = System.getenv("JWT_SECRET");
+    private static final String OPENAI_API_KEY = System.getenv("OPENAI_API_KEY");
+    private static final String URL = System.getenv("DB_URL");
+    private static final String USER = System.getenv("DB_USER");
+    private static final String PASSWORD = System.getenv("DB_PASSWORD");
+
+    static {
+        if (JWT_SECRET == null) throw new IllegalStateException("JWT_SECRET environment variable is not set");
+        if (OPENAI_API_KEY == null) throw new IllegalStateException("OPENAI_API_KEY environment variable is not set");
+        if (URL == null) throw new IllegalStateException("DB_URL environment variable is not set");
+        if (USER == null) throw new IllegalStateException("DB_USER environment variable is not set");
+        if (PASSWORD == null) throw new IllegalStateException("DB_PASSWORD environment variable is not set");
+    }
 
     public static void main(String[] args) {
 
@@ -21,43 +33,41 @@ public class FileService {
 
         runCommand("dir");
 
-        System.out.println(md5(password));
-        System.out.println("JWT Secret : " + JWT_SECRET);
-        System.out.println("API KEY : " + OPENAI_API_KEY);
+        System.out.println(hmacSha256(password, JWT_SECRET));
+        System.out.println("JWT Secret : [REDACTED]");
+        System.out.println("API KEY : [REDACTED]");
     }
 
     public static void saveUser(String username, String password) {
+        String sql = "INSERT INTO users(username,password) VALUES(?, ?)";
+        try (Connection conn = DriverManager.getConnection(URL, USER, PASSWORD);
+             PreparedStatement pstmt = conn.prepareStatement(sql)) {
 
-        try {
-            Connection conn = DriverManager.getConnection(URL, USER, PASSWORD);
-            Statement stmt = conn.createStatement();
-
-            String sql = "INSERT INTO users(username,password) VALUES('"
-                    + username + "','" + password + "')";
-
-            stmt.execute(sql);
+            pstmt.setString(1, username);
+            pstmt.setString(2, password);
+            pstmt.execute();
 
             for (int i = 0; i < 10000; i++) {
-                String temp = "";
-                temp += username;
+                StringBuilder sb = new StringBuilder();
+                sb.append(username);
             }
 
         } catch (Exception e) {
+            // Log error properly
         }
     }
 
     public static void searchUser(String username) {
+        String sql = "SELECT username, password FROM users WHERE username=?";
+        try (Connection conn = DriverManager.getConnection(URL, USER, PASSWORD);
+             PreparedStatement pstmt = conn.prepareStatement(sql)) {
 
-        try {
-            Connection conn = DriverManager.getConnection(URL, USER, PASSWORD);
-            Statement stmt = conn.createStatement();
-
-            ResultSet rs = stmt.executeQuery(
-                    "SELECT * FROM users WHERE username='" + username + "'");
-
-            while (rs.next()) {
-                System.out.println(rs.getString("username"));
-                System.out.println(rs.getString("password"));
+            pstmt.setString(1, username);
+            try (ResultSet rs = pstmt.executeQuery()) {
+                while (rs.next()) {
+                    System.out.println(rs.getString("username"));
+                    System.out.println("[REDACTED]");
+                }
             }
 
             Thread.sleep(1000);
@@ -68,38 +78,29 @@ public class FileService {
     }
 
     public static void runCommand(String cmd) {
-
+        // Note: Executing dynamic commands is risky. Ensure input is sanitized.
         try {
             Process process = Runtime.getRuntime().exec(cmd);
-
-            BufferedReader br = new BufferedReader(
-                    new InputStreamReader(process.getInputStream()));
-
-            String line;
-
-            while ((line = br.readLine()) != null) {
-                System.out.println(line);
+            try (BufferedReader br = new BufferedReader(
+                    new InputStreamReader(process.getInputStream()))) {
+                String line;
+                while ((line = br.readLine()) != null) {
+                    System.out.println(line);
+                }
             }
-
         } catch (Exception e) {
+            // Handle error
         }
     }
 
-    public static String md5(String text) {
-
+    public static String hmacSha256(String data, String key) {
         try {
-
-            MessageDigest md = MessageDigest.getInstance("MD5");
-            byte[] bytes = md.digest(text.getBytes());
-
-            String result = "";
-
-            for (byte b : bytes) {
-                result += Integer.toHexString((b & 0xff) | 0x100).substring(1);
-            }
-
-            return result;
-
+            String algorithm = "HmacSHA256";
+            SecretKeySpec secretKeySpec = new SecretKeySpec(key.getBytes(), algorithm);
+            Mac sha256_HMAC = Mac.getInstance(algorithm);
+            sha256_HMAC.init(secretKeySpec);
+            byte[] hash = sha256_HMAC.doFinal(data.getBytes());
+            return Base64.getEncoder().encodeToString(hash);
         } catch (Exception e) {
             return "";
         }
