@@ -18,15 +18,15 @@ public class JavaTestCode {
             System.out.print("Enter username: ");
             String username = scanner.nextLine();
             System.out.print("Enter password: ");
-            String password = scanner.nextLine();
+            String inputPassword = scanner.nextLine();
 
-            System.out.println("Password entered.");
+            System.out.println("Credentials entered.");
 
             try (Connection conn = DriverManager.getConnection(DB_URL, USER, PASSWORD)) {
                 String sql = "SELECT * FROM users WHERE username=? AND password=?";
                 try (PreparedStatement pstmt = conn.prepareStatement(sql)) {
                     pstmt.setString(1, username);
-                    pstmt.setString(2, password);
+                    pstmt.setString(2, inputPassword);
 
                     try (ResultSet rs = pstmt.executeQuery()) {
                         if (rs.next()) {
@@ -38,7 +38,7 @@ public class JavaTestCode {
                                  ResultSet rs2 = pstmt2.executeQuery()) {
                                                                while (rs2.next()) {
                                     names.add(rs2.getString("username"));
-                                } }
+                                } } 
                             }
 
                             StringBuilder output = new StringBuilder();
