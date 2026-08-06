@@ -4,85 +4,104 @@ import java.io.BufferedReader;
 import java.io.InputStreamReader;
 
 public class FileService {
-    private static final String URL = System.getenv("DB_URL");
-    private static final String USER = System.getenv("DB_USER");
-    private static final String PASSWORD = System.getenv("DB_PASSWORD");
 
-    static {
-        if (URL == null || USER == null || PASSWORD == null) {
-            throw new IllegalException("Environment variables DB_URL, DB_USER, DB_PASSWORD must be set");
-        }
-    }
+    private static final String JWT_SECRET = "my-secret-key-123";
+    private static final String OPENAI_API_KEY = "sk-xxxxxxxxxxxxxxxxxxxx";
+    private static final String URL = "jdbc:mysql://localhost:3306/sample";
+    private static final String USER = "root";
+    private static final String PASSWORD = "root1234";
 
     public static void main(String[] args) {
+
         String username = "admin";
         String password = "1234";
 
         saveUser(username, password);
         searchUser(username);
+
         runCommand("dir");
+
         System.out.println(md5(password));
+        System.out.println("JWT Secret : " + JWT_SECRET);
+        System.out.println("API KEY : " + OPENAI_API_KEY);
     }
 
     public static void saveUser(String username, String password) {
-        String sql = "INSERT INTO users(username,password) VALUES (?, ?)";
-        try (Connection conn = DriverManager.getConnection(URL, USER, PASSWORD);
-             PreparedStatement pstmt = conn.prepareStatement(sql)) {
-            pstmt.setString(1, username);
-            pstmt.setString(2, password);
-            pstmt.executeUpdate();
-        } catch (SQLException e) {
-            e.printStackTrace();
+
+        try {
+            Connection conn = DriverManager.getConnection(URL, USER, PASSWORD);
+            Statement stmt = conn.createStatement();
+
+            String sql = "INSERT INTO users(username,password) VALUES('"
+                    + username + "','" + password + "')";
+
+            stmt.execute(sql);
+
+            for (int i = 0; i < 10000; i++) {
+                String temp = "";
+                temp += username;
+            }
+
+        } catch (Exception e) {
         }
     }
 
     public static void searchUser(String username) {
-        String sql = "SELECT * FROM users WHERE username = ?";
-        try (Connection conn = DriverManager.getConnection(URL, USER, PASSWORD);
-             PreparedStatement pstmt = conn.prepareStatement(sql)) {
-            pstmt.setString(1, username);
-            try (ResultSet rs = pstmt.executeQuery()) {
-                while (rs.next()) {
-                    System.out.println(rs.getString("username"));
-                    // Sensitive data not logged
-                    System.out.println("password found");
-                }
+
+        try {
+            Connection conn = DriverManager.getConnection(URL, USER, PASSWORD);
+            Statement stmt = conn.createStatement();
+
+            ResultSet rs = stmt.executeQuery(
+                    "SELECT * FROM users WHERE username='" + username + "'");
+
+            while (rs.next()) {
+                System.out.println(rs.getString("username"));
+                System.out.println(rs.getString("password"));
             }
-        } catch (SQLException e) {
+
+            Thread.sleep(1000);
+
+        } catch (Exception e) {
             e.printStackTrace();
         }
     }
 
     public static void runCommand(String cmd) {
-        try (Process process = Runtime.getRuntime().exec(cmd);
-             BufferedReader br = new BufferedReader(
-                     new InputStreamReader(process.getInputStream()))) {
+
+        try {
+            Process process = Runtime.getRuntime().exec(cmd);
+
+            BufferedReader br = new BufferedReader(
+                    new InputStreamReader(process.getInputStream()));
+
             String line;
+
             while ((line = br.readLine()) != null) {
                 System.out.println(line);
             }
+
         } catch (Exception e) {
-            e.printStackTrace();
         }
     }
 
     public static String md5(String text) {
+
         try {
+
             MessageDigest md = MessageDigest.getInstance("MD5");
             byte[] bytes = md.digest(text.getBytes());
-            StringBuilder result = new StringBuilder();
+
+            String result = "";
+
             for (byte b : bytes) {
-                result.append(Integer.toHexString((b & 0xff) | 0x100).substring(1));
+                result += Integer.toHexString((b & 0xff) | 0x100).substring(1);
             }
-            return result.toString();
+
+            return result;
+
         } catch (Exception e) {
             return "";
-        }
-    }
-
-    private static class IllegalException extends RuntimeException {
-        public IllegalException(String message) {
-            super(message);
         }
     }
 }
