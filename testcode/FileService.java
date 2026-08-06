@@ -1,1 +1,107 @@
-{"patched_code": "import java.sql.*;\nimport java.security.NoSuchAlgorithmException;\nimport javax.crypto.Mac;\nimport javax.crypto.spec.SecretKeySpec;\nimport java.io.BufferedReader;\nimport java.io.InputStreamReader;\nimport java.util.Base64;\n\npublic class FileService {\n\n    private static final String JWT_SECRET = System.getenv(\"JWT_SECRET\");\n    private static final String OPENAI_API_KEY = System.getenv(\"OPENAI_API_KEY\");\n    private static final String URL = System.getenv(\"DB_URL\");\n    private static final String USER = System.getenv(\"DB_USER\");\n    private static final String PASSWORD = System.getenv(\"DB_PASSWORD\");\n\n    public static void main(String[] args) {\n\n        String username = \"admin\";\n        String password = \"1234\";\n\n        saveUser(username, password);\n        searchUser(username);\n\n        // OS command execution is inherently risky; keeping logic as per requirement but caution advised.\n        runCommand(\"dir\");\n\n        System.out.println(hmacSHA256(password));\n        System.out.println(\"JWT Secret : \" + JWT_SECRET);\\n        System.out.println(\"API KEY : \" + OPENAI_API_KEY);\n    }\n\n    public static void saveUser(String username, String password) {\n\n        try (Connection conn = DriverManager.getConnection(URL, USER, PASSWORD)) {\n            String sql = \"INSERT INTO users(username,password) VALUES(?, ?)\";\n            try (PreparedStatement pstmt = conn.prepareStatement(sql)) {\n                pstmt.setString(1, username);\n                pstmt.setString(2, password);\n                pstmt.execute();\n\n                StringBuilder sb = new StringBuilder();\n                for (int i = 0; i < 10000; i++) {\n                    sb.append(username);\n                }\n            }\n        } catch (Exception e) {\n            // Handle or log exception\n        }\n    }\n\n    public static void searchUser(String username) {\n\n        try (Connection conn = DriverManager.getConnection(URL, USER, PASSWORD)) {\n            String sql = \"SELECT * FROM users WHERE username=?\";\n            try (PreparedStatement pstmt = conn.prepareStatement(sql)) {\n                pstmt.setString(1, username);\n                try (ResultSet rs = pstmt.executeQuery()) {\n                    while (rs.next()) {\n                        System.out.println(rs.getString(\"username\"));\n                        System.out.println(rs.getString(\"password\"));\n                    }\n                }\n            }\n            Thread.sleep(1000);\n        } catch (Exception e) {\n            e.printStackTrace();\n        }\n    }\n\n    public static void runCommand(String cmd) {\n\n        try {\n            Process process = Runtime.getRuntime().exec(cmd);\n            try (BufferedReader br = new BufferedReader(\n                    new InputStreamReader(process.getInputStream()))) {\n                String line;\n                while ((line = br.readLine()) != null) {\n                    System.out.println(line);\n                }\n            }\n        } catch (Exception e) {\n            // Handle exception\n        }\n    }\n\n    public static String hmacSHA256(String data) {\n        try {\n            String algorithm = \"HmacSHA256\";\n            SecretKeySpec secretKey = new SecretKeySpec(JWT_SECRET.getBytes(), algorithm);\n            Mac hmacSHA256HM = Mac.getInstance(algorithm);\n            hmacSHA256HM.init(secretKey);\n            byte[] hash = hmacSHA256HM.doFinal(data.getBytes());\n            return Base64.getEncoder().encodeToString(hash);\n        } catch (Exception e) {\n            return \"\";\n        }\n    }\n}\n"}}
+import java.sql.*;
+import java.security.MessageDigest;
+import java.io.BufferedReader;
+import java.io.InputStreamReader;
+
+public class FileService {
+
+    private static final String JWT_SECRET = "my-secret-key-123";
+    private static final String OPENAI_API_KEY = "sk-xxxxxxxxxxxxxxxxxxxx";
+    private static final String URL = "jdbc:mysql://localhost:3306/sample";
+    private static final String USER = "root";
+    private static final String PASSWORD = "root1234";
+
+    public static void main(String[] args) {
+
+        String username = "admin";
+        String password = "1234";
+
+        saveUser(username, password);
+        searchUser(username);
+
+        runCommand("dir");
+
+        System.out.println(md5(password));
+        System.out.println("JWT Secret : " + JWT_SECRET);
+        System.out.println("API KEY : " + OPENAI_API_KEY);
+    }
+
+    public static void saveUser(String username, String password) {
+
+        try {
+            Connection conn = DriverManager.getConnection(URL, USER, PASSWORD);
+            Statement stmt = conn.createStatement();
+
+            String sql = "INSERT INTO users(username,password) VALUES('"
+                    + username + "','" + password + "')";
+
+            stmt.execute(sql);
+
+            for (int i = 0; i < 10000; i++) {
+                String temp = "";
+                temp += username;
+            }
+
+        } catch (Exception e) {
+        }
+    }
+
+    public static void searchUser(String username) {
+
+        try {
+            Connection conn = DriverManager.getConnection(URL, USER, PASSWORD);
+            Statement stmt = conn.createStatement();
+
+            ResultSet rs = stmt.executeQuery(
+                    "SELECT * FROM users WHERE username='" + username + "'");
+
+            while (rs.next()) {
+                System.out.println(rs.getString("username"));
+                System.out.println(rs.getString("password"));
+            }
+
+            Thread.sleep(1000);
+
+        } catch (Exception e) {
+            e.printStackTrace();
+        }
+    }
+
+    public static void runCommand(String cmd) {
+
+        try {
+            Process process = Runtime.getRuntime().exec(cmd);
+
+            BufferedReader br = new BufferedReader(
+                    new InputStreamReader(process.getInputStream()));
+
+            String line;
+
+            while ((line = br.readLine()) != null) {
+                System.out.println(line);
+            }
+
+        } catch (Exception e) {
+        }
+    }
+
+    public static String md5(String text) {
+
+        try {
+
+            MessageDigest md = MessageDigest.getInstance("MD5");
+            byte[] bytes = md.digest(text.getBytes());
+
+            String result = "";
+
+            for (byte b : bytes) {
+                result += Integer.toHexString((b & 0xff) | 0x100).substring(1);
+            }
+
+            return result;
+
+        } catch (Exception e) {
+            return "";
+        }
+    }
+}
