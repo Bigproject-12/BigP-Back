@@ -24,7 +24,7 @@ public class JavaTestCode {
             System.out.print("Enter password: ");
             String password = scanner.nextLine();
 
-            System.out.println("Password entered.");
+            System.out.println("Credentials entered.");
 
             try (Connection conn = DriverManager.getConnection(DB_URL, USER, PASSWORD)) {
                 String sql = "SELECT * FROM users WHERE username=? AND password=?";
