@@ -16,27 +16,14 @@ GitHub 저장소의 코드를 AI로 분석하고, 개선 결과를 Push 및 Pull
 
 ## 시스템 구성
 
-```mermaid
-flowchart LR
-    USER([User]) -->|Web Browser| FRONT[BigP-Front<br/>React]
-    FRONT -->|REST API / JWT| BACK[BigP-Back<br/>Spring Boot]
-
-    BACK -->|JPA / JDBC| DB[(MySQL RDS)]
-    BACK -->|Code Analysis Request| AI[BigP_AI<br/>FastAPI]
-    AI -->|Analysis Result| BACK
-
-    BACK -->|REST API / OAuth| GITHUB[GitHub]
-    GITHUB -->|Webhook| BACK
-
-    classDef client fill:#e8f1ff,stroke:#2563eb,color:#111827
-    classDef server fill:#ecfdf5,stroke:#059669,color:#111827
-    classDef storage fill:#fff7ed,stroke:#ea580c,color:#111827
-    classDef external fill:#f5f3ff,stroke:#7c3aed,color:#111827
-
-    class USER,FRONT client
-    class BACK,AI server
-    class DB storage
-    class GITHUB external
+```text
+BigP-Front
+    │ REST API / JWT
+    ▼
+BigP-Back (Spring Boot)
+    ├── MySQL RDS
+    ├── GitHub REST API / OAuth / Webhook
+    └── BigP_AI (FastAPI)
 ```
 
 ## 기술 스택
