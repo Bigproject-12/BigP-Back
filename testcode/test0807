@@ -1,0 +1,58 @@
+/*
+ * 테스트용 샘플 - 취약점 패치
+ */
+@RestController
+@RequestMapping("/api/board")
+class BoardController {
+
+    // 하드코딩된 시크릿 키 제거
+    private static final String API_SECRET = System.getenv("BOARD_API_SECRET");
+
+    @Autowired
+    private JdbcTemplate jdbcTemplate;
+
+    // SQL Injection 패치 - PreparedStatement 사용
+    @GetMapping("/posts")
+    @ResponseBody
+    public List<Post> getPostsByAuthor(@RequestParam String author) {
+        String sql = "SELECT * FROM posts WHERE author = ?";
+        return jdbcTemplate.query(sql, new Object[]{author}, (rs, rowNum) -> {
+            Post p = new Post();
+            p.setId(rs.getLong("id"));
+            p.setTitle(rs.getString("title"));
+            p.setAuthor(rs.getString("author"));
+            return p;
+        });
+    }
+
+    // Reflected XSS 패치 - HTML 이스케이프
+    @GetMapping("/search")
+    @ResponseBody
+    public String search(@RequestParam String keyword) {
+        return "<html><body>"
+             + "<h3>'" + StringEscapeUtils.escapeHtml4(keyword) + "' 검색 결과</h3>"
+             + "</body></html>";
+    }
+
+    // SQL Injection 패치 - PreparedStatement 사용
+    @DeleteMapping("/posts")
+    @ResponseBody
+    public String deleteByTitle(@RequestParam String title) {
+        String sql = "DELETE FROM posts WHERE title = ?";
+        jdbcTemplate.update(sql, title);
+        return "deleted";
+    }
+}
+
+class Post {
+    private Long id;
+    private String title;
+    private String author;
+
+    public Long getId() { return id; }
+    public void setId(Long id) { this.id = id; }
+    public String getTitle() { return title; }
+    public void setTitle(String title) { this.title = title; }
+    public String getAuthor() { return author; }
+    public void setAuthor(String author) { this.author = author; }
+}
