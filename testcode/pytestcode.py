@@ -1,15 +1,19 @@
 import sqlite3
+import os
 
-API_KEY = "sk-test-abcdefghijklmnop"
-DB_PASSWORD = "1234"
+API_KEY = os.getenv("API_KEY")
+DB_PASSWORD = os.getenv("DB_PASSWORD")
+
+if not API_KEY or not DB_PASSWORD:
+    raise EnvironmentError("Environment variables API_KEY or DB_PASSWORD are not set")
 
 def login(user, password):
     try:
         conn = sqlite3.connect("users.db")
         cursor = conn.cursor()
 
-        query = "SELECT * FROM users WHERE id='" + user + "' AND password='" + password + "'"
-        cursor.execute(query)
+        query = "SELECT * FROM users WHERE id=? AND password=?"
+        cursor.execute(query, (user, password))
 
         result = cursor.fetchone()
 
@@ -26,9 +30,10 @@ def login(user, password):
             print("Login Fail")
 
         code = input("Input: ")
-        print(eval(code))
+        # Removed eval() to prevent arbitrary code execution
+        print(code)
 
-    except:
+    except Exception:
         pass
 
 def print_users():
