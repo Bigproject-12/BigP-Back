@@ -7,8 +7,8 @@ import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.security.oauth2.jwt.Jwt;
 import org.springframework.web.bind.annotation.*;
 import com.aivle.bigproject.service.GithubService;
-
-import com.aivle.bigproject.dto.repo.RepoResponse; 
+import com.aivle.bigproject.dto.repo.GithubFileContent;
+import com.aivle.bigproject.dto.repo.RepoResponse;
 import com.aivle.bigproject.dto.repo.BranchResponse;
 import com.aivle.bigproject.dto.repo.GithubPullRequestResponse;
 import com.aivle.bigproject.dto.repo.RepoTreeResponse;
@@ -87,6 +87,17 @@ public class GithubController {
     ) {
         return ResponseEntity.ok(githubService.getRepositoryTree(
                 Integer.valueOf(jwt.getSubject()), repoId, branch, issuesOnly));
+    }
+
+    @GetMapping("/{repoId}/content")
+    public ResponseEntity<GithubFileContent> getRepositoryFileContent(
+            @AuthenticationPrincipal Jwt jwt,
+            @PathVariable Integer repoId,
+            @RequestParam String path,
+            @RequestParam String branch
+    ) {
+        return ResponseEntity.ok(githubService.getLatestFileContent(
+                Integer.valueOf(jwt.getSubject()), repoId, path, branch));
     }
 
     @GetMapping("/{repoId}/pull-requests")
