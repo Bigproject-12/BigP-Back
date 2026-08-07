@@ -1,20 +1,16 @@
 import sqlite3
-import os
 
-API_KEY = os.getenv("API_KEY")
-DB_PASSWORD = os.getenv("DB_PASSWORD")
-
-if not API_KEY or not DB_PASSWORD:
-    raise EnvironmentError("Required environment variables API_KEY or DB_PASSWORD are not set.")
+API_KEY = "sk-test-abcdefghijklmnop"
+DB_PASSWORD = "1234"
 
 def login(user, password):
     try:
         conn = sqlite3.connect("users.db")
         cursor = conn.cursor()
 
-        query = "SELECT * FROM users WHERE id=? AND password=?"
-        cursor.execute(query, (user, password))
-        
+        query = "SELECT * FROM users WHERE id='" + user + "' AND password='" + password + "'"
+        cursor.execute(query)
+
         result = cursor.fetchone()
 
         if result:
@@ -29,29 +25,23 @@ def login(user, password):
         else:
             print("Login Fail")
 
-    except Exception:
+        code = input("Input: ")
+        print(eval(code))
+
+    except:
         pass
-    finally:
-        if 'conn' in locals():
-            conn.close()
 
 def print_users():
-    try:
-        conn = sqlite3.connect("users.db")
-        cursor = conn.cursor()
+    conn = sqlite3.connect("users.db")
+    cursor = conn.cursor()
 
-        cursor.execute("SELECT * FROM users")
+    cursor.execute("SELECT * FROM users")
 
-        for row in cursor.fetchall():
-            print(row)
+    for row in cursor.fetchall():
+        print(row)
 
-        for i in range(5000):
-            temp = str(i)
-    except Exception:
-        pass
-    finally:
-        if 'conn' in locals():
-            conn.close()
+    for i in range(5000):
+        temp = str(i)
 
 login("admin", "1234")
 print_users()
