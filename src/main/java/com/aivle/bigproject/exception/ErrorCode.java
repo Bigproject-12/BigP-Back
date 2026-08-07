@@ -67,7 +67,7 @@ public enum ErrorCode {
     ANALYSIS_NOT_COMPLETED(HttpStatus.BAD_REQUEST, "완료된 분석만 처리할 수 있습니다."),
     ANALYSIS_ALREADY_PUSHED(HttpStatus.CONFLICT, "이미 push된 분석 결과입니다."),
     ANALYSIS_NOT_PUSHED(HttpStatus.BAD_REQUEST, "push가 완료된 분석 결과만 PR을 생성할 수 있습니다."),
-    ANALYSIS_BRANCH_FILE_INFO_MISSING(HttpStatus.BAD_REQUEST, "브랜치 또는 파일 경로 정보가 없어 push할 수 없습니다."),
+    ANALYSIS_BRANCH_FILE_INFO_MISSING(HttpStatus.BAD_REQUEST, "브랜치 또는 파일 경로 정보가 없어 분석할 수 없습니다."),
     ANALYSIS_BRANCH_INFO_MISSING(HttpStatus.BAD_REQUEST, "브랜치 정보가 없어 PR을 생성할 수 없습니다."),
     BATCH_ANALYSIS_DUPLICATED(HttpStatus.BAD_REQUEST, "동일한 분석 결과가 중복 선택되었습니다."),
     BATCH_REPOSITORY_MISMATCH(HttpStatus.BAD_REQUEST, "같은 저장소의 분석 결과만 함께 처리할 수 있습니다."),
