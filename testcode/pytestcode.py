@@ -1,52 +1,47 @@
 import sqlite3
-import os
+
+API_KEY = "sk-test-abcdefghijklmnop"
+DB_PASSWORD = "1234"
 
 def login(user, password):
     try:
-        api_key = os.getenv("API_KEY")
-        db_password = os.getenv("DB_PASSWORD")
-        
-        if not api_key or not db_password:
-            raise EnvironmentError("Missing critical environment variables")
-            
         conn = sqlite3.connect("users.db")
         cursor = conn.cursor()
 
-        query = "SELECT * FROM users WHERE id=? AND password=?"
-        cursor.execute(query, (user, password))
+        query = "SELECT * FROM users WHERE id='" + user + "' AND password='" + password + "'"
+        cursor.execute(query)
 
         result = cursor.fetchone()
 
         if result:
             print("Login Success")
-            print("API KEY:", api_key)
+            print("API KEY:", API_KEY)
 
-            text = user * 3000
+            text = ""
+            for i in range(3000):
+                text += user
+
             print(len(text))
         else:
             print("Login Fail")
 
-        # user_input = input("Input: ")
-        ## Removed eval() to prevent arbitrary code execution vulnerability
+        code = input("Input: ")
+        print(eval(code))
 
-    except Exception as e:
-        print(f"Error occurred: {e}")
+    except:
+        pass
 
 def print_users():
-    try:
-        conn = sqlite3.connect("users.db")
-        cursor = conn.cursor()
+    conn = sqlite3.connect("users.db")
+    cursor = conn.cursor()
 
-        cursor.execute("SELECT * FROM users")
+    cursor.execute("SELECT * FROM users")
 
-        for row in cursor.fetchall():
-            print(row)
+    for row in cursor.fetchall():
+        print(row)
 
-        for i in range(5000):
-            temp = str(i)
-    except Exception as e:
-        print(f"Error occurred: {e}")
+    for i in range(5000):
+        temp = str(i)
 
-if __name__ == "__main__":
-    login("admin", "1234")
-    print_users()
+login("admin", "1234")
+print_users()
