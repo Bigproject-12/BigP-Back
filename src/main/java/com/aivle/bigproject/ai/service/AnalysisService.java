@@ -200,6 +200,10 @@ public class AnalysisService {
                 System.out.println("사용자가 분석을 취소했으므로 결과를 저장하지 않습니다.");
                 return;
             }
+
+            if (response == null || !Boolean.TRUE.equals(response.patchStatus())) {
+                throw new CustomException(ErrorCode.AI_PATCH_FAILED);
+            }
             
             int securityCount = response.vulnerabilities() != null ? response.vulnerabilities().size() : 0;
             int inefficiencyCount = response.complexityDetails() != null ? response.complexityDetails().size() : 0;
