@@ -82,7 +82,7 @@ class AnalysisServicePullRequestTest {
                 "src/App.java", "dev", List.of());
         when(userRepository.findById(1)).thenReturn(Optional.of(user));
         when(githubRepoRepository.findById(10)).thenReturn(Optional.of(repo));
-        when(githubService.getLatestFileContent(1, 10, "src/App.java", "dev"))
+        when(githubService.getLatestFileContent(1, 10, "src/App.java", "dev", true))
                 .thenReturn(new GithubFileContent("github-original", "source-blob-sha"));
 
         analysisService.createInitialAnalysis(request, 1);
@@ -169,7 +169,7 @@ class AnalysisServicePullRequestTest {
 
         when(analysisRepository.findById(20)).thenReturn(Optional.of(analysis));
         when(findingRepository.findByAnalysisId(20)).thenReturn(Optional.of(finding));
-        when(githubService.getLatestFileContent(1, 10, "src/App.java", "dev"))
+        when(githubService.getLatestFileContent(1, 10, "src/App.java", "dev", true))
                 .thenReturn(new GithubFileContent("original", "source-sha-20"));
         when(githubService.commitFile(
                 1, "aivle", "BigP-Back", "src/App.java", "dev",
@@ -196,7 +196,7 @@ class AnalysisServicePullRequestTest {
         when(analysisRepository.findById(20)).thenReturn(Optional.of(analysis));
         when(findingRepository.findByAnalysisId(20))
                 .thenReturn(Optional.of(Finding.builder().modifiedCode("improved").build()));
-        when(githubService.getLatestFileContent(1, 10, "src/App.java", "dev"))
+        when(githubService.getLatestFileContent(1, 10, "src/App.java", "dev", true))
                 .thenReturn(new GithubFileContent("changed-by-teammate", "latest-file-sha"));
         when(githubService.commitFile(
                 1, "aivle", "BigP-Back", "src/App.java", "dev",

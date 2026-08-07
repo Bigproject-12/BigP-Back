@@ -466,6 +466,18 @@ public class GithubService {
             String filePath,
             String branch
     ) {
+        return getLatestFileContent(userId, repoId, filePath, branch, false);
+    }
+
+    // treatMissingAsNull=true: 해당 경로에 파일이 아직 없는 경우(새 파일 생성 흐름) null을 반환하고,
+    // 그 외 오류(권한 없음, GitHub 응답 이상 등)는 기존과 동일하게 예외를 던진다.
+    public GithubFileContent getLatestFileContent(
+            Integer userId,
+            Integer repoId,
+            String filePath,
+            String branch,
+            boolean treatMissingAsNull
+    ) {
         if (branch == null || branch.isBlank()) {
             throw new CustomException(ErrorCode.INVALID_BRANCH);
         }
@@ -506,6 +518,9 @@ public class GithubService {
         } catch (CustomException exception) {
             throw exception;
         } catch (HttpClientErrorException.NotFound exception) {
+            if (treatMissingAsNull) {
+                return null;
+            }
             throw new CustomException(ErrorCode.GITHUB_FILE_FETCH_FAILED);
         } catch (HttpClientErrorException.Forbidden exception) {
             throw new CustomException(ErrorCode.NO_PERMISSION);
@@ -1066,12 +1081,15 @@ public class GithubService {
         headers.set("Accept", "application/vnd.github+json");
 
         String encodedContent = Base64.getEncoder().encodeToString(content.getBytes(StandardCharsets.UTF_8));
-        Map<String, Object> body = Map.of(
-            "message", message,
-            "content", encodedContent,
-            "sha", sha,
-            "branch", branch );
-        
+        // sha가 없으면(새 파일 생성) GitHub Contents API 규격상 "sha" 필드 자체를 보내면 안 되므로 제외한다.
+        Map<String, Object> body = new HashMap<>();
+        body.put("message", message);
+        body.put("content", encodedContent);
+        if (StringUtils.hasText(sha)) {
+            body.put("sha", sha);
+        }
+        body.put("branch", branch);
+
         HttpEntity<Map<String, Object>> entity = new HttpEntity<>(body, headers);
         String url = "https://api.github.com/repos/" + orgName + "/" + repoName + "/contents/" + filePath;
 

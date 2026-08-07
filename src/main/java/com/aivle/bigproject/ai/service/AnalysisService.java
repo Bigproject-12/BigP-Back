@@ -128,8 +128,9 @@ public class AnalysisService {
             throw new CustomException(ErrorCode.COMPANY_NOT_LINKED);
         }
 
+        // treatMissingAsNull=true: 저장소에 아직 없는 경로면 새 파일로 취급 (sourceFile == null)
         GithubFileContent sourceFile = githubService.getLatestFileContent(
-                userId, repo.getId(), requestDto.filePath(), requestDto.branch());
+                userId, repo.getId(), requestDto.filePath(), requestDto.branch(), true);
 
         // 분석 중 상태로 DB에 저장
         Analysis analysis = Analysis.builder()
@@ -140,7 +141,7 @@ public class AnalysisService {
                 .language(requestDto.language())
                 .filePath(requestDto.filePath()) // 히스토리관련 추가
                 .branch(requestDto.branch())
-                .sourceBlobSha(sourceFile.sha())
+                .sourceBlobSha(sourceFile != null ? sourceFile.sha() : null)
                 .prompt(null) 
                 .status("ANALYZING") // 초기 생성 시 곧바로 ANALYZING 처리
                 .build();
@@ -395,11 +396,13 @@ public class AnalysisService {
 
         // GitHub의 최신 파일 상태 조회
         GithubRepo repo = analysis.getGithubRepo();
+        // treatMissingAsNull=true: 분석 당시 없던 새 파일은 지금도 없을 수 있으므로 그 경우 null 처리
         GithubFileContent latestFile = githubService.getLatestFileContent(
-                userId, repo.getId(), analysis.getFilePath(), analysis.getBranch());
-        //// 분석 이후 원본 코드 변경 여부 확인
-                boolean sourceUnchanged = Objects.equals(analysis.getSourceBlobSha(), latestFile.sha())
-                || Objects.equals(analysis.getOriginCode(), latestFile.content());
+                userId, repo.getId(), analysis.getFilePath(), analysis.getBranch(), true);
+        boolean sourceUnchanged = latestFile == null
+                ? analysis.getSourceBlobSha() == null
+                : Objects.equals(analysis.getSourceBlobSha(), latestFile.sha())
+                        || Objects.equals(analysis.getOriginCode(), latestFile.content());
         if (!sourceUnchanged && !overwriteChangedFiles) {
             throw new CustomException(ErrorCode.SOURCE_CHANGED_SINCE_ANALYSIS);
         }
@@ -412,7 +415,7 @@ public class AnalysisService {
                 analysis.getFilePath(),
                 analysis.getBranch(),
                 pushCode,
-                latestFile.sha(),
+                latestFile != null ? latestFile.sha() : null,
                 "GuardrAil: AI 코드 개선 반영 (분석 ID: " + analysisId + ")");
         analysis.markPushed(commitSha, LocalDateTime.now());
         analysisRepository.save(analysis);
