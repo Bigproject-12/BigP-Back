@@ -4,8 +4,8 @@ import com.fasterxml.jackson.annotation.JsonProperty;
 import java.util.List;
 
 public record DetectResponse(
-    @JsonProperty("patch_status")
-    Boolean patchStatus,
+    @JsonProperty("patch_success")
+    Boolean patchSuccess,
 
     @JsonProperty("is_ai_generated")
     Boolean isAiGenerated,
