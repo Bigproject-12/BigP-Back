@@ -200,8 +200,12 @@ public class GithubService {
         headers.set("Accept", "application/vnd.github+json");
         headers.set("X-GitHub-Api-Version", "2026-03-10");
 
+        // 브랜치명에 '/'가 포함된 경우(예: feature/OSH)만 git/trees 경로 세그먼트에서 깨지므로
+        // 그 경우에만 커밋 SHA로 변환해서 쓴다 (매번 변환하면 GitHub API 왕복이 하나 더 늘어남).
+        String branchSha = branch.contains("/") ? resolveBranchSha(repo, branch, headers) : branch;
+
         String url = UriComponentsBuilder.fromUriString("https://api.github.com")
-                .pathSegment("repos", repo.getOrganization(), repo.getName(), "git", "trees", branch)
+                .pathSegment("repos", repo.getOrganization(), repo.getName(), "git", "trees", branchSha)
                 .queryParam("recursive", 1)
                 .build()
                 .encode()
@@ -229,7 +233,7 @@ public class GithubService {
             if (truncated) {
                 log.warn("{}/{} 레포의 {} 브랜치 트리를 재귀 조회로 보완합니다.",
                         repo.getOrganization(), repo.getName(), branch);
-                TreeFetch completeTree = fetchCompleteTree(repo, branch, headers);
+                TreeFetch completeTree = fetchCompleteTree(repo, branchSha, headers);
                 tree = completeTree.items();
                 truncated = completeTree.truncated();
             }
@@ -269,6 +273,31 @@ public class GithubService {
             log.error("GitHub 파일 트리 조회 실패 (repoId={}, branch={}): {}",
                     repoId, branch, exception.getMessage());
             throw new CustomException(ErrorCode.GITHUB_API_ERROR);
+        }
+    }
+
+    // 브랜치명(예: "feature/OSH")을 커밋 SHA로 변환한다. GitHub의 branches/{branch} 엔드포인트는
+    // '/'가 포함된 브랜치명을 %2F로 인코딩해도 정상 처리하지만, git/trees/{ref} 쪽은 그렇지 않다.
+    private String resolveBranchSha(GithubRepo repo, String branch, HttpHeaders headers) {
+        String url = UriComponentsBuilder.fromUriString("https://api.github.com")
+                .pathSegment("repos", repo.getOrganization(), repo.getName(), "branches", branch)
+                .build()
+                .encode()
+                .toUriString();
+        try {
+            Map<String, Object> body = restTemplate().exchange(
+                    url,
+                    HttpMethod.GET,
+                    new HttpEntity<>(headers),
+                    new ParameterizedTypeReference<Map<String, Object>>() {}
+            ).getBody();
+            Object commit = body != null ? body.get("commit") : null;
+            if (!(commit instanceof Map<?, ?> commitMap) || !(commitMap.get("sha") instanceof String sha)) {
+                throw new CustomException(ErrorCode.GITHUB_API_ERROR);
+            }
+            return sha;
+        } catch (HttpClientErrorException.NotFound exception) {
+            throw new CustomException(ErrorCode.INVALID_BRANCH);
         }
     }
 

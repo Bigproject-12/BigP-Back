@@ -202,7 +202,7 @@ public class AnalysisService {
                 return;
             }
 
-            if (response == null || !Boolean.TRUE.equals(response.patchStatus())) {
+            if (response == null || !Boolean.TRUE.equals(response.patchSuccess())) {
                 throw new CustomException(ErrorCode.AI_PATCH_FAILED);
             }
             

@@ -5,7 +5,7 @@ import java.util.List;
 
 public record DetectResponse(
     @JsonProperty("patch_success")
-    Boolean patchStatus,
+    Boolean patchSuccess,
 
     @JsonProperty("is_ai_generated")
     Boolean isAiGenerated,
