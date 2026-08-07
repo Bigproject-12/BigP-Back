@@ -75,6 +75,7 @@ public enum ErrorCode {
     BATCH_COMMIT_MISMATCH(HttpStatus.BAD_REQUEST, "같은 Commit으로 push된 분석 결과만 함께 처리할 수 있습니다."),
     BATCH_FILE_DUPLICATED(HttpStatus.BAD_REQUEST, "동일한 파일의 분석 결과가 중복 선택되었습니다."),
     IMPROVED_CODE_MISSING(HttpStatus.BAD_REQUEST, "개선 코드가 없는 분석 결과는 push할 수 없습니다."),
+    AI_PATCH_FAILED(HttpStatus.BAD_GATEWAY, "AI 개선 코드 생성에 실패했습니다."),
     FINDING_NOT_FOUND(HttpStatus.NOT_FOUND, "분석 결과가 없습니다."),
 
     // 권한
