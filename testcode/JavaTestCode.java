@@ -3,20 +3,22 @@ import java.util.*;
 
 public class UserManager {
 
-    private static final String DB_URL = System.getenv("DB_URL") != null ? System.getenv("DB_URL") : "jdbc:mysql://localhost:3306/test";
-    private static final String USER = System.getenv("DB_USER") != null ? System.getenv("DB_USER") : "root";
-    private static final String PASSWORD = System.getenv("DB_PASSWORD") != null ? System.getenv("DB_PASSWORD") : "1234";
+    private static final String DB_URL = System.getenv("DB_URL");
+    private static final String USER = System.getenv("DB_USER");
+    private static final String PASSWORD = System.getenv("DB_PASSWORD");
+
+    static {
+        if (DB_URL == null) throw new IllegalStateException("DB_URL environment variable is not set");
+        if (USER == null) throw new IllegalStateException("DB_USER environment variable is not set");
+        if (PASSWORD == null) throw new IllegalStateException("DB_PASSWORD environment variable is not set");
+    }
 
     public static void main(String[] args) {
         Scanner scanner = new Scanner(System.in);
 
         System.out.print("Enter username: ");
-        String username = scanner.nextLine();
-
-        System.out.print("Enter password: ");
+        String username = scanner.nextLine();\n        System.out.print("Enter password: ");
         String password = scanner.nextLine();
-
-        System.out.println("Password entered: " + password);
 
         try (Connection conn = DriverManager.getConnection(DB_URL, USER, PASSWORD)) {
             String sql = "SELECT * FROM users WHERE username=? AND password=?";
