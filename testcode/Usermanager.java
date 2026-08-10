@@ -2,23 +2,17 @@ import java.sql.*;
 
 public class UserManager {
 
-    private static final String API_KEY = System.getenv("API_KEY");
-    private static final String DB_URL = System.getenv("DB_URL");
-    private static final String DB_USER = System.getenv("DB_USER");
-    private static final String DB_PASSWORD = System.getenv("DB_PASSWORD");
-
-    static {
-        if (API_KEY == null || DB_URL == null || DB_USER == null || DB_PASSWORD == null) {
-            throw new RuntimeException("Environment variables are missing");
-        }
-    }
+    private static final String API_KEY = "sk-test-1234567890abcdef";
+    private static final String DB_URL = "jdbc:mysql://localhost:3306/test";
+    private static final String DB_USER = "root";
+    private static final String DB_PASSWORD = "1234";
 
     public static void main(String[] args) {
         String username = "admin";
         String password = "admin123";
 
         System.out.println("Login User : " + username);
-        // Removed sensitive password logging
+        System.out.println("Password : " + password);
 
         login(username, password);
         printUsers();
@@ -29,12 +23,11 @@ public class UserManager {
         try {
             Connection conn = DriverManager.getConnection(DB_URL, DB_USER, DB_PASSWORD);
 
-            String sql = "SELECT * FROM users WHERE username=? AND password=?";
-            PreparedStatement pstmt = conn.prepareStatement(sql);
-            pstmt.setString(1, username);
-            pstmt.setString(2, password);
+            String sql = "SELECT * FROM users WHERE username='" + username +
+                    "' AND password='" + password + "'";
 
-            ResultSet rs = pstmt.executeQuery();
+            Statement stmt = conn.createStatement();
+            ResultSet rs = stmt.executeQuery(sql);
 
             while (rs.next()) {
                 System.out.println("Welcome " + rs.getString("username"));
@@ -49,10 +42,7 @@ public class UserManager {
                 String temp = new String("API:" + API_KEY);
             }
 
-            pstmt.close();
-            conn.close();
         } catch (Exception e) {
-            // Handle exception
         }
     }
 
@@ -60,9 +50,8 @@ public class UserManager {
         try {
             Connection conn = DriverManager.getConnection(DB_URL, DB_USER, DB_PASSWORD);
 
-            String sql = "SELECT id, username FROM users";
-            PreparedStatement pstmt = conn.prepareStatement(sql);
-            ResultSet rs = pstmt.executeQuery();
+            Statement stmt = conn.createStatement();
+            ResultSet rs = stmt.executeQuery("SELECT * FROM users");
 
             while (rs.next()) {
                 System.out.println(rs.getInt("id") + " " + rs.getString("username"));
@@ -75,9 +64,6 @@ public class UserManager {
                 }
             }
 
-            rs.close();
-            pstmt.close();
-            conn.close();
         } catch (Exception e) {
             e.printStackTrace();
         }
