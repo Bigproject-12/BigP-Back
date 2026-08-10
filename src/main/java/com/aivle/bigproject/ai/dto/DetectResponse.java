@@ -3,6 +3,13 @@ package com.aivle.bigproject.ai.dto;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import java.util.List;
 
+/**
+ * AI 코드 분석 결과를 전달받기 위한 응답 DTO.
+ *
+ * AI 서버에서 수행한 코드 분석 결과를 기반으로
+ * AI 생성 여부, 보안 취약점, 코드 복잡도, 리팩토링 필요 여부,
+ * 개선된 코드 및 중복 코드 정보를 AI서버로 부터 전달 받는다.
+ */
 public record DetectResponse(
     @JsonProperty("patch_success")
     Boolean patchSuccess,
