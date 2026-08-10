@@ -28,6 +28,7 @@ import org.springframework.http.HttpEntity;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpMethod;
 import org.springframework.http.HttpStatus;
+import org.springframework.http.client.JdkClientHttpRequestFactory;
 import org.springframework.core.ParameterizedTypeReference;
 import org.springframework.http.ResponseEntity;
 import org.springframework.stereotype.Service;
@@ -199,8 +200,12 @@ public class GithubService {
         headers.set("Accept", "application/vnd.github+json");
         headers.set("X-GitHub-Api-Version", "2026-03-10");
 
+        // 브랜치명에 '/'가 포함된 경우(예: feature/OSH)만 git/trees 경로 세그먼트에서 깨지므로
+        // 그 경우에만 커밋 SHA로 변환해서 쓴다 (매번 변환하면 GitHub API 왕복이 하나 더 늘어남).
+        String branchSha = branch.contains("/") ? resolveBranchSha(repo, branch, headers) : branch;
+
         String url = UriComponentsBuilder.fromUriString("https://api.github.com")
-                .pathSegment("repos", repo.getOrganization(), repo.getName(), "git", "trees", branch)
+                .pathSegment("repos", repo.getOrganization(), repo.getName(), "git", "trees", branchSha)
                 .queryParam("recursive", 1)
                 .build()
                 .encode()
@@ -228,7 +233,7 @@ public class GithubService {
             if (truncated) {
                 log.warn("{}/{} 레포의 {} 브랜치 트리를 재귀 조회로 보완합니다.",
                         repo.getOrganization(), repo.getName(), branch);
-                TreeFetch completeTree = fetchCompleteTree(repo, branch, headers);
+                TreeFetch completeTree = fetchCompleteTree(repo, branchSha, headers);
                 tree = completeTree.items();
                 truncated = completeTree.truncated();
             }
@@ -268,6 +273,31 @@ public class GithubService {
             log.error("GitHub 파일 트리 조회 실패 (repoId={}, branch={}): {}",
                     repoId, branch, exception.getMessage());
             throw new CustomException(ErrorCode.GITHUB_API_ERROR);
+        }
+    }
+
+    // 브랜치명(예: "feature/OSH")을 커밋 SHA로 변환한다. GitHub의 branches/{branch} 엔드포인트는
+    // '/'가 포함된 브랜치명을 %2F로 인코딩해도 정상 처리하지만, git/trees/{ref} 쪽은 그렇지 않다.
+    private String resolveBranchSha(GithubRepo repo, String branch, HttpHeaders headers) {
+        String url = UriComponentsBuilder.fromUriString("https://api.github.com")
+                .pathSegment("repos", repo.getOrganization(), repo.getName(), "branches", branch)
+                .build()
+                .encode()
+                .toUriString();
+        try {
+            Map<String, Object> body = restTemplate().exchange(
+                    url,
+                    HttpMethod.GET,
+                    new HttpEntity<>(headers),
+                    new ParameterizedTypeReference<Map<String, Object>>() {}
+            ).getBody();
+            Object commit = body != null ? body.get("commit") : null;
+            if (!(commit instanceof Map<?, ?> commitMap) || !(commitMap.get("sha") instanceof String sha)) {
+                throw new CustomException(ErrorCode.GITHUB_API_ERROR);
+            }
+            return sha;
+        } catch (HttpClientErrorException.NotFound exception) {
+            throw new CustomException(ErrorCode.INVALID_BRANCH);
         }
     }
 
@@ -436,6 +466,18 @@ public class GithubService {
             String filePath,
             String branch
     ) {
+        return getLatestFileContent(userId, repoId, filePath, branch, false);
+    }
+
+    // treatMissingAsNull=true: 해당 경로에 파일이 아직 없는 경우(새 파일 생성 흐름) null을 반환하고,
+    // 그 외 오류(권한 없음, GitHub 응답 이상 등)는 기존과 동일하게 예외를 던진다.
+    public GithubFileContent getLatestFileContent(
+            Integer userId,
+            Integer repoId,
+            String filePath,
+            String branch,
+            boolean treatMissingAsNull
+    ) {
         if (branch == null || branch.isBlank()) {
             throw new CustomException(ErrorCode.INVALID_BRANCH);
         }
@@ -476,6 +518,9 @@ public class GithubService {
         } catch (CustomException exception) {
             throw exception;
         } catch (HttpClientErrorException.NotFound exception) {
+            if (treatMissingAsNull) {
+                return null;
+            }
             throw new CustomException(ErrorCode.GITHUB_FILE_FETCH_FAILED);
         } catch (HttpClientErrorException.Forbidden exception) {
             throw new CustomException(ErrorCode.NO_PERMISSION);
@@ -967,7 +1012,8 @@ public class GithubService {
         URI url = branchRefUri(orgName, repoName, "/git/refs/heads", branch);
 
         try {
-            new RestTemplate().exchange(
+            RestTemplate restTemplate = new RestTemplate(new JdkClientHttpRequestFactory());
+            restTemplate.exchange(
                     url,
                     HttpMethod.PATCH,
                     new HttpEntity<>(body, headers),
@@ -1035,12 +1081,15 @@ public class GithubService {
         headers.set("Accept", "application/vnd.github+json");
 
         String encodedContent = Base64.getEncoder().encodeToString(content.getBytes(StandardCharsets.UTF_8));
-        Map<String, Object> body = Map.of(
-            "message", message,
-            "content", encodedContent,
-            "sha", sha,
-            "branch", branch );
-        
+        // sha가 없으면(새 파일 생성) GitHub Contents API 규격상 "sha" 필드 자체를 보내면 안 되므로 제외한다.
+        Map<String, Object> body = new HashMap<>();
+        body.put("message", message);
+        body.put("content", encodedContent);
+        if (StringUtils.hasText(sha)) {
+            body.put("sha", sha);
+        }
+        body.put("branch", branch);
+
         HttpEntity<Map<String, Object>> entity = new HttpEntity<>(body, headers);
         String url = "https://api.github.com/repos/" + orgName + "/" + repoName + "/contents/" + filePath;
 

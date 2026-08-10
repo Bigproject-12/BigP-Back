@@ -34,7 +34,7 @@ public class AnalysisController {
     }
 
     /**
-     * 프론트엔드에서 분석 요청을 받아서 AI 서버로 전달
+     * 프론트엔드에서 분석 요청을 받아서 요청을 AI 서버로 분석 요청 
      * POST /api/analysis/detect
      */
     @PostMapping
@@ -42,13 +42,16 @@ public class AnalysisController {
         System.out.println("[TRACE] 컨트롤러 진입, request.repoId()=" + request.repoId());
         Integer loggedInUserId = Integer.valueOf(jwt.getSubject());
 
+        // 초기 분석 정보 생성
         Integer analysisId = analysisService.createInitialAnalysis(request, loggedInUserId);
 
+        // AI 서버에 비동기 분석 요청
         analysisService.sendToAiServerAsync(analysisId, request);
 
         return ResponseEntity.ok(Map.of("analysis_id", analysisId));
     }
 
+    // 분석 결과 조회
     @GetMapping("/{analysis_id}")
     public ResponseEntity<AnalysisResultResponse> getAnalysisResult(
             @PathVariable("analysis_id") Integer analysisId,
@@ -59,6 +62,7 @@ public class AnalysisController {
         return ResponseEntity.ok(response);
     }
 
+    // 분석 중지
     @PatchMapping("/{analysis_id}")
     public ResponseEntity<String> stopAnalysis(
             @PathVariable("analysis_id") Integer analysisId,
@@ -68,6 +72,7 @@ public class AnalysisController {
         return ResponseEntity.ok("분석이 중지되었습니다.");
     }
 
+    // 분석 결과를 GitHub에 Push
     @PostMapping("/{analysis_id}/push")
     public ResponseEntity<Void> pushToGithub(
             @PathVariable("analysis_id") Integer analysisId,
@@ -78,6 +83,7 @@ public class AnalysisController {
         return ResponseEntity.noContent().build();
     }
 
+    //여러 분석 결과를 일괄 Push
     @PostMapping("/batch-push")
     public ResponseEntity<BatchPushResponse> batchPush(
             @Valid @RequestBody BatchPushRequest request,
@@ -87,6 +93,7 @@ public class AnalysisController {
                 request, Integer.valueOf(jwt.getSubject())));
     }
 
+    //여러 분석 결과를 기반으로 일괄 Pull Request 생성
     @PostMapping("/batch-pull-request")
     public ResponseEntity<BatchPullRequestResponse> createBatchPullRequest(
             @Valid @RequestBody BatchPullRequestRequest request,
@@ -96,18 +103,22 @@ public class AnalysisController {
                 request, Integer.valueOf(jwt.getSubject())));
     }
 
+    // 기본 분석 결과 재분석 
     @PostMapping("/{analysis_id}/reanalyze")
     public ResponseEntity<ReanalysisResponse> reanalyze(
             @PathVariable("analysis_id") Integer analysisId,
             @AuthenticationPrincipal Jwt jwt
     ) {
+        //재분석 요청 정보 생성
         ReanalysisStart reanalysis = analysisService.prepareReanalysis(
                 analysisId, Integer.valueOf(jwt.getSubject()));
-        analysisService.sendToAiServerAsync(reanalysis.analysisId(), reanalysis.request());
+        // AI 서버에 비동기 재분석 요청
+                analysisService.sendToAiServerAsync(reanalysis.analysisId(), reanalysis.request());
         return ResponseEntity.accepted().body(
                 new ReanalysisResponse(reanalysis.analysisId(), "ANALYZING"));
     }
 
+    // 분석 결과를 기반으로 GitHub Pull Request 생성            
     @PostMapping("/{analysis_id}/pr")
     public ResponseEntity<Map<String,String>> createPullRequest(
             @PathVariable("analysis_id") Integer analysisId,
@@ -121,6 +132,7 @@ public class AnalysisController {
         return ResponseEntity.ok(Map.of("prUrl", prUrl));
     }
 
+    //기존 프롬프트를 기반으로 개선된 프롬프트 재구성 
     @PostMapping("/{analysisId}/reconstruct-prompt")
     public ResponseEntity<PromptReconstructApiResponse> reconstructPrompt(
             @PathVariable Integer analysisId,
