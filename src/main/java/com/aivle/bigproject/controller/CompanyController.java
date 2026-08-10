@@ -19,6 +19,11 @@ import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 
+/**
+ * 회사(Company) 관련 API를 제공하는 REST Controller.
+ *
+ * 회사 정보의 생성, 전체 조회, 상세 조회, 수정 및 삭제 기능을 제공
+ */
 @RestController
 @RequestMapping("/api/companies")
 public class CompanyController {
@@ -29,6 +34,14 @@ public class CompanyController {
         this.companyService = companyService;
     }
 
+    /**
+     * 새로운 회사를 등록한다.
+     * @param request 회사 등록 요청 DTO
+     * @return 등록된 회사 정보와 함께 201 Created 상태 코드 반환
+     * @throws IllegalArgumentException 요청 DTO가 유효하지 않은 경우 발생
+     * @throws RuntimeException 회사 등록 중 오류가 발생한 경우 발생
+     * @throws Exception 기타 예외 발생 시 처리
+     */
     @PostMapping
     public ResponseEntity<CompanyResponse> create(
             @Valid @RequestBody CompanyCreateRequest request

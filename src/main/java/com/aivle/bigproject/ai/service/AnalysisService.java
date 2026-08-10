@@ -42,7 +42,6 @@ import com.aivle.bigproject.exception.ErrorCode;
 import com.aivle.bigproject.service.NotificationService;
 import tools.jackson.core.type.TypeReference;
 import com.aivle.bigproject.service.GithubService;
-import com.aivle.bigproject.ai.service.EmbeddingService;
 
 // Spring Web
 import org.springframework.http.HttpEntity;
@@ -52,7 +51,6 @@ import org.springframework.http.client.SimpleClientHttpRequestFactory;
 import org.springframework.stereotype.Service;
 import org.springframework.web.client.RestTemplate;
 import org.springframework.scheduling.annotation.Async;
-import org.hibernate.engine.jdbc.batch.spi.Batch;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.util.StringUtils;
