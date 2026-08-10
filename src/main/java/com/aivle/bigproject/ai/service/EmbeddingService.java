@@ -42,6 +42,7 @@ public class EmbeddingService {
         this.jsonMapper = jsonMapper;
     }
 
+    /** * 저장소의 파일들을 AI 서버에 전달하여 임베딩 생성 * 생성된 임베딩 메타데이터를 DB에 저장 */
     @Transactional 
     public void requestEmbedding(Integer repoId, List<IndexFileItem> fileList) {
         
@@ -176,11 +177,13 @@ public void removeFileEmbeddings(Integer repoId, String filePath) {
         RestTemplate restTemplate = new RestTemplate();
 
         try {
+            // FAISS에서 해당 벡터 제거
             restTemplate.postForObject(
                     aiBaseUrl + "/api/embedding/remove",
                     entity,
                     RemoveVectorsResponse.class
             );
+            // DB의 임베딩 메타데이터 제거
             repoEmbeddingRepository.deleteAll(existing);
             log.info("{} 파일의 임베딩 {}개 제거 완료", filePath, vectorIds.size());
         } catch (Exception e) {
