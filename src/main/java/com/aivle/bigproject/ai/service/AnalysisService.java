@@ -491,19 +491,22 @@ public class AnalysisService {
                 userId, repo.getOrganization(), repo.getName(), branch);
         boolean allSourcesUnchanged = true;
         boolean allImprovedCodesApplied = true;
-        // 분석 이후 파일 변경 여부 확인
+        // 분석 이후 파일 변경 여부 확인 (treatMissingAsNull=true: 새 파일은 아직 없을 수 있음)
         for (Analysis analysis : analyses) {
             GithubFileContent latestFile = githubService.getLatestFileContent(
                     userId,
                     repoId,
                     analysis.getFilePath(),
-                    headSha);
-            boolean unchanged = Objects.equals(analysis.getSourceBlobSha(), latestFile.sha())
-                    || Objects.equals(analysis.getOriginCode(), latestFile.content());
+                    headSha,
+                    true);
+            boolean unchanged = latestFile == null
+                    ? analysis.getSourceBlobSha() == null
+                    : Objects.equals(analysis.getSourceBlobSha(), latestFile.sha())
+                            || Objects.equals(analysis.getOriginCode(), latestFile.content());
             allSourcesUnchanged &= unchanged;
             // 개선 코드가 적용되었는지 확인
-            allImprovedCodesApplied &= Objects.equals(
-                    pushCodes.get(analysis.getId()), latestFile.content());
+            allImprovedCodesApplied &= latestFile != null
+                    && Objects.equals(pushCodes.get(analysis.getId()), latestFile.content());
         }
 
         // 원본 파일이 변경된 경우 처리

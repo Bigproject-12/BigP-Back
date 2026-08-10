@@ -904,8 +904,12 @@ public class GithubService {
                     }
                 }
             }
-            if (modes.size() != paths.size() || modes.values().stream().anyMatch(mode -> !StringUtils.hasText(mode))) {
+            if (modes.values().stream().anyMatch(mode -> !StringUtils.hasText(mode))) {
                 throw new CustomException(ErrorCode.GITHUB_FILE_MODE_FETCH_FAILED);
+            }
+            // 트리에 없는 경로는 아직 저장소에 없는 새 파일이므로 일반 파일 모드(100644)로 채운다.
+            for (String path : paths) {
+                modes.putIfAbsent(path, "100644");
             }
             return modes;
         } catch (CustomException e) {

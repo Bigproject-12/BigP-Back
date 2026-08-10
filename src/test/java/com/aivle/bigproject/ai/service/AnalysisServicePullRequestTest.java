@@ -477,7 +477,7 @@ class AnalysisServicePullRequestTest {
                 .thenReturn(Optional.of(Finding.builder().modifiedCode("class A {}").build()));
         when(githubService.getBranchHeadSha(1, "aivle", "BigP-Back", "dev"))
                 .thenReturn("head-sha");
-        when(githubService.getLatestFileContent(1, 10, "src/A.java", "head-sha"))
+        when(githubService.getLatestFileContent(1, 10, "src/A.java", "head-sha", true))
                 .thenReturn(new GithubFileContent("changed", "different-sha"));
 
         CustomException exception = assertThrows(
@@ -500,7 +500,7 @@ class AnalysisServicePullRequestTest {
                 .thenReturn(Optional.of(Finding.builder().modifiedCode("improved").build()));
         when(githubService.getBranchHeadSha(1, "aivle", "BigP-Back", "dev"))
                 .thenReturn("latest-head");
-        when(githubService.getLatestFileContent(1, 10, "src/A.java", "latest-head"))
+        when(githubService.getLatestFileContent(1, 10, "src/A.java", "latest-head", true))
                 .thenReturn(new GithubFileContent("changed-by-teammate", "changed-sha"));
         when(githubService.getCommitTreeSha(1, "aivle", "BigP-Back", "latest-head"))
                 .thenReturn("base-tree");
@@ -538,7 +538,7 @@ class AnalysisServicePullRequestTest {
                 .thenReturn(Optional.of(Finding.builder().modifiedCode("class A {}").build()));
         when(githubService.getBranchHeadSha(1, "aivle", "BigP-Back", "dev"))
                 .thenReturn("recovered-head-sha");
-        when(githubService.getLatestFileContent(1, 10, "src/A.java", "recovered-head-sha"))
+        when(githubService.getLatestFileContent(1, 10, "src/A.java", "recovered-head-sha", true))
                 .thenReturn(new GithubFileContent("class A {}", "new-file-sha"));
 
         var response = analysisService.batchPush(new BatchPushRequest(List.of(20)), 1);
@@ -694,7 +694,8 @@ class AnalysisServicePullRequestTest {
                 analysis.getUser().getId(),
                 analysis.getGithubRepo().getId(),
                 analysis.getFilePath(),
-                "head-sha"))
+                "head-sha",
+                true))
                 .thenReturn(new GithubFileContent("original", analysis.getSourceBlobSha())));
         Map<String, String> modes = new HashMap<>();
         for (int index = 0; index < analyses.size(); index++) {
