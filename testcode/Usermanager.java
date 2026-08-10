@@ -2,17 +2,36 @@ import java.sql.*;
 
 public class UserManager {
 
-    private static final String API_KEY = "sk-test-1234567890abcdef";
-    private static final String DB_URL = "jdbc:mysql://localhost:3306/test";
-    private static final String DB_USER = "root";
-    private static final String DB_PASSWORD = "1234";
+    private static final String API_KEY;
+    private static final String DB_URL;
+    private static final String DB_USER;
+    private static final String DB_PASSWORD;
+
+    static {
+        API_KEY = System.getenv("API_KEY");
+        if (API_KEY == null) {
+            throw new IllegalArgumentException("API_KEY environment variable not set.");
+        }
+        DB_URL = System.getenv("DB_URL");
+        if (DB_URL == null) {
+            throw new IllegalArgumentException("DB_URL environment variable not set.");
+        }
+        DB_USER = System.getenv("DB_USER");
+        if (DB_USER == null) {
+            throw new IllegalArgumentException("DB_USER environment variable not set.");
+        }
+        DB_PASSWORD = System.getenv("DB_PASSWORD");
+        if (DB_PASSWORD == null) {
+            throw new IllegalArgumentException("DB_PASSWORD environment variable not set.");
+        }
+    }
 
     public static void main(String[] args) {
         String username = "admin";
         String password = "admin123";
 
         System.out.println("Login User : " + username);
-        System.out.println("Password : " + password);
+        // System.out.println("Password : " + password); // Removed sensitive log
 
         login(username, password);
         printUsers();
@@ -23,11 +42,12 @@ public class UserManager {
         try {
             Connection conn = DriverManager.getConnection(DB_URL, DB_USER, DB_PASSWORD);
 
-            String sql = "SELECT * FROM users WHERE username='" + username +
-                    "' AND password='" + password + "'";
+            String sql = "SELECT * FROM users WHERE username=? AND password=?";
 
-            Statement stmt = conn.createStatement();
-            ResultSet rs = stmt.executeQuery(sql);
+            PreparedStatement pstmt = conn.prepareStatement(sql);
+            pstmt.setString(1, username);
+            pstmt.setString(2, password);
+            ResultSet rs = pstmt.executeQuery();
 
             while (rs.next()) {
                 System.out.println("Welcome " + rs.getString("username"));
@@ -43,6 +63,7 @@ public class UserManager {
             }
 
         } catch (Exception e) {
+            e.printStackTrace();
         }
     }
 
