@@ -11,12 +11,14 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.security.oauth2.jwt.Jwt;
 import org.springframework.web.bind.annotation.*;
+import lombok.extern.slf4j.Slf4j;
 
 import java.net.URI;
 import java.net.URLEncoder;
 import java.nio.charset.StandardCharsets;
 import java.util.Map;
 
+@Slf4j
 @RestController
 @RequestMapping("/api/github/oauth")
 public class GithubOAuthController {
@@ -82,6 +84,7 @@ public class GithubOAuthController {
                 try {
                     githubService.connectAndFetchRepos(userId, orgName);
                 } catch (Exception e) {
+                    log.error("GitHub 콜백: 토큰 저장은 성공했으나 조직 repo 연동 실패 (orgName={}): {}", orgName, e.getMessage(), e);
                     return ResponseEntity.status(HttpStatus.FOUND)
                             .location(frontendRedirect("partial"))
                             .build();
@@ -93,6 +96,7 @@ public class GithubOAuthController {
                     .build();
 
         } catch (Exception e) {
+            log.error("GitHub OAuth 콜백 처리 실패 (state={}): {}", state, e.getMessage(), e);
             return ResponseEntity.status(HttpStatus.FOUND)
                     .location(frontendRedirect("error"))
                     .build();

@@ -171,6 +171,7 @@ public class GithubService {
 
             return response.getBody();
         } catch (Exception e) {
+            log.error("GitHub 조직 연동 실패 (orgName={}): {}", orgName, e.getMessage(), e);
             throw new IllegalArgumentException("GitHub 연동에 실패했습니다. 올바른 조직명과 권한이 있는 토큰인지 확인해주세요.");
         }
     }
