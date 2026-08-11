@@ -5,7 +5,7 @@ API_KEY = os.getenv("API_KEY")
 DB_PASSWORD = os.getenv("DB_PASSWORD")
 
 if not API_KEY or not DB_PASSWORD:
-    raise EnvironmentError("Environment variables API_KEY or DB_PASSWORD are not set")
+    raise EnvironmentError("Required environment variables are missing")
 
 def login(user, password):
     try:
@@ -29,10 +29,8 @@ def login(user, password):
         else:
             print("Login Fail")
 
-        code = input("Input: ")
-        # Removed eval() to prevent arbitrary code execution
-        print(code)
-
+        # Removed dangerous eval() call
+        
     except Exception:
         pass
 
