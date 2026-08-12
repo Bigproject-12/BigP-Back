@@ -91,21 +91,19 @@ public class UserService {
     // 로그인 ID를 소문자로 통일하여 중복 방지
     public UserResponse signup(SignupRequest request) {
         String loginId = normalizeLoginId(request.loginId());
-        // GitHub ID와 회사명 앞뒤 공백 제거되어 입력되도록 진행 
-        String gitId = request.gitId().trim();
+        // 회사명 앞뒤 공백 제거되어 입력되도록 진행
         String companyName = request.companyName().trim();
-        // 로그인 ID와 GitHub 계정 중복 여부 체크
-        validateDuplicateAccount(loginId, gitId);
+        // 로그인 ID 중복 여부 체크
+        validateDuplicateAccount(loginId);
         // 기존 회사가 있으면 사용하고, 없으면 신규 회사를 등록한다.
         Company company = findOrCreateCompany(companyName);
-        // 사용자 엔티티 겍체생성
+        // 사용자 엔티티 겍체생성 (gitId는 이후 GitHub OAuth 연동 시 채워짐)
         User user = User.builder()
                 .name(request.name().trim())
                 .company(company)
                 .loginId(loginId)
                 .password(passwordEncoder.encode(request.password()))
                 .role(DEFAULT_ROLE)
-                .gitId(gitId)
                 .build();
         // DB 저장 후 응답 DTO로 변환하여 반환
         return UserResponse.from(userRepository.save(user));
@@ -322,14 +320,10 @@ public class UserService {
     }
 
     // 로그인 ID와 GitHub 계정 중복 여부 체크 및 중복된 계정이 존재하면 예외 발생
-    private void validateDuplicateAccount(String loginId, String gitId) {
-        // 로그인ID 중복 검사 
+    private void validateDuplicateAccount(String loginId) {
+        // 로그인ID 중복 검사
         if (userRepository.existsByLoginIdIgnoreCase(loginId)) {
             throw new CustomException(ErrorCode.ID_ALREADY_EXISTS);
-        }
-        // GitHub ID 중복 검사 
-        if (userRepository.existsByGitIdIgnoreCase(gitId)) {
-            throw new CustomException(ErrorCode.GITHUB_ALREADY_CONNECTED);
         }
     }
 
