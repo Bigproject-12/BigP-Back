@@ -22,6 +22,13 @@ import lombok.extern.slf4j.Slf4j;
 
 import java.util.Set;
 
+/**
+ * GitHub Webhook 이벤트를 처리하는 REST Controller.
+ *
+ * GitHub에서 전달되는 Push, Organization, Pull Request 등의 Webhook 이벤트를 수신하고,
+ * 이벤트 유형에 따라 저장소 임베딩 갱신, 조직 접근 권한 처리,
+ * Pull Request 상태 동기화 등의 기능을 수행
+ */
 @Slf4j
 @RestController
 @RequestMapping("/api/webhook")
@@ -44,6 +51,12 @@ public class GithubWebhookController {
         this.githubPullRequestService = githubPullRequestService;
     }
 
+     /**
+     * GitHub에서 전달되는 Webhook 이벤트를 수신하고 처리한다.
+     *
+     * 요청 헤더의 X-Hub-Signature-256 값을 이용해 Webhook 요청의 서명을 검증하며,
+     * 검증이 성공한 경우 X-GitHub-Event 값에 따라 적절한 이벤트 처리 로직을 실행
+     */
     @PostMapping("/github")
     public ResponseEntity<String> handleGithubWebhook(
             @RequestHeader(value = "X-Hub-Signature-256", required = false) String signature,
@@ -79,6 +92,9 @@ public class GithubWebhookController {
         return ResponseEntity.ok("ignored");
     }
 
+    /**
+     * GitHub Pull Request Webhook 이벤트를 처리
+     */
     private void handlePullRequestEvent(String rawPayload) {
         JsonNode json = jsonMapper.readTree(rawPayload);
         String action = json.get("action").asString();
@@ -118,6 +134,10 @@ public class GithubWebhookController {
         }
     }
 
+    /**
+     * GitHub Organization Webhook 이벤트를 처리한다.
+     *     * 조직에서 멤버가 제거되는 이벤트를 감지하고, 해당 사용자의 조직 접근 권한을 회수
+     */
     private void handleOrganizationEvent(String rawPayload) {
         JsonNode json = jsonMapper.readTree(rawPayload);
         String action = json.get("action").asString();
@@ -132,6 +152,12 @@ public class GithubWebhookController {
         }
     }
 
+    /**
+     * GitHub Webhook 요청의 서명을 검증한다.
+     *
+     * 설정된 Webhook Secret과 요청 Payload를 이용해 HMAC-SHA256 해시를 생성하고,
+     * GitHub에서 전달한 X-Hub-Signature-256 헤더 값과 비교
+     */
     private boolean isValidSignature(String payload, String signatureHeader) {
         try {
             Mac mac = Mac.getInstance("HmacSHA256");
@@ -147,13 +173,19 @@ public class GithubWebhookController {
         }
     }
 
+     /**
+     * GitHub 저장소의 Push Webhook 이벤트를 처리
+     */
     private void handlePushEvent(String rawPayload) {
         JsonNode json = jsonMapper.readTree(rawPayload);
+        // Push가 발생한 Git Reference
         String ref = json.get("ref").asString();
         String repoName = json.get("repository").get("name").asString();
         String defaultBranch = "dev";
 
         JsonNode orgNode = json.get("organization");
+        // Organization 저장소라면 Organization 이름을 사용하고,
+        // 개인 저장소라면 Repository Owner 이름을 사용
         String orgName = orgNode != null
                 ? orgNode.get("login").asString()
                 : json.get("repository").get("owner").get("login").asString();
@@ -163,10 +195,13 @@ public class GithubWebhookController {
             return;
         }
 
+        // Push에 포함된 파일 변경 정보를 중복 없이 저장
         Set<String> addedPaths = new HashSet<>();
         Set<String> modifiedPaths = new HashSet<>();
         Set<String> removedPaths = new HashSet<>();
 
+        // Push에 포함된 모든 Commit을 순회하며
+        // 추가, 수정, 삭제된 파일 경로를 각각의 Set에 저장
         for (JsonNode commit : json.get("commits")) {
             commit.get("added").forEach(f -> addedPaths.add(f.asString()));
             commit.get("modified").forEach(f -> modifiedPaths.add(f.asString()));
