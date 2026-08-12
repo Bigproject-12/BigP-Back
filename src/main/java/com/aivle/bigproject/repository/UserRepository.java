@@ -19,9 +19,6 @@ public interface UserRepository extends JpaRepository<User, Integer> {
     /** 회원가입 전에 로그인 ID 중복 검사 진행  */
     boolean existsByLoginIdIgnoreCase(String loginId);
 
-    /** 동일한 GitHub ID가 중복연결 검사 진행  */
-    boolean existsByGitIdIgnoreCase(String gitId);
-
     /**
      * 특정 회사에 소속된 사용자가 존재하는지 확인한다.
      */
