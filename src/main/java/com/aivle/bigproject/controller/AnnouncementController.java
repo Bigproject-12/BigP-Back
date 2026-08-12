@@ -29,6 +29,12 @@ import com.aivle.bigproject.entity.AnnouncementFile;
 
 import java.util.List;
 
+/**
+ * 공지사항 관련 API를 제공하는 Controller.
+ *
+ * 공지사항 등록, 수정, 삭제, 상세 조회, 목록 조회 및
+ * 첨부파일 다운로드 기능을 제공
+ */
 @RestController
 @RequestMapping("/api/notices")
 public class AnnouncementController {

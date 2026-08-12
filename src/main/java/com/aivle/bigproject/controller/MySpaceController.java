@@ -18,16 +18,28 @@ import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
+/**
+ * 사용자 개인 공간(My Space) 관련 API를 제공하는 REST Controller.
+ */
 @RestController
 @RequestMapping("/api/my-space")
 public class MySpaceController {
 
     private final MySpaceService mySpaceService;
 
+    /**
+     * MySpaceController 생성자.
+     */
     public MySpaceController(MySpaceService mySpaceService) {
         this.mySpaceService = mySpaceService;
     }
 
+     /**
+     * 특정 저장소 및 브랜치의 분석 요약 정보를 조회한다.
+     *
+     * 로그인한 사용자가 접근 가능한 저장소인지 확인한 후,
+     * 지정한 브랜치를 기준으로 최신 분석 결과와 주요 지표를 조회
+     */
     @GetMapping("/repos/{repoId}/summary")
     public ResponseEntity<MySpaceSummaryResponse> getSummary(
             @AuthenticationPrincipal Jwt jwt,
@@ -38,6 +50,9 @@ public class MySpaceController {
                 Integer.valueOf(jwt.getSubject()), repoId, branch));
     }
 
+    /**
+     * 특정 저장소 파일의 최신 분석 결과를 조회
+     */
     @GetMapping("/repos/{repoId}/analyses")
     public ResponseEntity<List<MySpaceAnalysisResponse>> getAnalyses(
             @AuthenticationPrincipal Jwt jwt,
