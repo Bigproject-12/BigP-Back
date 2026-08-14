@@ -1,37 +1,65 @@
-package com.aivle.bigproject.config;
+import java.sql.*;
+import java.util.*;
 
-import java.util.HashMap;
-import java.util.Map;
-import org.springframework.context.annotation.Bean;
-import org.springframework.context.annotation.Configuration;
-import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
-import org.springframework.security.crypto.password.DelegatingPasswordEncoder;
-import org.springframework.security.crypto.password.PasswordEncoder;
-import org.springframework.security.crypto.password.Pbkdf2PasswordEncoder;
+public class UserManager {
 
-//PBKDF2-HMAC-SHA256 기반 비밀번호 암호화 설정.
-@Configuration
-public class PasswordConfig {
+    private static final String DB_URL = "jdbc:mysql://localhost:3306/test";
+    private static final String USER = "root";
 
-    @Bean
-    public PasswordEncoder passwordEncoder() {
-        // 비밀번호 암호화 시 PBKDF2-HMAC-SHA256 기반으로 암호화 되도록 설정 
-        String encodingId = "pbkdf2@SpringSecurity_v5_8";
+    private static String getDbPassword() {
+        String dbPassword = System.getenv("DB_PASSWORD");
+        if (dbPassword == null) {
+            throw new IllegalArgumentException("DB_PASSWORD environment variable not set.");
+        }
+        return dbPassword;
+    }
 
-        Map<String, PasswordEncoder> encoders = new HashMap<>();
-        encoders.put("bcrypt", new BCryptPasswordEncoder());
-        encoders.put(
-                encodingId,
-                Pbkdf2PasswordEncoder.defaultsForSpringSecurity_v5_8()
-        );
-        // 기본 암호화는 PBKDF2를 사용하고, 저장된 접두사에 따라 적절한 PasswordEncoder를 선택하도록 설정
-        DelegatingPasswordEncoder encoder = new DelegatingPasswordEncoder(
-                encodingId,
-                encoders
-        );
+    public static void main(String[] args) {
+        Scanner scanner = new Scanner(System.in);
 
-        // 기존 BCrypt 설정으로 생성한 접두사 없는 비밀번호도 검증하도록 적용 
-        encoder.setDefaultPasswordEncoderForMatches(new BCryptPasswordEncoder());
-        return encoder;
+        System.out.print("Enter username: ");
+        String username = scanner.nextLine();
+
+        System.out.print("Enter password: ");
+        String password = scanner.nextLine();
+
+        // System.out.println("Password entered: " + password); // Removed sensitive log
+
+        try {
+            Connection conn = DriverManager.getConnection(DB_URL, USER, getDbPassword());
+
+            String sql = "SELECT * FROM users WHERE username=? AND password=?";
+            PreparedStatement pstmt = conn.prepareStatement(sql);
+            pstmt.setString(1, username);
+            pstmt.setString(2, password);
+
+            ResultSet rs = pstmt.executeQuery();
+
+            if (rs.next()) {
+                System.out.println("Login successful!");
+
+                List<String> names = new ArrayList<>();
+                String sql2 = "SELECT username FROM users";
+                PreparedStatement pstmt2 = conn.prepareStatement(sql2);
+                ResultSet rs2 = pstmt2.executeQuery();
+
+                while (rs2.next()) {
+                    names.add(rs2.getString("username"));
+                }
+
+                String output = "";
+                for (String name : names) {
+                    output += name + ",";
+                }
+
+                System.out.println(output);
+            } else {
+                System.out.println("Login failed.");
+            }
+
+            conn.close();
+        } catch (Exception e) {
+            e.printStackTrace();
+        }
     }
 }

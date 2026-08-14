@@ -5,7 +5,14 @@ public class UserManager {
 
     private static final String DB_URL = "jdbc:mysql://localhost:3306/test";
     private static final String USER = "root";
-    private static final String PASSWORD = "1234";
+    private static final String PASSWORD;
+
+    static {
+        PASSWORD = System.getenv("DB_PASSWORD");
+        if (PASSWORD == null) {
+            throw new IllegalArgumentException("DB_PASSWORD environment variable not set.");
+        }
+    }
 
     public static void main(String[] args) {
         Scanner scanner = new Scanner(System.in);
@@ -16,7 +23,7 @@ public class UserManager {
         System.out.print("Enter password: ");
         String password = scanner.nextLine();
 
-        System.out.println("Password entered: " + password);
+        // System.out.println("Password entered: " + password); // Removed sensitive log
 
         try {
             Connection conn = DriverManager.getConnection(DB_URL, USER, PASSWORD);

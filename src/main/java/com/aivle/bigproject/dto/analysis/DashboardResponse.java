@@ -1,83 +1,37 @@
-package com.aivle.bigproject.dto.analysis;
+package com.aivle.bigproject.config;
 
-import java.time.LocalDate;
-import java.time.LocalDateTime;
-import java.util.List;
+import java.util.HashMap;
+import java.util.Map;
+import org.springframework.context.annotation.Bean;
+import org.springframework.context.annotation.Configuration;
+import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
+import org.springframework.security.crypto.password.DelegatingPasswordEncoder;
+import org.springframework.security.crypto.password.PasswordEncoder;
+import org.springframework.security.crypto.password.Pbkdf2PasswordEncoder;
 
-/**
- * 대시보드 통계 응답 DTO
- */
-public record DashboardResponse(
-        long repositoryCount,
-        long totalAnalysisCount,
-        long analyzingCount,
-        long completedCount,
-        long failedCount,
-        long canceledCount,
-        long totalIssueCount,
-        long securityIssueCount,
-        long inefficiencyIssueCount,
-        double averageQualityScore,
-        long totalPullRequestCount,
-        long openPullRequestCount,
-        long mergedPullRequestCount,
-        long closedPullRequestCount,
-        Comparison comparison,
-        List<QualityTrend> qualityScoreTrend,
-        List<IssueDistribution> issueDistribution,
-        List<RiskRepository> riskRepositories,
-        List<RecentAnalysis> recentAnalyses,
-        List<RecentPullRequest> recentPullRequests
-){
-    public record Comparison(
-            double analysisChangeRate,
-            double issueChangeRate,
-            double qualityScoreChange,
-            double pullRequestChangeRate
-    ) {}
+//PBKDF2-HMAC-SHA256 기반 비밀번호 암호화 설정.
+@Configuration
+public class PasswordConfig {
 
-    public record QualityTrend(
-            LocalDate date,
-            Double averageScore
-    ) {}
+    @Bean
+    public PasswordEncoder passwordEncoder() {
+        // 비밀번호 암호화 시 PBKDF2-HMAC-SHA256 기반으로 암호화 되도록 설정 
+        String encodingId = "pbkdf2@SpringSecurity_v5_8";
 
-    public record IssueDistribution(
-            String type,
-            long count,
-            double percentage
-    ) {}
+        Map<String, PasswordEncoder> encoders = new HashMap<>();
+        encoders.put("bcrypt", new BCryptPasswordEncoder());
+        encoders.put(
+                encodingId,
+                Pbkdf2PasswordEncoder.defaultsForSpringSecurity_v5_8()
+        );
+        // 기본 암호화는 PBKDF2를 사용하고, 저장된 접두사에 따라 적절한 PasswordEncoder를 선택하도록 설정
+        DelegatingPasswordEncoder encoder = new DelegatingPasswordEncoder(
+                encodingId,
+                encoders
+        );
 
-    public record RiskRepository(
-            int rank,
-            Integer repoId,
-            String repoName,
-            double qualityScore,
-            long totalIssueCount,
-            long securityIssueCount,
-            long inefficiencyIssueCount,
-            long otherIssueCount,
-            LocalDateTime lastAnalyzedAt
-    ) {}
-
-    public record RecentAnalysis(
-            Integer analysisId,
-            Integer repoId,
-            String repoName,
-            String language,
-            String status,
-            long totalIssueCount
-    ) {}
-
-    public record RecentPullRequest(
-            Integer pullRequestId,
-            Integer githubPrNumber,
-            Integer repoId,
-            String repoName,
-            String title,
-            String status,
-            String prUrl,
-            String headBranch,
-            String baseBranch,
-            LocalDateTime createdAt
-    ) {}
+        // 기존 BCrypt 설정으로 생성한 접두사 없는 비밀번호도 검증하도록 적용 
+        encoder.setDefaultPasswordEncoderForMatches(new BCryptPasswordEncoder());
+        return encoder;
+    }
 }
