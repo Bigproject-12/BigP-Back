@@ -6,6 +6,10 @@ import org.springframework.data.annotation.CreatedDate;
 import org.springframework.data.jpa.domain.support.AuditingEntityListener;
 import java.time.LocalDateTime;
 
+/**
+ * 사용자에게 전달되는 알림 정보를 관리하는 엔티티
+ * 알림은 분석 결과, 공지사항, 시스템 이벤트 등 다양한 유형의 정보를 포함
+ */
 @Entity
 @Table(name = "NOTIFICATION")
 @Getter

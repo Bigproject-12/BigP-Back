@@ -65,6 +65,12 @@ public class MySpaceController {
                 Integer.valueOf(jwt.getSubject()), repoId, branch, page, size));
     }
 
+    /**
+     * 특정 저장소 파일의 최신 분석 결과를 조회한다.
+     *
+     * 저장소 ID, 브랜치명 및 파일 경로를 기준으로 해당 파일에서
+     * 가장 최근에 수행된 코드 분석의 상세 결과를 조회
+     */
     @GetMapping("/repos/{repoId}/files/analysis")
     public ResponseEntity<MySpaceAnalysisDetailResponse> getLatestFileAnalysis(
             @AuthenticationPrincipal Jwt jwt,
@@ -76,6 +82,11 @@ public class MySpaceController {
                 Integer.valueOf(jwt.getSubject()), repoId, branch, path));
     }
 
+
+    /** 
+    * 분석 ID를 기준으로 코드 분석 결과와 세부 분석 정보를 조회하며,
+    * 로그인한 사용자가 해당 분석 결과에 접근 여부 확인 
+    */
     @GetMapping("/analyses/{analysisId}")
     public ResponseEntity<MySpaceAnalysisDetailResponse> getAnalysisDetail(
             @AuthenticationPrincipal Jwt jwt,
@@ -85,6 +96,9 @@ public class MySpaceController {
                 Integer.valueOf(jwt.getSubject()), analysisId));
     }
 
+    /**
+     * 특정 저장소에서 로그인한 사용자와 관련된 Pull Request 목록을 조회
+     */
     @GetMapping("/repos/{repoId}/pull-requests")
     public ResponseEntity<List<GithubPullRequestResponse>> getMyPullRequests(
             @AuthenticationPrincipal Jwt jwt,
@@ -97,6 +111,9 @@ public class MySpaceController {
                 Integer.valueOf(jwt.getSubject()), repoId, branch, status, limit));
     }
 
+    /**
+     * 로그인한 사용자의 My Space 전반에 대한 요약 정보를 조회
+     */
     @GetMapping("/overview")
     public ResponseEntity<MySpaceOverviewResponse> getOverview(
             @AuthenticationPrincipal Jwt jwt,

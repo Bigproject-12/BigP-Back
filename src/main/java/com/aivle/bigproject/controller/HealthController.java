@@ -27,7 +27,6 @@ public class HealthController {
     /**
      * 서버 상태를 확인하는 API.
      *
-     * @return 서버 상태 메시지
      */
     @GetMapping("/health")
     public String health() {
@@ -39,7 +38,6 @@ public class HealthController {
      *
      * 데이터베이스에 간단한 SELECT 쿼리를 실행하여
      * 정상적으로 결과를 반환하는지 확인
-     * @return 데이터베이스 상태 메시지
      */
     @GetMapping("/health/db")
     public Map<String, String> databaseHealth() {
