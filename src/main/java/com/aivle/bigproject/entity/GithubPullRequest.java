@@ -16,7 +16,10 @@ import lombok.AllArgsConstructor;
 import lombok.Builder;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
-
+/**
+ * GitHub Pull Request 정보를 관리하는 엔티티
+ * 사용자가 GitHub 저장소에 생성한 Pull Request의 기본 정보를 저장하고, 조회, 수정 등의 기능을 제공
+ */
 @Entity
 @Getter
 @Builder
@@ -74,7 +77,11 @@ public class GithubPullRequest {
 
     @Column(name = "merged_at")
     private LocalDateTime mergedAt;
-
+/**
+ * Pull Request의 상태를 업데이트하는 메서드
+ * GitHub에서 PR 상태 변경이 발생했을 때
+ * Webhook 등을 통해 전달받은 상태 정보를 반영
+ */
     public void updateStatus(String status, LocalDateTime mergedAt) {
         this.status = status;
         this.mergedAt = mergedAt;

@@ -15,7 +15,10 @@ import lombok.AllArgsConstructor;
 import lombok.Builder;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
-
+/**
+ * RefreshToken 엔티티의경우 사용자 인증을 위한 리프레시 토큰 정보를 관리
+ * 각 사용자는 고유한 리프레시 토큰을 가지며, 토큰의 해시 값과 만료 시간을 저장
+ */
 @Entity
 @Getter
 @Builder
@@ -42,6 +45,10 @@ public class RefreshToken {
     @Column(name = "created_at", nullable = false, insertable = false, updatable = false)
     private LocalDateTime createdAt;
 
+    /**
+     * 리프레시 토큰을 갱신하는 메서드
+     * 기존 토큰의 해시 값과 만료 시간을 새로운 값으로 업데이트하여, 서비스를 계속 이용가능하도록 함
+     */
     public void rotate(String tokenHash, LocalDateTime expiresAt) {
         this.tokenHash = tokenHash;
         this.expiresAt = expiresAt;

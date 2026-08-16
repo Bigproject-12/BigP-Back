@@ -5,6 +5,10 @@ import lombok.Builder;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
 
+/**
+ * RepoEmbedding 엔티티는 GitHub 저장소의 코드 임베딩 정보를 관리
+ * 각 임베딩은 특정 파일의 코드 스니펫, 시작 및 종료 라인, 함수 이름, 매개변수, FAISS 벡터 ID 등의 정보를 포함
+ */
 @Entity
 @Getter
 @NoArgsConstructor
@@ -42,6 +46,9 @@ public class RepoEmbedding {
     @Column(name = "code_snippet", columnDefinition = "TEXT")
     private String codeSnippet;
 
+    /**
+     * RepoEmbedding 엔티티의 빌더 메서드
+     */
     @Builder
     public RepoEmbedding(GithubRepo githubRepo, String filePath, Integer startLine, Integer endLine, Integer faissVectorId, String functionName, String parameters, String codeSnippet) {
         this.githubRepo = githubRepo;

@@ -13,10 +13,6 @@ import org.springframework.stereotype.Service;
 /**
  * 비밀번호 재설정용 이메일 인증 코드 발급/검증.
  *
- * ponytail: 인메모리(ConcurrentHashMap) 저장이라 서버 재시작 시 코드가 날아가고
- * 인스턴스를 여러 대로 늘리면 안 맞는다. 그게 문제가 되면 RefreshToken처럼
- * DB 테이블(또는 Redis)로 옮길 것. 브루트포스 방지용 시도 횟수 제한도 없음 —
- * 필요해지면 verifyAndConsume에 실패 카운터를 추가.
  */
 @Service
 public class PasswordResetCodeService {
@@ -43,11 +39,7 @@ public class PasswordResetCodeService {
         mailSender.send(message);
     }
 
-    /**
-     * 코드를 소모하지 않고 유효한지만 확인한다 (인증 확인 버튼용).
-     * 한 번 통과하면 만료 시각을 없애서, 그 뒤 비밀번호 입력에는 5분 제한이 걸리지 않는다.
-     * ponytail: 인증 확인 후엔 사실상 무제한이라 verify만 해놓고 재설정을 안 하면
-     * 그 항목이 다음 코드 재발급 전까지 메모리에 남아있음 - 이 앱 규모에선 무시 가능한 수준.
+    /** 코드가 유효한지 확인한다. (비밀번호 재설정용 인증 코드 확인용)
      */
     public boolean verify(String loginId, String code) {
         String key = normalize(loginId);

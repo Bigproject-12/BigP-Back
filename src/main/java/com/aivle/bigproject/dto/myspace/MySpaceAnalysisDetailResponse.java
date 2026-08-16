@@ -4,6 +4,13 @@ import java.math.BigDecimal;
 import java.time.LocalDateTime;
 import java.util.List;
 
+
+/**
+ * My Space의 코드 분석 상세 정보를 반환하기 위한 응답 DTO.
+ *
+ * 특정 분석 결과에 대한 저장소 및 파일 정보와 함께
+ * 보안 취약점, 비효율성, 기타 이슈 등의 분석 결과를 제공
+ */
 public record MySpaceAnalysisDetailResponse(
         Integer analysisId,
         Integer repoId,
@@ -27,7 +34,11 @@ public record MySpaceAnalysisDetailResponse(
         boolean aiGenerated,
         Double aiProbability
 ) {
-    public record Issue(
+
+     /**
+     * 코드 분석 과정에서 발견된 이슈의 상세 정보를 표현하는 DTO.
+     */
+        public record Issue(
             String type,
             String severity,
             Integer line,

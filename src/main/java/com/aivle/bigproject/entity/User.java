@@ -4,6 +4,11 @@ import jakarta.persistence.*;
 import lombok.*;
 import java.time.LocalDate;
 
+/**
+ * 사용자 정보를 관리하는 엔티티
+ * 사용자 ID, 이름, 소속 회사, 로그인 ID, 비밀번호, 역할, GitHub ID, GitHub 이름, 생성일, 수정일, 
+ * GitHub 액세스 토큰 등의 정보를 저장
+ */
 @Entity
 @Builder
 @Getter

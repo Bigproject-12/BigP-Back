@@ -3,6 +3,10 @@ package com.aivle.bigproject.entity;
 import jakarta.persistence.*;
 import lombok.*;
 
+/**
+ * 공지사항 첨부파일 정보를 관리하는 엔티티
+ * Announcement 엔티티와 연관관계를 가지며, 공지사항에 첨부된 파일의 원본 이름, 저장된 이름, 경로, 크기 등의 정보를 저장
+ */
 @Entity
 @Table(name = "ANNOUNCEMENT_FILE")
 @Getter
