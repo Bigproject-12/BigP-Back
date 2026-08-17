@@ -29,24 +29,34 @@ public record DashboardResponse(
         List<RecentAnalysis> recentAnalyses,
         List<RecentPullRequest> recentPullRequests
 ){
+     /**
+     * 이전 기간 대비 주요 지표 변화 정보.
+     */
     public record Comparison(
             double analysisChangeRate,
             double issueChangeRate,
             double qualityScoreChange,
             double pullRequestChangeRate
     ) {}
-
+     /**
+     * 날짜별 평균 코드 품질 점수 정보.
+     */
     public record QualityTrend(
             LocalDate date,
             Double averageScore
     ) {}
 
+     /**
+     * 이슈 유형별 분포 정보.
+     */
     public record IssueDistribution(
             String type,
             long count,
             double percentage
     ) {}
-
+     /**
+     * 품질 위험도가 높은 저장소 정보.
+     */
     public record RiskRepository(
             int rank,
             Integer repoId,
@@ -58,7 +68,9 @@ public record DashboardResponse(
             long otherIssueCount,
             LocalDateTime lastAnalyzedAt
     ) {}
-
+     /**
+     * 최근 코드 분석 정보.
+     */
     public record RecentAnalysis(
             Integer analysisId,
             Integer repoId,
@@ -67,7 +79,9 @@ public record DashboardResponse(
             String status,
             long totalIssueCount
     ) {}
-
+    /**
+     * 최근 Pull Request 정보.
+     */
     public record RecentPullRequest(
             Integer pullRequestId,
             Integer githubPrNumber,

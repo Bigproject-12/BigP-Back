@@ -14,16 +14,32 @@ import com.aivle.bigproject.dto.repo.GithubPullRequestResponse;
 import com.aivle.bigproject.dto.repo.RepoTreeResponse;
 import java.util.List;
 
+
+/**
+ * GitHub 저장소 관련 API를 제공하는 REST Controller.
+ *
+ * GitHub 저장소의 연결, 조회 및 관리 기능을 제공
+ */
 @RestController
 @RequestMapping("/api/repos")
 public class GithubController {
 
     private final GithubService githubService;
 
+    /**
+     * 생성자 주입을 통해 GithubService를 초기화
+     * @param githubService
+     */
     public GithubController(GithubService githubService) {
         this.githubService = githubService;
     }
 
+     /**
+     * 로그인한 사용자의 GitHub 조직과 저장소를 연동한다.
+     *
+     * 요청받은 GitHub 조직명을 기반으로 사용자가 접근 가능한 저장소 정보를
+     * 조회하고 서비스 내부 저장소 정보와 연동
+     */
     @PostMapping
     public ResponseEntity<?> connectRepository(
             @Valid @RequestBody GithubConnect request,
@@ -49,6 +65,12 @@ public class GithubController {
         }
     }
 
+    /**
+     * 로그인한 사용자가 연동한 GitHub 저장소 목록을 조회
+     *
+     * JWT에서 사용자 ID를 추출하여 해당 사용자와 연결된
+     * 모든 GitHub 저장소 정보를 반환한다.
+     */
     @GetMapping
     public ResponseEntity<List<RepoResponse>> getUserRepos(
             @AuthenticationPrincipal Jwt jwt
@@ -60,6 +82,11 @@ public class GithubController {
         return ResponseEntity.ok(repos);
     }
 
+     /**
+     * 로그인한 사용자가 연동한 특정 GitHub 저장소의 정보 조회
+     *
+     * 사용자 ID와 저장소 ID를 기반으로 해당 저장소의 상세 정보 반환.
+     */
     @GetMapping("/{repoId}")
     public ResponseEntity<RepoResponse> getUserRepo(
             @AuthenticationPrincipal Jwt jwt,
@@ -69,6 +96,12 @@ public class GithubController {
         return ResponseEntity.ok(githubService.getUserRepo(userId, repoId));
     }
 
+    /**
+     * 특정 GitHub 저장소의 브랜치 목록을 조회
+     *
+     * 로그인한 사용자가 접근할 수 있는 저장소인지 확인한 후
+     * 해당 저장소의 브랜치 정보를 반환
+     */
     @GetMapping("/{repoId}/branches")
     public ResponseEntity<List<BranchResponse>> getRepositoryBranches(
             @AuthenticationPrincipal Jwt jwt,
@@ -78,6 +111,12 @@ public class GithubController {
                 Integer.valueOf(jwt.getSubject()), repoId));
     }
 
+    /**
+     * 특정 GitHub 저장소의 파일 및 디렉터리 트리를 조회
+     *
+     * 지정한 브랜치를 기준으로 저장소의 파일 구조를 조회하며,
+     * issuesOnly 값에 따라 분석 이슈가 존재하는 파일만 조회
+     */
     @GetMapping("/{repoId}/tree")
     public ResponseEntity<RepoTreeResponse> getRepositoryTree(
             @AuthenticationPrincipal Jwt jwt,
@@ -89,6 +128,12 @@ public class GithubController {
                 Integer.valueOf(jwt.getSubject()), repoId, branch, issuesOnly));
     }
 
+    /**
+     * 특정 GitHub 저장소의 파일 내용을 조회한다.
+     *
+     * 저장소 ID, 브랜치명 및 파일 경로를 기반으로
+     * GitHub에서 해당 파일의 최신 내용을 조회한다\
+     */
     @GetMapping("/{repoId}/content")
     public ResponseEntity<GithubFileContent> getRepositoryFileContent(
             @AuthenticationPrincipal Jwt jwt,
@@ -100,6 +145,13 @@ public class GithubController {
                 Integer.valueOf(jwt.getSubject()), repoId, path, branch));
     }
 
+
+    /**
+     * 특정 GitHub 저장소의 Pull Request 목록을 조회한다.
+     *
+     * 조회 범위(scope), Pull Request 상태(state), 페이지 번호 및 크기를
+     * 기준으로 저장소의 Pull Request 목록을 조회
+     */
     @GetMapping("/{repoId}/pull-requests")
     public ResponseEntity<List<GithubPullRequestResponse>> getRepositoryPullRequests(
             @AuthenticationPrincipal Jwt jwt,
@@ -113,6 +165,9 @@ public class GithubController {
                 Integer.valueOf(jwt.getSubject()), repoId, scope, state, page, size));
     }
 
+    /**
+     * 로그인한 사용자가 연결한 GitHub 조직에 Webhook 등록을 요청한다.
+     */
     @PostMapping("/org-webhook")
     public ResponseEntity<String> registerOrgWebhook(
             @AuthenticationPrincipal Jwt jwt,

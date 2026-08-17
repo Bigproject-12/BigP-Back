@@ -4,6 +4,10 @@ import jakarta.persistence.*;
 import lombok.*;
 import java.time.LocalDate;
 
+/**
+ * 회사 정보를 관리하는 엔티티
+ * 회사명, 생성일, 수정일 등의 정보를 저장하며, 다른 엔티티와 연관관계를 가질 수 있음
+ */
 @Entity
 @Getter
 @Table(name = "COMPANY")

@@ -35,12 +35,8 @@ public class CompanyController {
     }
 
     /**
-     * 새로운 회사를 등록한다.
-     * @param request 회사 등록 요청 DTO
-     * @return 등록된 회사 정보와 함께 201 Created 상태 코드 반환
-     * @throws IllegalArgumentException 요청 DTO가 유효하지 않은 경우 발생
-     * @throws RuntimeException 회사 등록 중 오류가 발생한 경우 발생
-     * @throws Exception 기타 예외 발생 시 처리
+     * 새로운 회사를 등록
+     *  새로운 회사 정보 입력 시 중복 체크 후 새로운 회사 정보를 생성
      */
     @PostMapping
     public ResponseEntity<CompanyResponse> create(
@@ -52,6 +48,11 @@ public class CompanyController {
                 .body(response);
     }
 
+        /**
+     * 등록된 회사 목록 조회
+     *
+     * 조회시 기본 목록 갯수는 20개이며, 회사 ID를 기준으로 정렬.
+     */
     @GetMapping
     public Page<CompanyResponse> findAll(
             @PageableDefault(size = 20, sort = "id") Pageable pageable
@@ -59,11 +60,19 @@ public class CompanyController {
         return companyService.findAll(pageable);
     }
 
+    /**
+     * 특정 회사 ID를 기준으로 회사 정보 조회
+     */
     @GetMapping("/{id}")
     public CompanyResponse findById(@PathVariable Integer id) {
         return companyService.findById(id);
     }
 
+    /**
+     * 회사 ID를 기준으로 기존 회사 정보를 수정
+     *
+     * 요청받은 회사 정보를 검증한 후 해당 회사의 정보를 업데이트하고, 업데이트된 회사 정보를 반환
+     */
     @PutMapping("/{id}")
     public CompanyResponse update(
             @PathVariable Integer id,
@@ -72,6 +81,11 @@ public class CompanyController {
         return companyService.update(id, request);
     }
 
+    /**
+     * 회사 ID를 기준으로 회사 정보를 삭제
+     *
+     * 해당 회사 정보를 데이터베이스에서 삭제
+     */
     @DeleteMapping("/{id}")
     public ResponseEntity<Void> delete(@PathVariable Integer id) {
         companyService.delete(id);

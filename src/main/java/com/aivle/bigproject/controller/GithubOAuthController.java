@@ -103,6 +103,9 @@ public class GithubOAuthController {
         }
     }
 
+    /**
+     * GitHub OAuth 처리 결과를 전달하기 위한 Frontend URI를 생성한다.
+     */
     private URI frontendRedirect(String status) {
         return URI.create(frontendUrl.replaceAll("/+$", "")
                 + "/?page=mypage&github=" + status + "#github-section");

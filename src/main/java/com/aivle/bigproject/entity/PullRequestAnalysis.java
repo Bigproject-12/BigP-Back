@@ -15,7 +15,10 @@ import lombok.AllArgsConstructor;
 import lombok.Builder;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
-
+/**
+ * Pull Request 분석 결과를 관리하는 엔티티
+ * 사용자가 GitHub Pull Request를 분석한 결과를 저장하고, 조회, 수정 등의 기능을 제공
+ */
 @Entity
 @Getter
 @Builder

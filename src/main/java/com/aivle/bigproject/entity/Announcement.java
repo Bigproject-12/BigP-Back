@@ -10,6 +10,12 @@ import org.springframework.data.annotation.CreatedDate;
 import org.springframework.data.annotation.LastModifiedDate;
 import org.springframework.data.jpa.domain.support.AuditingEntityListener;
 
+/**
+ * 공지사항 정보를 관리하는 엔티티 
+ * 관리자가 작성한 공지사항 정보를 저장하고, 조회, 수정, 삭제 등의 기능을 제공
+ * 공지사항은 제목, 내용, 작성자, 조회수, 고정 여부 등의 정보를 포함
+ * Announcement
+ */
 @Entity
 @Table(name = "ANNOUNCEMENT")
 @Getter
@@ -52,11 +58,18 @@ public class Announcement {
     @Column(name = "is_pinned", nullable = false)
     private Boolean isPinned = false;
 
-    //파일 정보와의 관계성 추가 
+    /**
+     * 공지사항에 첨부된 파일 목록을 관리하는 연관관계 매핑
+     * AnnouncementFile 엔티티와 1:N 관계를 가지며, 공지사항 삭제 시 첨부파일도 함께 삭제되도록 설정
+     */
     @Builder.Default
     @OneToMany(mappedBy = "announcement", cascade = CascadeType.ALL, orphanRemoval = true)
     private List<AnnouncementFile> files = new ArrayList<>();
 
+    /**
+     * 공지 사항 정보를 수정하는 메서드
+     * 제목, 내용, 고정 여부를 선택적으로 수정할 수 있도록 구현
+     */
     public void update(String title, String content, Boolean isPinned) {
         if (title != null) this.title = title;
         if (content != null) this.content = content;
