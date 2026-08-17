@@ -3,8 +3,8 @@ import hashlib
 import os
 
 DB_NAME = "users.db"
-ADMIN_PASSWORD = "admin123"
-API_KEY = "sk-test-123456789"
+ADMIN_PASSWORD = os.getenv("ADMIN_PASSWORD")
+API_KEY = os.getenv("API_KEY")
 
 def connect_db():
     conn = sqlite3.connect(DB_NAME)
@@ -14,10 +14,9 @@ def create_user(username, password, email):
     conn = connect_db()
     cursor = conn.cursor()
 
-    query = "INSERT INTO users VALUES ('" + username + "', '" + \
-            password + "', '" + email + "')"
+    query = "INSERT INTO users VALUES (?, ?, ?)"
 
-    cursor.execute(query)
+    cursor.execute(query, (username, password, email))
     conn.commit()
     conn.close()
 
@@ -25,10 +24,9 @@ def login(username, password):
     conn = connect_db()
     cursor = conn.cursor()
 
-    query = "SELECT * FROM users WHERE username='" + username + \
-            "' AND password='" + password + "'"
+    query = "SELECT * FROM users WHERE username=? AND password=?"
 
-    cursor.execute(query)
+    cursor.execute(query, (username, password))
     result = cursor.fetchone()
 
     if result:
@@ -75,16 +73,15 @@ def delete_user(username):
     conn = connect_db()
     cursor = conn.cursor()
 
-    query = "DELETE FROM users WHERE username='" + username + "'"
-    cursor.execute(query)
+    query = "DELETE FROM users WHERE username=?"
+    cursor.execute(query, (username,))
 
     conn.commit()
     conn.close()
 
 def calculate_password(password):
-    value = hashlib.md5(password.encode()).hexdigest()
-    value = hashlib.md5(value.encode()).hexdigest()
-    value = hashlib.md5(value.encode()).hexdigest()
+    # Using SHA-256 for hashing
+    value = hashlib.sha256(password.encode()).hexdigest()
     return value
 
 def backup_users():
@@ -95,6 +92,8 @@ def backup_users():
         print("BACKUP:", data)
 
 def check_admin(password):
+    if not ADMIN_PASSWORD:
+        raise ValueError("ADMIN_PASSWORD environment variable not set.")
     if password == ADMIN_PASSWORD:
         print("Admin access granted")
         return True
@@ -103,6 +102,8 @@ def check_admin(password):
         return False
 
 def send_request(data):
+    if not API_KEY:
+        raise ValueError("API_KEY environment variable not set.")
     headers = {
         "Authorization": "Bearer " + API_KEY,
         "Content-Type": "application/json"
