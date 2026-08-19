@@ -67,11 +67,29 @@ public class AnnouncementService {
         return AnnouncementResponse.from(saved);
     }
 
-    //공지 수정 — save() 없이 더티 체킹으로 반영
+    //공지 수정 — save() 없이 더티 체킹으로 반영, 첨부파일 삭제/추가 포함
     @Transactional
-    public AnnouncementResponse update(Integer boardId, AnnouncementUpdateRequest request) {
+    public AnnouncementResponse update(Integer boardId, AnnouncementUpdateRequest request, List<MultipartFile> files) {
         Announcement announcement = findOrThrow(boardId);
         announcement.update(request.title(), request.content(), request.isPinned());
+
+        if (request.deleteFileIds() != null && !request.deleteFileIds().isEmpty()) {
+            List<AnnouncementFile> toDelete = announcement.getFiles().stream()
+                    .filter(f -> request.deleteFileIds().contains(f.getFileId()))
+                    .toList();
+            toDelete.forEach(fileService::deleteFile);
+            announcement.getFiles().removeAll(toDelete); // orphanRemoval=true → DB에서도 삭제됨
+        }
+
+        if (files != null && !files.isEmpty()) {
+            for (MultipartFile file : files) {
+                if (!file.isEmpty()) {
+                    AnnouncementFile announcementFile = fileService.storeFile(file, announcement);
+                    announcement.getFiles().add(announcementFile);
+                }
+            }
+        }
+
         return AnnouncementResponse.from(announcement);
     }
 

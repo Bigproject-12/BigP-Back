@@ -62,14 +62,15 @@ public class AnnouncementController {
         return ResponseEntity.status(HttpStatus.CREATED).body(response);
     }
 
-    //공지사항 수정 — 관리자 전용
-    @PatchMapping("/{noticeId}")
+    //공지사항 수정 — 관리자 전용 (첨부파일 추가/삭제 포함)
+    @PatchMapping(value = "/{noticeId}", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
     @PreAuthorize("hasRole('ADMIN')")
     public ResponseEntity<AnnouncementResponse> update(
             @PathVariable Integer noticeId,
-            @Valid @RequestBody AnnouncementUpdateRequest request
+            @RequestPart("request") @Valid AnnouncementUpdateRequest request,
+            @RequestPart(value = "files", required = false) List<MultipartFile> files
     ) {
-        return ResponseEntity.ok(announcementService.update(noticeId, request));
+        return ResponseEntity.ok(announcementService.update(noticeId, request, files));
     }
 
     //공지사항 삭제 — 관리자 전용

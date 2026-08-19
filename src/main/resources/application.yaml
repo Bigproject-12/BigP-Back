@@ -11,6 +11,10 @@ ai:
 spring:
   application:
     name: bigproject
+  servlet:
+    multipart:
+      max-file-size: 20MB
+      max-request-size: 50MB
   datasource:
     url: ${DB_URL}
     username: ${DB_USERNAME}
