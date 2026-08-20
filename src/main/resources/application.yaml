@@ -1,10 +1,65 @@
+server:
+  port: ${SERVER_PORT:8081}
+
+app:
+  frontend-url: ${FRONTEND_URL:http://localhost:5173}
+  cors-allowed-origin: ${CORS_ALLOWED_ORIGIN:http://localhost:5173}
+
+ai:
+  base-url: ${AI_BASE_URL:http://localhost:8000}
+
 spring:
   application:
     name: bigproject
+  servlet:
+    multipart:
+      max-file-size: 20MB
+      max-request-size: 50MB
   datasource:
-    url: jdbc:mysql://database-1.c1eg6m840npc.ap-southeast-2.rds.amazonaws.com:3306/guardrail?serverTimezone=Asia/Seoul&characterEncoding=UTF-8
-    username: admin
-    password: "Guardrail2026!"
+    url: ${DB_URL}
+    username: ${DB_USERNAME}
+    password: ${DB_PASSWORD}
     driver-class-name: com.mysql.cj.jdbc.Driver
     hikari:
       maximum-pool-size: 3
+  jpa:
+    hibernate:
+      ddl-auto: validate
+      naming:
+        physical-strategy: org.hibernate.boot.model.naming.PhysicalNamingStrategyStandardImpl
+    show-sql: ${JPA_SHOW_SQL:false}
+    properties:
+      hibernate:
+        format_sql: true
+  mail:
+    host: ${MAIL_HOST:smtp.gmail.com}
+    port: ${MAIL_PORT:587}
+    username: ${MAIL_USERNAME:}
+    password: ${MAIL_PASSWORD:}
+    properties:
+      mail:
+        smtp:
+          auth: true
+          starttls:
+            enable: true
+
+logging:
+  level:
+    org.springframework.web: INFO
+    org.springframework.security: INFO
+    org.hibernate.SQL: INFO
+
+jwt:
+  issuer: ${JWT_ISSUER:bigproject}
+  secret: ${JWT_SECRET:}
+  access-token-expiration-seconds: ${JWT_ACCESS_TOKEN_EXPIRATION_SECONDS:3600}
+  refresh-token-expiration-seconds: ${JWT_REFRESH_TOKEN_EXPIRATION_SECONDS:1209600}
+
+github:
+  client-id: ${GITHUB_CLIENT_ID}
+  client-secret: ${GITHUB_CLIENT_SECRET}
+  oauth-redirect-uri: ${GITHUB_OAUTH_REDIRECT_URI:http://localhost:8081/api/github/oauth/callback}
+  oauth-scope: "repo admin:repo_hook admin:org_hook read:user"
+  webhook-secret: ${GITHUB_WEBHOOK_SECRET}
+  webhook-callback-url: ${GITHUB_WEBHOOK_CALLBACK_URL}   
+  token-encryption-key: ${GITHUB_TOKEN_ENCRYPTION_KEY}
