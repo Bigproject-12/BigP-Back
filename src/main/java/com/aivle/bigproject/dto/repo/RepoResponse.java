@@ -4,10 +4,10 @@ import com.aivle.bigproject.entity.GithubRepo;
 import java.time.LocalDate;
 
 /**
- * 레포 정보를 프론트로 돌려줄 응답 DTO (목록/상세 조회 공용)
+ * GitHub 저장소 정보를 프론트엔드에 전달하는 응답 DTO(목록/상세 조회 공용)
  */
 
- public record RepoResponse (
+public record RepoResponse (
     Integer id,
     String name,
     String repoUrl,
@@ -17,7 +17,7 @@ import java.time.LocalDate;
     Boolean isPrivate,
     LocalDate createdAt
 ){
-    // 엔티티 -> DTO 변환 (UserResponse.from()과 동일 패턴)
+    //GithubRepo 엔티티 -> RepoResponse DTO 변환 (UserResponse.from()과 동일 패턴)
     public static RepoResponse from(GithubRepo repo){
         return new RepoResponse(
                 repo.getId(),

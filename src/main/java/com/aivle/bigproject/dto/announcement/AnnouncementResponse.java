@@ -20,6 +20,9 @@ public record AnnouncementResponse(
         LocalDateTime updatedAt,
         List<FileResponse> files // 📁 파일 목록 필드 추가
 ) {
+    /**
+     * Announcement 엔티티를 응답 DTO로 변환한다.
+     */
     public static AnnouncementResponse from(Announcement announcement) {
         List<FileResponse> fileResponses = announcement.getFiles() != null
                 ? announcement.getFiles().stream()
@@ -42,7 +45,9 @@ public record AnnouncementResponse(
                 fileResponses
         );
     }
-
+    /**
+     * 공지사항 첨부파일 정보 DTO.
+     */
         public record FileResponse(
             Integer fileId,
             String originalFileName
