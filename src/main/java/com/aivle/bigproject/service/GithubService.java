@@ -61,7 +61,7 @@ import org.springframework.web.util.UriComponentsBuilder;
 import org.springframework.web.util.UriUtils;
 import tools.jackson.core.type.TypeReference;
 import tools.jackson.databind.json.JsonMapper;
-
+//GitHub 저장소 연동, Webhook 등록 및 코드 임베딩 처리를 담당하는 Service
 @Slf4j
 @Service
 @Transactional(readOnly = true)
@@ -78,7 +78,7 @@ public class GithubService {
     private final GithubPullRequestRepository githubPullRequestRepository;
     private final AnalysisRepository analysisRepository;
     private final JsonMapper jsonMapper;
-
+    // 임베딩 대상으로 허용하는 코드 파일 확장자
     private static final Set<String> EMBEDDABLE_EXTENSIONS = Set.of(
             ".java", ".py", ".js", ".jsx", ".ts", ".tsx"
     );
@@ -97,30 +97,38 @@ public class GithubService {
         this.webhookCallbackUrl = webhookCallbackUrl;
         this.webhookSecret = webhookSecret;
     }
-
+    /** 
+     * GitHub Organization의 저장소 목록을 조회하고 플랫폼에 연결
+     * 신규 저장소는 Webhook 등록 및 코드 임베딩 수행
+    */
     @Transactional
     public Object connectAndFetchRepos(Integer userId, String orgName) {
         User user = userRepository.findById(userId)
                     .orElseThrow(() -> new CustomException(ErrorCode.USER_NOT_FOUND));
+        //// GitHub OAuth 연동 여부 확인
         if (user.getGithubAccessToken() == null) {
             throw new IllegalArgumentException("연동된 GitHub 토큰이 없습니다. OAuth 인증을 먼저 진행해 주세요.");
         }
-
+        // 암호화된 GitHub Access Token 복호화
         String tokenToUse = githubTokenCrypto.decrypt(user.getGithubAccessToken());
 
         RestTemplate restTemplate = new RestTemplate();
+        // GitHub API 요청 헤더 설정
         HttpHeaders headers = new HttpHeaders();
         headers.setBearerAuth(tokenToUse); 
         headers.set("Accept", "application/vnd.github+json");
 
         HttpEntity<String> entity = new HttpEntity<>(headers);
+        // Organization의 저장소 목록 조회 URL
         String url = "https://api.github.com/orgs/" + orgName + "/repos?per_page=100&sort=updated";
 
         try {
+            // GitHub API에서 Organization 저장소 목록 조회
             ResponseEntity<List> response = restTemplate.exchange(url, HttpMethod.GET, entity, List.class);
             List<Map<String, Object>> repoList = (List<Map<String, Object>>) response.getBody();
 
             if (repoList != null) {
+                // 조회된 저장소 목록 순회
                 for (Map<String, Object> repoData : repoList) {
                     String repoName = (String) repoData.get("name");
                     String repoUrl = (String) repoData.get("html_url");
@@ -142,18 +150,22 @@ public class GithubService {
                                         .createdAt(LocalDate.now())
                                         .build();
                                 GithubRepo saved = githubRepoRepository.save(newRepo);
+                                // 신규 저장소 Webhook 등록
                                 registerWebhook(saved, tokenToUse);
+                                // 저장소 코드 조회 및 임베딩 생성
                                 fetchAndEmbedRepoFiles(saved.getId(), organization, repoName, "dev", tokenToUse);
                                 return saved;
                             });
+                    // 기존 저장소에 Webhook이 없으면 등록
                     if (currentRepo.getWebhookId() == null) {
                         registerWebhook(currentRepo, tokenToUse);
                     }
-
+                    // 기존 임베딩이 없으면 저장소 코드 임베딩 생성
                     if (!repoEmbeddingRepository.existsByGithubRepo_Id(currentRepo.getId())) {
                         fetchAndEmbedRepoFiles(currentRepo.getId(), organization, repoName, "dev", tokenToUse);
                     }
 
+                    // 사용자와 저장소가 아직 연결되지 않은 경우 UserRepo 생성
                     if (!userRepoRepository.existsByUserAndGithubRepo(user, currentRepo)) {
                         UserRepo userRepo = UserRepo.builder()
                                 .user(user)             
@@ -171,40 +183,49 @@ public class GithubService {
 
             return response.getBody();
         } catch (Exception e) {
+            // GitHub Organization 연동 실패 로그 기록
             log.error("GitHub 조직 연동 실패 (orgName={}): {}", orgName, e.getMessage(), e);
             throw new IllegalArgumentException("GitHub 연동에 실패했습니다. 올바른 조직명과 권한이 있는 토큰인지 확인해주세요.");
         }
     }
 
+    //저장소의 전체 파일 트리 조회
     public RepoTreeResponse getRepositoryTree(Integer userId, Integer repoId, String branch) {
         return getRepositoryTree(userId, repoId, branch, false);
     }
 
+    /** 저장소의 파일 트리 조회 
+     * issuesOnly가 true이면 이슈가 존재하는 파일만 반환 
+     */
     public RepoTreeResponse getRepositoryTree(
             Integer userId,
             Integer repoId,
             String branch,
             boolean issuesOnly
     ) {
+        // 유효한 브랜치명인지 확인
         if (branch == null || branch.isBlank()) {
             throw new CustomException(ErrorCode.INVALID_BRANCH);
         }
+        // 사용자가 해당 저장소에 연결되어 있는지 확인
         UserRepo userRepo = userRepoRepository.findByUser_IdAndGithubRepo_Id(userId, repoId)
                 .orElseThrow(() -> new CustomException(ErrorCode.REPO_NOT_FOUND));
         User user = userRepo.getUser();
+        // GitHub Access Token 연동 여부 확인
         if (user.getGithubAccessToken() == null) {
             throw new CustomException(ErrorCode.GITHUB_TOKEN_NOT_CONNECTED);
         }
         GithubRepo repo = userRepo.getGithubRepo();
+        // GitHub API 요청 헤더 설정
         HttpHeaders headers = new HttpHeaders();
         headers.setBearerAuth(githubTokenCrypto.decrypt(user.getGithubAccessToken()));
         headers.set("Accept", "application/vnd.github+json");
         headers.set("X-GitHub-Api-Version", "2026-03-10");
 
-        // 브랜치명에 '/'가 포함된 경우(예: feature/OSH)만 git/trees 경로 세그먼트에서 깨지므로
-        // 그 경우에만 커밋 SHA로 변환해서 쓴다 (매번 변환하면 GitHub API 왕복이 하나 더 늘어남).
+        // 브랜치명에 '/'가 포함된 경우 git/tree api 경로에서 문제가 발생할수 있으며.,
+        // 그 경우에만 커밋 SHA로 변환해서 쓴다 (매번 변환하면 GitHub API 왕복 횟수 증가 ).
         String branchSha = branch.contains("/") ? resolveBranchSha(repo, branch, headers) : branch;
-
+        // GitHub Tree API 요청 URL 생성
         String url = UriComponentsBuilder.fromUriString("https://api.github.com")
                 .pathSegment("repos", repo.getOrganization(), repo.getName(), "git", "trees", branchSha)
                 .queryParam("recursive", 1)
@@ -213,6 +234,7 @@ public class GithubService {
                 .toUriString();
 
         try {
+            // GitHub API를 통해 저장소 파일 트리 조회
             ResponseEntity<Map<String, Object>> response = restTemplate().exchange(
                     url,
                     HttpMethod.GET,
@@ -220,11 +242,13 @@ public class GithubService {
                     new ParameterizedTypeReference<>() {}
             );
             Map<String, Object> body = response.getBody();
+            // GitHub API 응답이 없는 경우 예외 처리
             if (body == null) {
                 throw new CustomException(ErrorCode.GITHUB_API_ERROR);
             }
             boolean truncated = Boolean.TRUE.equals(body.get("truncated"));
             Object rawTree = body.get("tree");
+            // GitHub Tree 응답을 Map 목록으로 변환
             List<Map<String, Object>> tree = rawTree instanceof List<?> values
                     ? values.stream()
                             .filter(Map.class::isInstance)
@@ -471,7 +495,7 @@ public class GithubService {
     }
 
     // treatMissingAsNull=true: 해당 경로에 파일이 아직 없는 경우(새 파일 생성 흐름) null을 반환하고,
-    // 그 외 오류(권한 없음, GitHub 응답 이상 등)는 기존과 동일하게 예외를 던진다.
+    // 그 외 오류(권한 없음, GitHub 응답 이상 등)는 기존과 동일하게 예외 처리
     public GithubFileContent getLatestFileContent(
             Integer userId,
             Integer repoId,

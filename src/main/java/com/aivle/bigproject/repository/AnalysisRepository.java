@@ -13,14 +13,16 @@ import org.springframework.data.domain.Pageable;
 
 public interface AnalysisRepository extends JpaRepository<Analysis, Integer> {
 
+    // 사용자의 전체 분석 개수 조회
     long countByUserId(Integer userId);
-
+    // 사용자의 상태별 분석 개수 조회
     long countByUserIdAndStatus(Integer userId, String status);
-
+    // 사용자, 저장소, 브랜치 기준 분석 개수 조회
     long countByUser_IdAndGithubRepo_IdAndBranch(Integer userId, Integer repoId, String branch);
-
+    //사용자의 최근 분석 5개 조회
     List<Analysis> findTop5ByUserIdOrderByIdDesc(Integer userId);
 
+    //특정 기간 동안의 회사 전체 분석 개수 조회
     @Query(value = """
             SELECT COUNT(*) FROM ANALYSIS
             WHERE company_id = :companyId
@@ -31,7 +33,7 @@ public interface AnalysisRepository extends JpaRepository<Analysis, Integer> {
             @Param("companyId") Integer companyId,
             @Param("from") LocalDateTime from,
             @Param("toExclusive") LocalDateTime toExclusive);
-
+    // 특정 기간 내 사용자의 분석 개수 조회
     @Query(value = """
             SELECT COUNT(*) FROM ANALYSIS
             WHERE user_id = :userId
@@ -42,7 +44,7 @@ public interface AnalysisRepository extends JpaRepository<Analysis, Integer> {
             @Param("userId") Integer userId,
             @Param("from") LocalDateTime from,
             @Param("toExclusive") LocalDateTime toExclusive);
-
+    //특정 기간 내 회사의 상태별 분석 개수 조회
     @Query(value = """
             SELECT COUNT(*) FROM ANALYSIS
             WHERE company_id = :companyId
@@ -55,7 +57,7 @@ public interface AnalysisRepository extends JpaRepository<Analysis, Integer> {
             @Param("status") String status,
             @Param("from") LocalDateTime from,
             @Param("toExclusive") LocalDateTime toExclusive);
-
+        // 특정 기간 내 회사의 최근 분석 7개 조회
     @Query(value = """
             SELECT * FROM ANALYSIS
             WHERE company_id = :companyId
@@ -68,7 +70,7 @@ public interface AnalysisRepository extends JpaRepository<Analysis, Integer> {
             @Param("companyId") Integer companyId,
             @Param("from") LocalDateTime from,
             @Param("toExclusive") LocalDateTime toExclusive);
-
+        // 특정 기간 내 사용자의 최근 분석 5개 조회
     @Query(value = """
             SELECT * FROM ANALYSIS
             WHERE user_id = :userId
@@ -81,7 +83,7 @@ public interface AnalysisRepository extends JpaRepository<Analysis, Integer> {
             @Param("userId") Integer userId,
             @Param("from") LocalDateTime from,
             @Param("toExclusive") LocalDateTime toExclusive);
-
+    // 사용자의 모든 분석 내용 삭제 (회원 탈퇴 시)
     @Modifying
     @Query(value = "DELETE FROM ANALYSIS WHERE user_id = :userId", nativeQuery = true)
     void deleteByOwner(@Param("userId") Integer userId);
@@ -111,7 +113,7 @@ public interface AnalysisRepository extends JpaRepository<Analysis, Integer> {
     List<AnalysisHistoryResponse> findHistoryByUserIdAndRepoId(
             @Param("userId") Integer userId,
             @Param("repoId") Integer repoId);
-
+// 파일별 최근 완료된 분석을 최대 2개씩 조회
     @Query(value = """
             SELECT a.*
             FROM ANALYSIS a
@@ -135,7 +137,7 @@ public interface AnalysisRepository extends JpaRepository<Analysis, Integer> {
             @Param("userId") Integer userId,
             @Param("repoId") Integer repoId,
             @Param("branch") String branch);
-
+// 파일별 가장 최근 완료된 분석의 이슈 요약 조회
     @Query(value = """
             SELECT ranked.file_path AS filePath,
                    ranked.analysis_id AS analysisId,
@@ -166,7 +168,7 @@ public interface AnalysisRepository extends JpaRepository<Analysis, Integer> {
             @Param("userId") Integer userId,
             @Param("repoId") Integer repoId,
             @Param("branch") String branch);
-
+// 특정 파일의 최근 완료된 분석 조회
     @Query("""
             SELECT a
             FROM Analysis a
@@ -183,7 +185,7 @@ public interface AnalysisRepository extends JpaRepository<Analysis, Integer> {
             @Param("branch") String branch,
             @Param("filePath") String filePath,
             Pageable pageable);
-
+//분석 ID와 사용자 ID를 기준으로 현재 사용자가 소유한 분석 결과를 조회
     @Query("""
             SELECT a
             FROM Analysis a
@@ -193,7 +195,7 @@ public interface AnalysisRepository extends JpaRepository<Analysis, Integer> {
     Optional<Analysis> findOwnedAnalysis(
             @Param("analysisId") Integer analysisId,
             @Param("userId") Integer userId);
-
+// My Space 저장소 및 브랜치 기준 분석 히스토리 조회
     @Query("""
             SELECT a
             FROM Analysis a
@@ -207,7 +209,7 @@ public interface AnalysisRepository extends JpaRepository<Analysis, Integer> {
             @Param("repoId") Integer repoId,
             @Param("branch") String branch,
             Pageable pageable);
-
+// 동일 파일이 현재 분석 중인지 확인
     @Query("""
             SELECT CASE WHEN COUNT(a) > 0 THEN true ELSE false END
             FROM Analysis a
@@ -223,6 +225,7 @@ public interface AnalysisRepository extends JpaRepository<Analysis, Integer> {
             @Param("branch") String branch,
             @Param("filePath") String filePath);
 
+ // 파일별 최신 분석 이슈 정보를 반환
     interface FileIssueSummary {
         String getFilePath();
         Integer getAnalysisId();

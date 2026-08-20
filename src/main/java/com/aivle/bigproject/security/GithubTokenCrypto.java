@@ -13,8 +13,9 @@ import org.springframework.stereotype.Component;
 /** GitHub Access Token을 AES-256-GCM으로 암호화하고 복호화한다. */
 @Component
 public class GithubTokenCrypto {
-
+    // GCM에서 사용할 IV 길이
     private static final int IV_LENGTH = 12;
+    // 인증 태그 길이
     private static final int TAG_LENGTH_BITS = 128;
     private final String encodedKey;
     private final SecureRandom secureRandom = new SecureRandom();
@@ -22,20 +23,22 @@ public class GithubTokenCrypto {
     public GithubTokenCrypto(@Value("${github.token-encryption-key}") String encodedKey) {
         this.encodedKey = encodedKey;
     }
-
+    // base64 형식의 암호화 키를 AES 키로 변환
     private SecretKeySpec key() {
         byte[] keyBytes;
         try {
+            // Base64 인코딩된 키를 복호화
             keyBytes = Base64.getDecoder().decode(encodedKey);
         } catch (IllegalArgumentException e) {
             throw new IllegalStateException("GITHUB_TOKEN_ENCRYPTION_KEY는 Base64 형식이어야 합니다.", e);
         }
+        // AES-256 사용을 위해 키의 길이가 32비트 인지 확인 
         if (keyBytes.length != 32) {
             throw new IllegalStateException("GITHUB_TOKEN_ENCRYPTION_KEY는 32바이트 키여야 합니다.");
         }
         return new SecretKeySpec(keyBytes, "AES");
     }
-
+    // GitHub Access Token을 암호화
     public String encrypt(String plainText) {
         byte[] iv = new byte[IV_LENGTH];
         secureRandom.nextBytes(iv);
@@ -46,6 +49,7 @@ public class GithubTokenCrypto {
         return Base64.getEncoder().encodeToString(result);
     }
 
+    // GitHub Access Token을 복호화
     public String decrypt(String encryptedText) {
         byte[] input = Base64.getDecoder().decode(encryptedText);
         if (input.length <= IV_LENGTH) {
@@ -57,7 +61,7 @@ public class GithubTokenCrypto {
         System.arraycopy(input, iv.length, encrypted, 0, encrypted.length);
         return new String(crypt(Cipher.DECRYPT_MODE, encrypted, iv), StandardCharsets.UTF_8);
     }
-
+// AES 암호화 및 복호화 처리
     private byte[] crypt(int mode, byte[] input, byte[] iv) {
         try {
             Cipher cipher = Cipher.getInstance("AES/GCM/NoPadding");

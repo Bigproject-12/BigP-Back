@@ -9,10 +9,10 @@ import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
-
+// GitHub Pull Request 정보를 관리하는 Repository       
 public interface GithubPullRequestRepository
         extends JpaRepository<GithubPullRequest, Integer> {
-
+// 특정 기간 내 회사의 전체 PR 개수 조회
     @Query("""
             SELECT COUNT(pr)
             FROM GithubPullRequest pr
@@ -24,7 +24,7 @@ public interface GithubPullRequestRepository
             @Param("companyId") Integer companyId,
             @Param("from") LocalDateTime from,
             @Param("toExclusive") LocalDateTime toExclusive);
-
+// 특정 기간 내 회사의 상태별 PR 개수 조회
     @Query("""
             SELECT COUNT(pr)
             FROM GithubPullRequest pr
@@ -38,7 +38,7 @@ public interface GithubPullRequestRepository
             @Param("status") String status,
             @Param("from") LocalDateTime from,
             @Param("toExclusive") LocalDateTime toExclusive);
-
+// 특정 기간 내 회사의 최근 PR 조회
     @Query("""
             SELECT pr
             FROM GithubPullRequest pr
@@ -52,7 +52,7 @@ public interface GithubPullRequestRepository
             @Param("from") LocalDateTime from,
             @Param("toExclusive") LocalDateTime toExclusive,
             Pageable pageable);
-
+// 특정 기간 내 사용자의 최근 PR 조회
     @Query("""
             SELECT pr
             FROM GithubPullRequest pr
@@ -66,7 +66,7 @@ public interface GithubPullRequestRepository
             @Param("from") LocalDateTime from,
             @Param("toExclusive") LocalDateTime toExclusive,
             Pageable pageable);
-
+// 저장소와 GitHub PR 번호를 기준으로 관리 중인 PR 조회
     @Query("""
             SELECT pr
             FROM GithubPullRequest pr
@@ -78,7 +78,7 @@ public interface GithubPullRequestRepository
             @Param("organization") String organization,
             @Param("repoName") String repoName,
             @Param("githubPrNumber") Integer githubPrNumber);
-
+// 저장소의 PR 번호 중 플랫폼에서 생성한 PR 번호 조회
     @Query("""
             SELECT pr.githubPrNumber
             FROM GithubPullRequest pr

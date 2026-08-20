@@ -11,7 +11,7 @@ import org.springframework.security.oauth2.jwt.JwtEncoderParameters;
 import org.springframework.security.oauth2.jwt.JwsHeader;
 import org.springframework.stereotype.Component;
 
-// 로그인 성공 시 JWT 토큰을 생성
+// 로그인 성공 시 JWT Access Token 생성
 @Component
 public class JwtTokenProvider {
 
@@ -29,15 +29,16 @@ public class JwtTokenProvider {
         this.expirationSeconds = expirationSeconds;
     }
 
-    // JWT 토큰 생성 메서드
+    // 사용자 정보를 기반으로 JWT Access Token 생성
     public String createAccessToken(User user) {
+        // 토큰 발급 시간 및 만료 시간 설정
         Instant issuedAt = Instant.now();
         Instant expiresAt = issuedAt.plus(expirationSeconds, ChronoUnit.SECONDS);
-
+        // JWT 헤더 및 HS256 서명 알고리즘 설정
         JwsHeader header = JwsHeader.with(MacAlgorithm.HS256)
                 .type("JWT")
                 .build();
-
+        // JWT에 포함할 사용자 정보 및 Claim 설정
         JwtClaimsSet claims = JwtClaimsSet.builder()
                 .issuer(issuer)
                 .subject(user.getId().toString())
@@ -47,7 +48,7 @@ public class JwtTokenProvider {
                 .claim("role", user.getRole())
                 .build();
 
-        // JwtEncoder를 사용하여 JWT 토큰 생성
+        // JWT 인코딩 후 Access Token 반환
                 return jwtEncoder.encode(JwtEncoderParameters.from(header, claims))
                 .getTokenValue();
     }

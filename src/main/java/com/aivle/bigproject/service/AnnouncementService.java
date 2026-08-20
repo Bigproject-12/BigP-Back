@@ -24,7 +24,7 @@ import org.springframework.data.domain.Sort;
 import java.util.List;
 
 
-
+// 공지사항 등록, 수정, 삭제, 조회 기능을 처리하는 Service
 @Service
 @RequiredArgsConstructor
 @Transactional(readOnly = true)   // 기본은 읽기 전용, 쓰기 메서드만 덮어씀
