@@ -49,29 +49,33 @@ public class EmbeddingService {
         // 1. 레포지토리 엔티티 먼저 찾기
         GithubRepo githubRepo = githubRepoRepository.findById(repoId)
                 .orElseThrow(() -> new IllegalArgumentException("레포지토리를 찾을 수 없습니다. ID: " + repoId));
-
+    
+        // 재임베딩 전에, 이번에 갱신되는 파일들의 기존 임베딩을 먼저 제거
+        for (IndexFileItem file : fileList) {
+            removeFileEmbeddings(repoId, file.filePath());
+        }
+    
         IndexRepoRequest requestDto = new IndexRepoRequest(repoId, fileList);
-
+    
         HttpHeaders headers = new HttpHeaders();
         headers.setContentType(MediaType.APPLICATION_JSON);
         HttpEntity<IndexRepoRequest> requestEntity = new HttpEntity<>(requestDto, headers);
         RestTemplate restTemplate = new RestTemplate();
-
+    
         try {
             IndexRepoResponse response = restTemplate.postForObject(
                     aiBaseUrl + "/api/embedding/index", requestEntity, IndexRepoResponse.class);
-
+    
             if (response != null && response.chunks() != null) {
                 System.out.println("임베딩 완료! DB에 메타데이터 저장을 시작합니다.");
                 
-                // 매번 save() 하면 느리므로 리스트에 모아서 한 번에 saveAll() 처리
                 List<RepoEmbedding> embeddingsToSave = new ArrayList<>();
                 
                 for (ChunkMetadata chunk : response.chunks()) {
                     String parametersJson = jsonMapper.writeValueAsString(
                             chunk.parameters() != null ? chunk.parameters() : List.of()
                     );
-
+    
                     RepoEmbedding embedding = RepoEmbedding.builder()
                             .githubRepo(githubRepo)
                             .filePath(chunk.file_path())
@@ -86,11 +90,10 @@ public class EmbeddingService {
                     embeddingsToSave.add(embedding);
                 }
                 
-                // 2. 뭉텅이로 DB에 인서트!
                 repoEmbeddingRepository.saveAll(embeddingsToSave);
                 System.out.println("총 " + embeddingsToSave.size() + "개의 임베딩 데이터 DB 저장 완료!");
             }
-
+    
         } catch (Exception e) {
             System.err.println("AI 서버 임베딩 요청 또는 DB 저장에 실패했습니다.");
             e.printStackTrace();
